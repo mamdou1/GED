@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Layout from "../../../components/layout/Layoutt";
 import EntiteeDeuxDetails from "./EntiteeDeuxDetails";
 import EntiteeDeuxForm from "./EntiteeDeuxForm";
@@ -143,6 +143,21 @@ export default function EntiteeDeuxPage() {
       [sectionId]: !prev[sectionId],
     }));
   };
+
+  useEffect(() => {
+    const preloadFonctions = async () => {
+      const map: Record<number, any[]> = {};
+      for (const entitee of allEntiteeDeux) {
+        const funcData = await getFunctionsByEntiteeDeux(entitee.id);
+        map[entitee.id] = funcData || [];
+      }
+      setFonctionsMap(map);
+    };
+
+    if (allEntiteeDeux.length > 0) {
+      preloadFonctions();
+    }
+  }, [allEntiteeDeux]);
 
   // ✅ ÉTAPE 3: Remplacer les handlers
   const onEdit = async (payload: Partial<EntiteeDeux>) => {
@@ -409,7 +424,10 @@ export default function EntiteeDeuxPage() {
                           {parentUn?.libelle || "Non rattaché"}
                         </span>
                         <span className="text-slate-300">•</span>
-                        <span>{entiteeSections.length} section(s)</span>
+                        {allEntiteeTrois[0]?.titre && (
+                          <span>{entiteeSections.length} section(s)</span>
+                        )}
+
                         <span className="text-slate-300">•</span>
                         <span>{entiteeFonctions.length} fonction(s)</span>
                       </div>

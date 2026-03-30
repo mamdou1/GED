@@ -123,7 +123,7 @@ export default function EntiteeUnAjoutFonction({
             <InputText
               value={libelle}
               onChange={(e) => setLibelle(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-400 rounded-xl outline-none"
               placeholder="Ex: Chef de Service, Secrétaire..."
             />
           </div>

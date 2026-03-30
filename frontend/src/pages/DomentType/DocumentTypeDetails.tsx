@@ -11,6 +11,7 @@ import {
   Layers,
   GitMerge,
   Building2,
+  FileTypeCorner,
 } from "lucide-react";
 import { Button } from "primereact/button";
 
@@ -80,8 +81,17 @@ export default function DocumentTypeDetails({ visible, onHide, type }: any) {
                 <div className="p-1.5 bg-emerald-400/20 rounded-lg">
                   <Hash size={14} className="text-emerald-300" />
                 </div>
-                <span className="text-white text-sm font-bold tracking-wider">
+                <span className="text-white text-sm  tracking-wider">
                   {type.code}
+                </span>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl flex items-center gap-3 border border-white/10 shadow-inner">
+                <div className="p-1.5 bg-emerald-400/20 rounded-lg">
+                  <FileTypeCorner size={14} className="text-emerald-300" />
+                </div>
+                <span className="text-white text-sm font-bold tracking-wider">
+                  {type.cote}
                 </span>
               </div>
 

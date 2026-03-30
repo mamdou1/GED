@@ -29,9 +29,8 @@ app.use(
       "x-audit",
       "x-sidebar-navigation",
     ],
-  })
+  }),
 );
-
 
 // ✅ Body parser
 app.use(express.json());
@@ -95,7 +94,15 @@ sequelize
   .then(async () => {
     console.log("✅ Connexion MySQL réussie");
 
+    //await sequelize.sync({ alter: true });
     await sequelize.sync(); // ❌ PAS force / alter ici
+
+    // Vérifier que les tables existent
+    // const tables = await sequelize.query("SHOW TABLES");
+    // console.log(
+    //   "📋 Tables créées:",
+    //   tables[0].map((t) => Object.values(t)[0]),
+    // );
 
     // 3️⃣ SEEDER APRÈS sync
     await require("./seeders/001-permissions.seeder")();

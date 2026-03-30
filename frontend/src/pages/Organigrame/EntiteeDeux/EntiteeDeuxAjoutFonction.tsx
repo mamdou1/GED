@@ -121,7 +121,7 @@ export default function EntiteeDeuxAjoutFonction({
             <InputText
               value={libelle}
               onChange={(e) => setLibelle(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 border-slate-200 rounded-xl outline-none"
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
             />
           </div>
           <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">

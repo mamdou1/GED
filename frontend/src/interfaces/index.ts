@@ -14,6 +14,21 @@ export type PieceRecord = {
   createdAt?: string;
 };
 
+// Dans vos interfaces, ajoutez ou modifiez
+// export interface PieceRecord {
+//   id: number;
+//   rowId: number;
+//   valueIds: Record<number, number>;
+//   values: Record<number, string>;
+//   files?: Array<{
+//     id: number;
+//     fichier: string;
+//     original_name: string;
+//     created_at?: string;
+//   }>;
+//   createdAt?: string;
+// }
+
 export interface Permission {
   id: number;
   resource: string;
@@ -198,6 +213,7 @@ export interface TypeDocument {
   id: number;
   code: string;
   nom: string;
+  cote: string;
 
   // IDs (pour les formulaires)
   division_id?: number | null;
@@ -224,6 +240,7 @@ export interface TypeDocument {
 export interface CreateTypeDocumentPayload {
   code: string;
   nom: string;
+  cote: string;
   entitee_un_id?: number | null;
   entitee_deux_id?: number | null;
   entitee_trois_id?: number | null;

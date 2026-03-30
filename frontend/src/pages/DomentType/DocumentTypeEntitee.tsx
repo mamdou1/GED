@@ -7,6 +7,7 @@ import DocumentTypeAffectationForm from "./DocumentTypeAffectationForm";
 import { Toast } from "primereact/toast";
 import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
+import Pagination from "../../components/layout/Pagination";
 import {
   Plus,
   Pencil,
@@ -71,7 +72,7 @@ export default function DocumentTypeEntitee() {
   const updateMetaMutation = useUpdateMetaField();
   const multipleAffectationMutation = useMultipleAffectation();
 
-  // États UI (inchangés)
+  // États UI
   const [selected, setSelected] = useState<any>(null);
   const [editing, setEditing] = useState<any>(null);
   const [formVisible, setFormVisible] = useState(false);
@@ -89,7 +90,16 @@ export default function DocumentTypeEntitee() {
     null,
   );
 
-  // ✅ PLUS BESOIN DE LA FONCTION load() NI DE useEffect !
+  // ✅ ÉTATS PAGINATION
+  // Pagination des accordéons (structures)
+  const [currentStructurePage, setCurrentStructurePage] = useState(1);
+  const structuresPerPage = 5; // Nombre d'accordéons par page
+
+  // Pagination interne pour chaque accordéon (stockée par nom de structure)
+  const [internalPages, setInternalPages] = useState<Record<string, number>>(
+    {},
+  );
+  const itemsPerPageInternal = 10; // Nombre de documents par page dans un accordéon
 
   // Fonctions utilitaires (inchangées)
   const isUserAdmin = (user: User | null): boolean => {
@@ -197,6 +207,7 @@ export default function DocumentTypeEntitee() {
       const search = query.toLowerCase();
       const matchesSearch =
         t.code.toLowerCase().includes(search) ||
+        t.cote.toLowerCase().includes(search) ||
         t.nom.toLowerCase().includes(search);
 
       if (!selectedTypeDoc) return matchesSearch;
@@ -231,22 +242,18 @@ export default function DocumentTypeEntitee() {
     return groups;
   };
 
-  // Dans un fichier types ou en haut du composant
   type EntiteeOption = {
     label: string;
     value: string | null;
-    titre?: string; // ✅ Propriété optionnelle pour le titre
+    titre?: string;
   };
 
   const filteredOptions = useMemo(() => {
     const isAdmin = isUserAdmin(user);
 
     if (isAdmin) {
-      // Admin : garder "Tous" et les éléments avec titre
       return (optionsEntites as EntiteeOption[]).filter((opt) => {
         if (opt.value === null) return true;
-
-        // ✅ Vérification sécurisée du titre
         const aUnTitre =
           opt.titre && typeof opt.titre === "string" && opt.titre.trim() !== "";
         return aUnTitre;
@@ -278,23 +285,71 @@ export default function DocumentTypeEntitee() {
     });
 
     return (optionsEntites as EntiteeOption[]).filter((opt) => {
-      // Garder l'option "Tous"
       if (opt.value === null) return true;
-
-      // ✅ Vérification du titre
       const aUnTitre =
         opt.titre && typeof opt.titre === "string" && opt.titre.trim() !== "";
       if (!aUnTitre) return false;
-
-      // Vérifier si accessible
       return accessibleEntityIds.has(opt.value);
     });
   }, [optionsEntites, user]);
 
   const groupedTypes = getGroupedData();
 
-  // ✅ ÉTAPE 3: Remplacer handleSubmit
-  const handleSubmit = async (formData: { code: string; nom: string }) => {
+  // ✅ PAGINATION DES ACCORDÉONS (structures)
+  const paginatedStructures = useMemo(() => {
+    const structureNames = Object.keys(groupedTypes);
+    const startIndex = (currentStructurePage - 1) * structuresPerPage;
+    const endIndex = startIndex + structuresPerPage;
+    const paginatedNames = structureNames.slice(startIndex, endIndex);
+
+    const paginated: Record<string, TypeDocument[]> = {};
+    paginatedNames.forEach((name) => {
+      paginated[name] = groupedTypes[name];
+    });
+
+    return paginated;
+  }, [groupedTypes, currentStructurePage, structuresPerPage]);
+
+  const totalStructures = Object.keys(groupedTypes).length;
+
+  // ✅ Fonction pour obtenir les documents paginés d'une structure
+  const getPaginatedDocumentsForStructure = (
+    structureName: string,
+    documents: TypeDocument[],
+  ) => {
+    const currentInternalPage = internalPages[structureName] || 1;
+    const startIndex = (currentInternalPage - 1) * itemsPerPageInternal;
+    const endIndex = startIndex + itemsPerPageInternal;
+    const paginatedDocs = documents.slice(startIndex, endIndex);
+
+    return {
+      documents: paginatedDocs,
+      totalDocuments: documents.length,
+      currentPage: currentInternalPage,
+      totalPages: Math.ceil(documents.length / itemsPerPageInternal),
+    };
+  };
+
+  // ✅ Fonction pour changer la page interne d'une structure
+  const handleInternalPageChange = (structureName: string, page: number) => {
+    setInternalPages((prev) => ({
+      ...prev,
+      [structureName]: page,
+    }));
+  };
+
+  // Reset des pages quand les filtres changent
+  useEffect(() => {
+    setCurrentStructurePage(1);
+    setInternalPages({});
+  }, [query, selectedTypeDoc]);
+
+  // ✅ handleSubmit (inchangé)
+  const handleSubmit = async (formData: {
+    code: string;
+    nom: string;
+    cote: string;
+  }) => {
     try {
       if (editing?.id) {
         await updateMutation.mutateAsync({
@@ -345,14 +400,13 @@ export default function DocumentTypeEntitee() {
         });
       }
 
-      // ✅ PLUS BESOIN DE load() ! TanStack Query recharge automatiquement
       setFormVisible(false);
     } catch (error) {
       toast.current?.show({ severity: "error", summary: "Erreur" });
     }
   };
 
-  // ✅ ÉTAPE 4: Remplacer handleDelete
+  // ✅ handleDelete (inchangé)
   const handleDelete = (id: string) => {
     confirmDialog({
       message:
@@ -365,15 +419,30 @@ export default function DocumentTypeEntitee() {
       rejectClassName:
         "p-button-secondary p-button-outlined p-button-rounded mr-4 p-2",
       style: { width: "450px" },
+
       accept: async () => {
-        await deleteMutation.mutateAsync(id);
-        // ✅ PLUS BESOIN de setTypes manuel !
-        toast.current?.show({ severity: "success", summary: "Supprimé" });
+        try {
+          await deleteMutation.mutateAsync(id);
+
+          toast.current?.show({
+            severity: "success",
+            summary: "Succès",
+            detail: "Type de document supprimé avec succès",
+          });
+        } catch (error) {
+          toast.current?.show({
+            severity: "error",
+            summary: "Suppression impossible",
+            detail:
+              "Ce type de document ne peut pas être supprimé car il contient des documents ou des pièces associées.",
+            life: 5000,
+          });
+        }
       },
     });
   };
 
-  // ✅ ÉTAPE 5: Remplacer handleMetaSubmit
+  // ✅ handleMetaSubmit (inchangé)
   const handleMetaSubmit = async (fieldsPayload: any[]) => {
     if (!selected?.id) return;
     try {
@@ -391,13 +460,12 @@ export default function DocumentTypeEntitee() {
         severity: "success",
         summary: "Métadonnées à jour",
       });
-      // ✅ RECHARGE AUTOMATIQUE !
     } catch (error) {
       toast.current?.show({ severity: "error", summary: "Erreur" });
     }
   };
 
-  // ✅ ÉTAPE 6: Remplacer onAddPieces
+  // ✅ onAddPieces (inchangé)
   const onAddPieces = async (
     typeId: string,
     payload: AddPiecesToTypeDocumentPayload,
@@ -411,7 +479,7 @@ export default function DocumentTypeEntitee() {
     }
   };
 
-  // ✅ ÉTAPE 7: Remplacer handleAffectationSubmit
+  // ✅ handleAffectationSubmit (inchangé)
   const handleAffectationSubmit = async (payload: any) => {
     try {
       if (selected?.id) {
@@ -430,7 +498,7 @@ export default function DocumentTypeEntitee() {
     }
   };
 
-  // ✅ ÉTAPE 8: Remplacer handleMultipleAffectation
+  // ✅ handleMultipleAffectation (inchangé)
   const handleMultipleAffectation = async (typeIds: string[]) => {
     try {
       if (!selectedTypeDoc) return;
@@ -488,18 +556,17 @@ export default function DocumentTypeEntitee() {
           opt.label?.includes(`📄 ${structureName}`),
       );
 
-      // ✅ Vérifier que foundOption existe ET que value n'est pas null
       if (foundOption && foundOption.value !== null) {
         setSelectedAccordionStructure({
           label: foundOption.label,
-          value: foundOption.value, // ✅ Maintenant value est string
+          value: foundOption.value,
         });
         setSelectedTypeDoc(foundOption.value);
       }
     }
   };
 
-  // ✅ ÉTAPE 9: Gérer les états de chargement/erreur
+  // ✅ Gestion des états de chargement/erreur
   if (isLoading) {
     return (
       <Layout>
@@ -530,7 +597,7 @@ export default function DocumentTypeEntitee() {
     <Layout>
       <Toast ref={toast} />
 
-      {/* Header (inchangé) */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
         <div>
           <h1 className="text-3xl font-black text-slate-800 flex items-center gap-3">
@@ -551,7 +618,7 @@ export default function DocumentTypeEntitee() {
         />
       </div>
 
-      {/* Barre de recherche et filtre (inchangé) */}
+      {/* Barre de recherche et filtre */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 flex flex-wrap gap-4">
         <div className="flex-1 min-w-[300px] relative">
           <Search
@@ -576,201 +643,255 @@ export default function DocumentTypeEntitee() {
         />
       </div>
 
-      {/* Liste des types (inchangée) */}
+      {/* Liste des types avec pagination des accordéons */}
       <div className="space-y-4">
-        {Object.entries(groupedTypes).length > 0 ? (
-          Object.entries(groupedTypes)
-            .filter(([structureName]) => {
-              if (isUserAdmin(user)) return true;
-              return hasAccessToStructure(structureName);
-            })
-            .map(([structureName, docs]) => (
-              <div
-                key={structureName}
-                className={`bg-white border rounded-2xl overflow-hidden shadow-sm transition-all ${
-                  selectedAccordionStructure?.label?.includes(structureName)
-                    ? "border-emerald-500 ring-2 ring-emerald-200"
-                    : "border-slate-100"
-                }`}
-              >
-                <button
-                  onClick={() => handleStructureClick(structureName)}
-                  className={`w-full flex items-center justify-between p-5 transition-all ${
-                    expandedStructure === structureName
-                      ? "bg-emerald-50/50"
-                      : "hover:bg-slate-50"
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={`p-2 rounded-lg ${
+        {Object.entries(paginatedStructures).length > 0 ? (
+          <>
+            {Object.entries(paginatedStructures).map(
+              ([structureName, docs]) => {
+                // Récupérer les documents paginés pour cette structure
+                const {
+                  documents: paginatedDocs,
+                  totalDocuments,
+                  currentPage: internalPage,
+                  totalPages,
+                } = getPaginatedDocumentsForStructure(structureName, docs);
+
+                const isNonAssigned =
+                  structureName === "Type de documents non assignés";
+
+                return (
+                  <div
+                    key={structureName}
+                    className={`bg-white border rounded-2xl overflow-hidden shadow-sm transition-all ${
+                      selectedAccordionStructure?.label?.includes(structureName)
+                        ? "border-emerald-500 ring-2 ring-emerald-200"
+                        : "border-slate-100"
+                    }`}
+                  >
+                    <button
+                      onClick={() => handleStructureClick(structureName)}
+                      className={`w-full flex items-center justify-between p-5 transition-all ${
                         expandedStructure === structureName
-                          ? "bg-emerald-500 text-white"
-                          : selectedAccordionStructure?.label.includes(
-                                structureName,
-                              )
-                            ? "bg-emerald-100 text-emerald-600"
-                            : "bg-slate-100 text-slate-500"
+                          ? "bg-emerald-50/50"
+                          : "hover:bg-slate-50"
                       }`}
                     >
-                      <Database size={20} />
-                    </div>
-                    <div className="text-left">
-                      <div className="flex items-center gap-2">
-                        <h3
-                          className={`font-bold ${
+                      <div className="flex items-center gap-4">
+                        <div
+                          className={`p-2 rounded-lg ${
                             expandedStructure === structureName
-                              ? "text-emerald-800"
+                              ? "bg-emerald-500 text-white"
                               : selectedAccordionStructure?.label.includes(
                                     structureName,
                                   )
-                                ? "text-emerald-700"
-                                : "text-slate-700"
+                                ? "bg-emerald-100 text-emerald-600"
+                                : "bg-slate-100 text-slate-500"
                           }`}
                         >
-                          {structureName}
-                        </h3>
-                        {selectedAccordionStructure?.label.includes(
-                          structureName,
-                        ) && (
-                          <span className="inline-flex items-center px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">
-                            Structure active
-                          </span>
+                          <Database size={20} />
+                        </div>
+                        <div className="text-left">
+                          <div className="flex items-center gap-2">
+                            <h3
+                              className={`font-bold ${
+                                expandedStructure === structureName
+                                  ? "text-emerald-800"
+                                  : selectedAccordionStructure?.label.includes(
+                                        structureName,
+                                      )
+                                    ? "text-emerald-700"
+                                    : "text-slate-700"
+                              }`}
+                            >
+                              {structureName}
+                            </h3>
+                            {selectedAccordionStructure?.label.includes(
+                              structureName,
+                            ) && (
+                              <span className="inline-flex items-center px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">
+                                Structure active
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500 font-medium">
+                            {totalDocuments} document(s)
+                          </p>
+                        </div>
+                      </div>
+                      {expandedStructure === structureName ? (
+                        <ChevronDown size={20} className="text-slate-400" />
+                      ) : (
+                        <ChevronRight size={20} className="text-slate-400" />
+                      )}
+                    </button>
+
+                    {expandedStructure === structureName && (
+                      <div className="border-t border-slate-50">
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead className="bg-slate-50/50">
+                              <tr>
+                                <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-left">
+                                  Code
+                                </th>
+                                <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-left">
+                                  Cote
+                                </th>
+                                <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-left">
+                                  Libellé
+                                </th>
+                                <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-center">
+                                  Actions
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                              {paginatedDocs.map((t) => (
+                                <tr
+                                  key={t.id}
+                                  onClick={() => {
+                                    setSelected(t);
+                                    setDetailsVisible(true);
+                                  }}
+                                  className="cursor-pointer hover:bg-slate-100/80 transition-colors"
+                                >
+                                  <td className="p-4">
+                                    <span className="bg-slate-100 text-slate-400 px-2 py-1 rounded-md text-xs font-bold">
+                                      {t.code}
+                                    </span>
+                                  </td>
+                                  <td className="p-4">
+                                    <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold">
+                                      {t.cote}
+                                    </span>
+                                  </td>
+                                  <td className="p-4">
+                                    <div className="font-semibold text-slate-800 text-sm flex items-center gap-2">
+                                      <FileText
+                                        size={25}
+                                        className="text-emerald-500"
+                                      />
+                                      {t.nom}
+                                    </div>
+                                  </td>
+                                  <td className="p-4">
+                                    <div className="flex justify-center gap-1">
+                                      <button
+                                        onClick={(e) => {
+                                          setSelected(t);
+                                          setFormPiecesVisible(true);
+                                          e.stopPropagation();
+                                        }}
+                                        className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg"
+                                      >
+                                        <FilePlus size={25} />
+                                      </button>
+                                      {isNonAssigned && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelected(t);
+                                            if (selectedAccordionStructure) {
+                                              setSelectedTypeDoc(
+                                                selectedAccordionStructure.value,
+                                              );
+                                              setAffectationFormVisible(true);
+                                            } else {
+                                              setAffectationFormVisible(true);
+                                            }
+                                          }}
+                                          className={`p-2 rounded-lg ${
+                                            selectedAccordionStructure
+                                              ? "text-blue-600 bg-blue-50 hover:bg-blue-100"
+                                              : "text-blue-500 hover:bg-blue-50"
+                                          }`}
+                                          title={
+                                            selectedAccordionStructure
+                                              ? `Affecter à ${selectedAccordionStructure.label}`
+                                              : "Affecter à une structure"
+                                          }
+                                        >
+                                          <SplinePointer size={25} />
+                                        </button>
+                                      )}
+
+                                      <button
+                                        onClick={(e) => {
+                                          setEditing(t);
+                                          setFormVisible(true);
+                                          e.stopPropagation();
+                                        }}
+                                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                                      >
+                                        <Pencil size={25} />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          setSelected(t);
+                                          setMetaVisible(true);
+                                          e.stopPropagation();
+                                        }}
+                                        className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg"
+                                      >
+                                        <Settings size={25} />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDelete(String(t.id));
+                                        }}
+                                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                                      >
+                                        <Trash2 size={25} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* ✅ Pagination interne pour cet accordéon */}
+                        {totalPages > 1 && (
+                          <div className="border-t border-slate-100 p-4 bg-slate-50/30">
+                            <div className="flex justify-center items-center">
+                              <Pagination
+                                currentPage={internalPage}
+                                totalItems={totalDocuments}
+                                itemsPerPage={itemsPerPageInternal}
+                                onPageChange={(page) =>
+                                  handleInternalPageChange(structureName, page)
+                                }
+                              />
+                            </div>
+                          </div>
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 font-medium">
-                        {docs.length} document(s)
-                      </p>
-                    </div>
+                    )}
                   </div>
-                  {expandedStructure === structureName ? (
-                    <ChevronDown size={20} className="text-slate-400" />
-                  ) : (
-                    <ChevronRight size={20} className="text-slate-400" />
-                  )}
-                </button>
+                );
+              },
+            )}
 
-                {expandedStructure === structureName && (
-                  <div className="border-t border-slate-50 overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-slate-50/50">
-                        <tr>
-                          <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-left">
-                            Code
-                          </th>
-                          <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-left">
-                            Libellé
-                          </th>
-                          <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-center">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50">
-                        {docs.map((t) => (
-                          <tr
-                            key={t.id}
-                            onClick={() => {
-                              setSelected(t);
-                              setDetailsVisible(true);
-                            }}
-                            className="cursor-pointer hover:bg-slate-100/80 transition-colors"
-                          >
-                            <td className="p-4">
-                              <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold">
-                                {t.code}
-                              </span>
-                            </td>
-                            <td className="p-4">
-                              <div className="font-semibold text-slate-800 text-sm flex items-center gap-2">
-                                <FileText
-                                  size={25}
-                                  className="text-emerald-500"
-                                />
-                                {t.nom}
-                              </div>
-                            </td>
-                            <td className="p-4">
-                              <div className="flex justify-center gap-1">
-                                <button
-                                  onClick={(e) => {
-                                    setSelected(t);
-                                    setFormPiecesVisible(true);
-                                    e.stopPropagation();
-                                  }}
-                                  className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg "
-                                >
-                                  <FilePlus size={25} />
-                                </button>
-                                {structureName ===
-                                  "Type de documents non assignés" && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelected(t);
-                                      if (selectedAccordionStructure) {
-                                        setSelectedTypeDoc(
-                                          selectedAccordionStructure.value,
-                                        );
-                                        setAffectationFormVisible(true);
-                                      } else {
-                                        setAffectationFormVisible(true);
-                                      }
-                                    }}
-                                    className={`p-2 rounded-lg ${
-                                      selectedAccordionStructure
-                                        ? "text-blue-600 bg-blue-50 hover:bg-blue-100"
-                                        : "text-blue-500 hover:bg-blue-50"
-                                    }`}
-                                    title={
-                                      selectedAccordionStructure
-                                        ? `Affecter à ${selectedAccordionStructure.label}`
-                                        : "Affecter à une structure"
-                                    }
-                                  >
-                                    <SplinePointer size={25} />
-                                  </button>
-                                )}
-
-                                <button
-                                  onClick={(e) => {
-                                    setEditing(t);
-                                    setFormVisible(true);
-                                    e.stopPropagation();
-                                  }}
-                                  className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg"
-                                >
-                                  <Pencil size={25} />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    setSelected(t);
-                                    setMetaVisible(true);
-                                    e.stopPropagation();
-                                  }}
-                                  className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg"
-                                >
-                                  <Settings size={25} />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDelete(String(t.id));
-                                  }}
-                                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                                >
-                                  <Trash2 size={25} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+            {/* ✅ Pagination des accordéons (structures) */}
+            {totalStructures > structuresPerPage && (
+              <div className="mt-8 flex justify-center pt-4 border-t border-slate-200">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="text-sm text-slate-500">
+                    {totalStructures} structures au total
                   </div>
-                )}
+                  <Pagination
+                    currentPage={currentStructurePage}
+                    totalItems={totalStructures}
+                    itemsPerPage={structuresPerPage}
+                    onPageChange={setCurrentStructurePage}
+                  />
+                </div>
               </div>
-            ))
+            )}
+          </>
         ) : (
           <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-100">
             <div className="inline-flex p-4 bg-slate-50 rounded-full text-slate-300 mb-4">
@@ -783,7 +904,7 @@ export default function DocumentTypeEntitee() {
         )}
       </div>
 
-      {/* Modals (inchangés) */}
+      {/* Modals */}
       <DocumentTypeDetails
         visible={detailsVisible}
         onHide={() => setDetailsVisible(false)}

@@ -18,12 +18,14 @@ type Props = {
   visible: boolean;
   onHide: () => void;
   document: Document | null;
+  onSuccess?: () => void;
 };
 
 export default function DocumentDisponiblePieces({
   visible,
   onHide,
   document,
+  onSuccess,
 }: Props) {
   const toast = useRef<Toast>(null);
   const [piecesState, setPiecesState] = useState<any[]>([]);
@@ -89,6 +91,10 @@ export default function DocumentDisponiblePieces({
           newDisponible ? "Disponible" : "Non disponible"
         }`,
       });
+
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (err) {
       setPiecesState(piecesState);
       toast.current?.show({

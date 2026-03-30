@@ -584,7 +584,7 @@ export default function DocumentTypePage() {
         visible={metaVisible}
         onHide={() => setMetaVisible(false)}
         onSubmit={handleMetaSubmit}
-        refresh={load}
+        //refresh={load}
         type={selected}
       />
 

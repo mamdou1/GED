@@ -15,19 +15,19 @@ export default function WelcomeLandingPage() {
   // Stats fictives basées sur votre logique métier
   const stats = [
     {
-      label: "Total Dossiers",
+      label: "Organisation",
       value: "128",
       icon: <FileText size={20} />,
       color: "bg-blue-500",
     },
     {
-      label: "En Attente",
+      label: "Fiabilité",
       value: "14",
       icon: <Clock size={20} />,
       color: "bg-amber-500",
     },
     {
-      label: "Validés",
+      label: "Performance",
       value: "114",
       icon: <CheckCircle2 size={20} />,
       color: "bg-emerald-500",
@@ -102,9 +102,9 @@ export default function WelcomeLandingPage() {
                   <p className="text-sm font-medium text-slate-500">
                     {stat.label}
                   </p>
-                  <p className="text-2xl font-bold text-slate-800">
+                  {/* <p className="text-2xl font-bold text-slate-800">
                     {stat.value}
-                  </p>
+                  </p> */}
                 </div>
               </div>
             </div>
@@ -117,12 +117,11 @@ export default function WelcomeLandingPage() {
             <div className="relative z-10">
               <h3 className="text-2xl font-bold mb-2">Suivi en temps réel</h3>
               <p className="text-slate-400 mb-6 max-w-xs">
-                Consultez l'état d'avancement de vos liquidations et téléchargez
-                vos pièces.
+                Consultez l'état d'avancement de vos dossiers
               </p>
-              <button className="text-blue-400 font-bold flex items-center gap-2 group-hover:gap-4 transition-all">
+              {/* <button className="text-blue-400 font-bold flex items-center gap-2 group-hover:gap-4 transition-all">
                 Voir la liste complète <ArrowRight size={18} />
-              </button>
+              </button> */}
             </div>
             <FileText
               size={150}
@@ -137,18 +136,18 @@ export default function WelcomeLandingPage() {
               </div>
               <div>
                 <h3 className="text-2xl font-bold text-slate-800 mb-2">
-                  Besoin d'aide ?
+                  Besoin de changer votre nom d'utilisateur ou mot de passe ?
                 </h3>
                 <p className="text-slate-600 mb-4">
-                  Un doute sur la nature d'une dépense ou sur un chapitre
-                  budgétaire ?
+                  Cliqué sur le bouton à gauche du bouton déconnexion en haut à
+                  gauche.
                 </p>
-                <a
+                {/* <a
                   href="#"
                   className="text-blue-600 font-bold underline underline-offset-4"
                 >
                   Consulter le manuel d'utilisation
-                </a>
+                </a> */}
               </div>
             </div>
           </div>

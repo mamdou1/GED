@@ -80,6 +80,11 @@ module.exports = (sequelize, DataTypes) => {
       as: "agent_access",
     });
 
+    Agent.hasMany(models.Document, {
+      foreignKey: "agent_id",
+      as: "document",
+    });
+
     // Agent.belongsToMany(models.Permission, {
     //   through: "agent_permissions",
     //   foreignKey: "agent_id",

@@ -134,7 +134,7 @@ export default function DocumentTypeMultipleAffectation({
         className="text-sm font-semibold text-slate-700 cursor-pointer flex-1"
       >
         <span className="text-xs font-black text-emerald-600 mr-2">
-          [{t.code}]
+          [{t.cote}]
         </span>
         {t.nom}
       </label>

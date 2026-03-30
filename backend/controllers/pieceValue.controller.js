@@ -2,6 +2,8 @@
 const { PieceValue, PieceMetaField, PiecesFichier } = require("../models");
 const logger = require("../config/logger.config");
 const HistoriqueService = require("../services/historique.service");
+const { deletePieceFileRecord } = require("../utils/PieceFileDelete.utils");
+const { deletePieceFile } = require("./document.controller");
 
 // Récupérer toutes les valeurs pour un document
 exports.getPieceValuesByDocument = async (req, res) => {
@@ -203,7 +205,6 @@ exports.updatePieceValue = async (req, res) => {
   }
 };
 
-// Supprimer une valeur
 exports.deletePieceValue = async (req, res) => {
   const startTime = Date.now();
   const { id } = req.params;
@@ -246,3 +247,198 @@ exports.deletePieceValue = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Supprimer une valeur
+// exports.deletePieceValue = async (req, res) => {
+//   const startTime = Date.now();
+//   const { id } = req.params;
+
+//   try {
+//     logger.info("🗑️ Tentative de suppression d'une valeur de pièce", {
+//       valueId: id,
+//       userId: req.user?.id,
+//     });
+
+//     // 🔥 Récupérer la valeur AVEC ses fichiers associés
+//     const value = await PieceValue.findByPk(id, {
+//       include: [
+//         {
+//           model: PiecesFichier,
+//           as: "file",
+//           attributes: ["id", "fichier", "original_name"],
+//         },
+//       ],
+//     });
+
+//     if (!value) {
+//       logger.warn("⚠️ Valeur non trouvée pour suppression", {
+//         valueId: id,
+//         userId: req.user?.id,
+//       });
+//       return res.status(404).json({ message: "Valeur non trouvée" });
+//     }
+
+//     // 🔥 Récupérer les fichiers associés
+//     const files = value.file || [];
+
+//     // Supprimer les fichiers physiques et en base
+//     for (const file of files) {
+//       try {
+//         await deletePieceFileRecord(file.id, value.document_id, value.piece_id);
+//         logger.info("📁 Fichier associé supprimé", {
+//           fileId: file.id,
+//           fileName: file.original_name,
+//         });
+//       } catch (error) {
+//         logger.error("Erreur suppression fichier associé", {
+//           fileId: file.id,
+//           error: error.message,
+//         });
+//         // On continue même si la suppression d'un fichier échoue
+//       }
+//     }
+
+//     // Supprimer la valeur en base de données
+//     await value.destroy();
+
+//     logger.info("✅ Valeur de pièce supprimée avec succès", {
+//       valueId: id,
+//       filesDeleted: files.length,
+//       userId: req.user?.id,
+//       duration: Date.now() - startTime,
+//     });
+
+//     // Journalisation dans l'historique
+//     await HistoriqueService.logDelete(req, "pieceValue", value);
+
+//     res.json({
+//       success: true,
+//       message: "Valeur et fichiers associés supprimés avec succès",
+//       filesDeleted: files.length,
+//     });
+//   } catch (error) {
+//     logger.error("❌ Erreur deletePieceValue:", {
+//       valueId: id,
+//       error: error.message,
+//       stack: error.stack,
+//       userId: req.user?.id,
+//       duration: Date.now() - startTime,
+//     });
+//     res.status(500).json({
+//       message: "Erreur lors de la suppression",
+//       error: error.message,
+//     });
+//   }
+// };
+
+// exports.deletePieceValue = async (req, res) => {
+//   const startTime = Date.now();
+//   const { id } = req.params;
+
+//   try {
+//     logger.info("🗑️ Tentative de suppression d'une valeur de pièce", {
+//       valueId: id,
+//       userId: req.user?.id,
+//     });
+
+//     // 1. Récupérer la valeur avec ses fichiers associés
+//     const value = await PieceValue.findByPk(id, {
+//       include: [
+//         {
+//           model: PiecesFichier,
+//           as: "file",
+//           attributes: ["id", "fichier", "original_name"],
+//         },
+//       ],
+//     });
+
+//     if (!value) {
+//       logger.warn("⚠️ Valeur non trouvée pour suppression", {
+//         valueId: id,
+//         userId: req.user?.id,
+//       });
+//       return res.status(404).json({ message: "Valeur non trouvée" });
+//     }
+
+//     // 2. Supprimer les fichiers associés (PiecesFichier)
+//     const files = value.file || [];
+//     for (const file of files) {
+//       try {
+//         // Appeler la fonction deletePieceFile du document.controller
+//         // Créer un faux objet req et res pour l'appel
+//         const mockReq = {
+//           params: {
+//             documentId: value.document_id,
+//             pieceId: value.piece_id,
+//             fileId: file.id,
+//           },
+//           user: req.user,
+//           ip: req.ip,
+//           headers: req.headers,
+//           method: "DELETE",
+//           originalUrl: req.originalUrl,
+//         };
+
+//         const mockRes = {
+//           status: (code) => ({
+//             json: (data) => {
+//               if (code !== 200) {
+//                 logger.error("❌ Erreur suppression fichier associé", {
+//                   fileId: file.id,
+//                   status: code,
+//                   data,
+//                 });
+//               }
+//               return { status: code, json: data };
+//             },
+//           }),
+//           json: (data) => data,
+//         };
+
+//         await deletePieceFile(mockReq, mockRes);
+//         logger.info("📁 Fichier associé supprimé", {
+//           fileId: file.id,
+//           fileName: file.original_name,
+//         });
+//       } catch (fileError) {
+//         logger.error("❌ Erreur lors de la suppression du fichier associé", {
+//           fileId: file.id,
+//           error: fileError.message,
+//           userId: req.user?.id,
+//         });
+//         // On continue même si la suppression du fichier échoue
+//       }
+//     }
+
+//     // 3. Supprimer la valeur en base de données
+//     await value.destroy();
+
+//     logger.info("✅ Valeur de pièce supprimée avec succès", {
+//       valueId: id,
+//       filesDeleted: files.length,
+//       userId: req.user?.id,
+//       duration: Date.now() - startTime,
+//     });
+
+//     // Journalisation dans l'historique
+//     await HistoriqueService.logDelete(req, "pieceValue", value);
+
+//     res.json({
+//       success: true,
+//       message: "Valeur et fichiers associés supprimés avec succès",
+//       filesDeleted: files.length,
+//     });
+//   } catch (error) {
+//     logger.error("❌ Erreur deletePieceValue:", {
+//       valueId: id,
+//       error: error.message,
+//       stack: error.stack,
+//       userId: req.user?.id,
+//       duration: Date.now() - startTime,
+//     });
+//     res.status(500).json({
+//       message: "Erreur lors de la suppression",
+//       error: error.message,
+//     });
+//   }
+// };

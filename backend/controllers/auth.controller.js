@@ -71,23 +71,16 @@ exports.inscription = async (req, res) => {
 exports.connexion = async (req, res) => {
   try {
     const { username, password } = req.body;
-    console.log("📞 Tentative de connexion avec téléphone :", username);
 
     const agent = await Agent.findOne({ where: { username } });
     if (!agent) {
-      console.log("❌ Aucun agent trouvé pour ce téléphone :", username);
       return res.status(404).json({ message: "Utilisateur non trouvé." });
     }
 
-    console.log("✅ Agent trouvé :", agent.id, agent.nom, agent.prenom);
-
     const valid = await bcrypt.compare(password, agent.password);
     if (!valid) {
-      console.log("⚠️ Mot de passe incorrect pour l’agent ID :", agent.id);
       return res.status(401).json({ message: "Mot de passe incorrect" });
     }
-
-    console.log("🔑 Mot de passe validé pour l’agent ID :", agent.id);
 
     const accessToken = generateAccessToken(agent);
     const refreshToken = generateRefreshToken(agent);

@@ -20,7 +20,8 @@ exports.create = async (req, res) => {
       body: req.body,
     });
 
-    const { nom, entitee_un_id, entitee_deux_id, entitee_trois_id } = req.body;
+    const { cote, nom, entitee_un_id, entitee_deux_id, entitee_trois_id } =
+      req.body;
 
     const count = await TypeDocument.count();
 
@@ -29,6 +30,7 @@ exports.create = async (req, res) => {
     const code = `TD-${paddedNumber}`;
 
     const data = await TypeDocument.create({
+      cote,
       code,
       nom,
       entitee_un_id,
@@ -38,6 +40,7 @@ exports.create = async (req, res) => {
 
     logger.info("✅ Type de document créé avec succès", {
       typeId: data.id,
+      cote: data.cote,
       nom: data.nom,
       userId: req.user?.id,
       duration: Date.now() - startTime,
@@ -81,6 +84,7 @@ exports.update = async (req, res) => {
 
     const oldCopy = oldType.toJSON();
     const {
+      cote,
       nom,
       code,
       entitee_un_id,
@@ -91,6 +95,7 @@ exports.update = async (req, res) => {
 
     const [updated] = await TypeDocument.update(
       {
+        cote,
         nom,
         code,
         entitee_un_id,
@@ -115,6 +120,7 @@ exports.update = async (req, res) => {
 
     logger.info("✅ Type de document mis à jour avec succès", {
       typeId: id,
+      cote: updatedType.cote,
       nom: updatedType.nom,
       userId: req.user?.id,
       duration: Date.now() - startTime,
@@ -189,6 +195,7 @@ exports.getAll = async (req, res) => {
 
       return {
         id: td.id,
+        cote: td.cote,
         code: td.code,
         nom: td.nom,
         entitee_un_id: td.entitee_un?.id || null,
@@ -334,10 +341,22 @@ exports.remove = async (req, res) => {
       return res.status(404).json({ message: "Type de document non trouvé" });
     }
 
+    const typedoc_document = await Document.findAll();
+
+    const hasDocuments = typeDoc.Documents?.length > 0;
+
+    if (hasDocuments) {
+      return res.status(400).json({
+        message:
+          "Impossible de supprimer : ce type contient des documents ou des pièces associées.",
+      });
+    }
+
     await TypeDocument.destroy({ where: { id } });
 
     logger.info("✅ Type de document supprimé avec succès", {
       typeId: id,
+      cote: typeDoc.cote,
       nom: typeDoc.nom,
       userId: req.user?.id,
       duration: Date.now() - startTime,

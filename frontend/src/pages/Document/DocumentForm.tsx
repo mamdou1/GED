@@ -6,6 +6,10 @@ import { Dropdown } from "primereact/dropdown";
 import { getMetaById } from "../../api/metaField";
 import { Toast } from "primereact/toast";
 import { uploadDocumentFile } from "../../api/ulpoald";
+import { Calendar } from "primereact/calendar";
+import { InputNumber } from "primereact/inputnumber";
+import { InputText } from "primereact/inputtext";
+import { MetaField } from "../../interfaces";
 
 // ✅ Définir le type correctement
 interface DocumentPayload {
@@ -25,7 +29,7 @@ export default function DocumentForm({
 }: any) {
   const [values, setValues] = useState<any>({});
   const [documentType_id, setDocumentType_id] = useState<number | null>(null);
-  const [metaFields, setMetaFields] = useState<any[]>([]);
+  const [metaFields, setMetaFields] = useState<MetaField[]>([]);
   const toast = useRef<Toast>(null);
 
   // Charger les données du document à éditer
@@ -58,7 +62,23 @@ export default function DocumentForm({
   useEffect(() => {
     if (documentType_id) {
       getMetaById(String(documentType_id)).then((res) => {
-        setMetaFields(res);
+        console.log("🔍 Données brutes de l'API:", res);
+
+        // ✅ Convertir les données pour qu'elles correspondent à l'interface MetaField
+        const formattedFields: MetaField[] = res.map((field: any) => ({
+          id: field.id,
+          label: field.label,
+          name: field.name,
+          type: field.field_type, // 🔥 Convertir field_type en type
+          required: field.required,
+          options: field.options || [], // ✅ Les options sont bien conservées
+          type_document_id: field.type_document_id,
+          createdAt: field.createdAt,
+        }));
+
+        console.log("📋 Champs formatés:", formattedFields);
+        setMetaFields(formattedFields);
+
         if (!editingDoc) {
           setValues({});
         }
@@ -68,6 +88,116 @@ export default function DocumentForm({
       setValues({});
     }
   }, [documentType_id, editingDoc]);
+
+  // Fonction pour rendre le champ approprié selon le type
+  const renderField = (field: MetaField) => {
+    const value = values[field.id] || "";
+    const fieldType = field.type;
+
+    switch (fieldType) {
+      case "select":
+        // 🔥 Champ select avec Dropdown
+        const options = field.options || [];
+
+        if (options.length === 0) {
+          return (
+            <div className="text-amber-600 text-sm p-3 bg-amber-50 rounded-xl border border-amber-200">
+              ⚠️ Aucune option configurée pour ce champ
+            </div>
+          );
+        }
+
+        const selectOptions = options.map((opt) => ({
+          label: opt,
+          value: opt,
+        }));
+
+        return (
+          <Dropdown
+            value={value || null}
+            options={selectOptions}
+            onChange={(e) => {
+              setValues({
+                ...values,
+                [field.id]: e.value,
+              });
+            }}
+            placeholder={`Sélectionnez ${field.label.toLowerCase()}`}
+            className="w-full bg-white border border-emerald-100 rounded-xl shadow-sm"
+            panelClassName="rounded-xl"
+            showClear
+            filter={options.length > 5}
+          />
+        );
+
+      case "date":
+        return (
+          <Calendar
+            value={value ? new Date(value) : null}
+            onChange={(e) => {
+              setValues({
+                ...values,
+                [field.id]: e.value ? e.value.toISOString().split("T")[0] : "",
+              });
+            }}
+            dateFormat="dd/mm/yy"
+            className="w-full"
+            inputClassName="w-full bg-white border border-emerald-100 p-3.5 rounded-2xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
+            placeholder="Sélectionner une date"
+            showIcon
+          />
+        );
+
+      case "number":
+        return (
+          <InputNumber
+            value={value ? Number(value) : null}
+            onValueChange={(e) => {
+              setValues({
+                ...values,
+                [field.id]: e.value,
+              });
+            }}
+            className="w-full"
+            inputClassName="w-full bg-white border border-emerald-100 p-3.5 rounded-2xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
+            placeholder={`Saisir ${field.label.toLowerCase()}`}
+            useGrouping={false}
+          />
+        );
+
+      case "file":
+        return (
+          <input
+            type="file"
+            className="w-full bg-white border border-emerald-100 p-3.5 rounded-2xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm text-emerald-950"
+            onChange={(e) =>
+              setValues({
+                ...values,
+                [field.id]: e.target.files?.[0],
+              })
+            }
+            accept=".pdf,.jpg,.jpeg,.png"
+          />
+        );
+
+      case "text":
+      default:
+        return (
+          <InputText
+            type="text"
+            value={value}
+            onChange={(e) =>
+              setValues({
+                ...values,
+                [field.id]: e.target.value,
+              })
+            }
+            className="w-full bg-white border border-emerald-100 p-3.5 rounded-2xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
+            placeholder={`Entrez ${field.label.toLowerCase()}...`}
+          />
+        );
+    }
+  };
 
   const handleSubmit = async () => {
     // Vérifie que tous les champs required ont une valeur
@@ -99,7 +229,7 @@ export default function DocumentForm({
       // ✅ Le payload a maintenant la structure attendue par le backend
       const payload: DocumentPayload = {
         type_document_id: documentType_id,
-        values: valuesObject, // ← Maintenant c'est un objet { "3": "diop", "4": "Ali" }
+        values: valuesObject,
       };
 
       // ✅ Ajouter l'id si on est en mode édition
@@ -163,7 +293,7 @@ export default function DocumentForm({
           </div>
         }
         visible={visible}
-        style={{ width: "500px" }}
+        style={{ width: "600px" }}
         onHide={onHide}
         footer={
           <div className="flex justify-end gap-3 p-4 bg-emerald-50/30">
@@ -205,30 +335,21 @@ export default function DocumentForm({
                 Champs requis
               </p>
               <div className="grid grid-cols-1 gap-4">
-                {metaFields.map((f: any) => (
+                {metaFields.map((f: MetaField) => (
                   <div key={f.id} className="flex flex-col gap-2">
                     <label className="text-xs font-bold text-emerald-900 ml-1 flex items-center gap-2">
                       <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>{" "}
                       {f.label}{" "}
                       {f.required && <span className="text-red-500">*</span>}
+                      {f.type === "select" &&
+                        f.options &&
+                        f.options.length > 0 && (
+                          <span className="text-[10px] text-emerald-500 ml-1">
+                            ({f.options.length} options)
+                          </span>
+                        )}
                     </label>
-                    <input
-                      type={f.field_type === "file" ? "file" : f.field_type}
-                      value={
-                        f.field_type !== "file" ? values[f.id] || "" : undefined
-                      }
-                      className="w-full bg-white border border-emerald-100 p-3.5 rounded-2xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm text-emerald-950"
-                      onChange={(e) =>
-                        setValues({
-                          ...values,
-                          [f.id]:
-                            f.field_type === "file"
-                              ? e.target.files?.[0]
-                              : e.target.value,
-                        })
-                      }
-                      placeholder={`Entrez ${f.label.toLowerCase()}...`}
-                    />
+                    {renderField(f)}
                   </div>
                 ))}
               </div>

@@ -338,7 +338,7 @@ export default function Sidebar({ children }: SidebarProps) {
     <aside className="h-screen sticky top-0">
       <nav
         className={`h-full flex flex-col bg-emerald-950 border-r border-emerald-900 shadow-2xl transition-all duration-300 ${
-          expended ? "w-72" : "w-20"
+          expended ? "w-76" : "w-20"
         }`}
       >
         {/* Header - Logo et Toggle */}
@@ -627,6 +627,7 @@ export default function Sidebar({ children }: SidebarProps) {
                                 user,
                                 docTypes,
                               );
+
                               if (fonctionTypes.length === 0) {
                                 return (
                                   <div className="px-4 py-3 text-xs text-slate-400 italic bg-slate-50/50 rounded-lg mx-2 my-1">
@@ -636,37 +637,20 @@ export default function Sidebar({ children }: SidebarProps) {
                                 );
                               }
 
-                              return fonctionTypes.map((typeDoc) => (
+                              // ✅ SIMPLE LIEN VERS /document (sans paramètre)
+                              return (
                                 <SidebarLink
-                                  key={typeDoc.id}
                                   icon={FileStack}
-                                  text={typeDoc.nom}
-                                  to={`/document?typeId=${typeDoc.id}`}
-                                  active={
-                                    location.pathname === "/document" &&
-                                    new URLSearchParams(location.search).get(
-                                      "typeId",
-                                    ) === String(typeDoc.id)
-                                  }
+                                  text="Type de document / Dossier"
+                                  to="/document"
+                                  active={location.pathname === "/document"}
                                   suffix={
-                                    <span
-                                      className={`text-xs ${
-                                        fonctionEntityType === "un"
-                                          ? "bg-blue-100 text-blue-700"
-                                          : fonctionEntityType === "deux"
-                                            ? "bg-purple-100 text-purple-700"
-                                            : "bg-emerald-100 text-emerald-700"
-                                      } px-1.5 py-0.5 rounded-full ml-2`}
-                                    >
-                                      {fonctionEntityType === "un"
-                                        ? "N1"
-                                        : fonctionEntityType === "deux"
-                                          ? "N2"
-                                          : "N3"}
+                                    <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full ml-2">
+                                      {fonctionTypes.length}
                                     </span>
                                   }
                                 />
-                              ));
+                              );
                             }
                           })()}
                         </>

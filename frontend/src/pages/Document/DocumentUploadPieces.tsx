@@ -44,6 +44,7 @@ import {
 } from "../../api/pieceValue";
 import { confirmDialog } from "primereact/confirmdialog";
 import { Checkbox } from "primereact/checkbox";
+import FileItem from "../../components/documents/FileItem";
 
 type Props = {
   visible: boolean;
@@ -51,6 +52,15 @@ type Props = {
   document: Document | null;
   onSuccess?: () => void;
 };
+
+interface DocumentFile {
+  id: number;
+  fichier: string;
+  original_name: string;
+  new_file_name?: string;
+  created_at?: string;
+  createdAt?: string;
+}
 
 export default function DocumentUploadPieces({
   visible,
@@ -112,6 +122,9 @@ export default function DocumentUploadPieces({
 
   const [lotPiecesSelection, setLotPiecesSelection] = useState<number[]>([]);
   const [showLotPieceSelector, setShowLotPieceSelector] = useState(false);
+
+  // Fonction pour supprimer un fichier de pièce simple
+  const [deletingFiles, setDeletingFiles] = useState<Set<number>>(new Set());
 
   /* ================= CHARGEMENT INITIAL ================= */
   useEffect(() => {
@@ -476,7 +489,8 @@ export default function DocumentUploadPieces({
           toast.current?.show({
             severity: "error",
             summary: "Erreur",
-            detail: "Impossible de supprimer l'enregistrement",
+            detail:
+              "Impossible de supprimer l'enregistrement car il contient des pièces associées",
           });
         }
       },
@@ -535,7 +549,7 @@ export default function DocumentUploadPieces({
     const editing = editingRecord[pieceId];
     let success = true;
 
-    const rowId = editing?.rowId ||  Math.floor(Math.random() * 1000000); // Nombre aléatoire entre 0 et 1 million
+    const rowId = editing?.rowId || Math.floor(Math.random() * 1000000); // Nombre aléatoire entre 0 et 1 million
 
     for (const field of fields) {
       const key = `${pieceId}_${field.id}`;
@@ -733,26 +747,64 @@ export default function DocumentUploadPieces({
     }
   };
 
+  // const loadSimplePieceFiles = async (pieceId: number) => {
+  //   if (!document) return;
+
+  //   try {
+  //     const { data } = await api.get(
+  //       `/documents/${document.id}/piece/${pieceId}/files`,
+  //     );
+
+  //     setPieceFiles((prev) => ({
+  //       ...prev,
+  //       [pieceId]: Array.isArray(data) ? data : [],
+  //     }));
+
+  //     setUploaded((prev) => ({
+  //       ...prev,
+  //       [pieceId]: Array.isArray(data) && data.length > 0,
+  //     }));
+  //   } catch (error) {
+  //     console.error("Erreur chargement fichiers pièce:", error);
+  //   }
+  // };
+
+  // Fonction pour charger les fichiers d'une pièce simple
   const loadSimplePieceFiles = async (pieceId: number) => {
     if (!document) return;
 
     try {
-      const { data } = await api.get(
+      const { data } = await api.get<DocumentFile[]>(
         `/documents/${document.id}/piece/${pieceId}/files`,
       );
 
       setPieceFiles((prev) => ({
         ...prev,
-        [pieceId]: Array.isArray(data) ? data : [],
+        [pieceId]: data,
       }));
 
       setUploaded((prev) => ({
         ...prev,
-        [pieceId]: Array.isArray(data) && data.length > 0,
+        [pieceId]: data.length > 0,
       }));
     } catch (error) {
       console.error("Erreur chargement fichiers pièce:", error);
     }
+  };
+
+  const refreshSimpleFiles = async (pieceId: number) => {
+    await loadSimplePieceFiles(pieceId);
+    if (onSuccess) onSuccess();
+  };
+
+  const refreshLotFiles = async () => {
+    await loadLotUniqueFiles();
+    if (onSuccess) onSuccess();
+  };
+
+  const refreshMetaFiles = async () => {
+    await loadAllPieceRecords();
+    if (onSuccess) onSuccess();
   };
 
   const handleUploadLotFile = async () => {
@@ -1026,7 +1078,6 @@ export default function DocumentUploadPieces({
                     </p>
                   </label>
                 </div>
-
                 {/* ✅ NOUVEAU : Sélecteur de pièces pour LOT_UNIQUE */}
                 {showLotPieceSelector && selectedLotFile && (
                   <LotPieceSelector
@@ -1043,40 +1094,28 @@ export default function DocumentUploadPieces({
                     }}
                   />
                 )}
-
+                {/*Dans la section MODE LOT UNIQUE, remplacer l'affichage des
+                fichiers*/}
                 {lotFiles.length > 0 && (
                   <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm">
                     <h4 className="text-xs font-bold text-slate-500 mb-3">
-                      Fichiers uploadés
+                      Fichiers uploadés ({lotFiles.length})
                     </h4>
-                    {lotFiles.map((f) => (
-                      <div
-                        key={f.id}
-                        className="flex items-center justify-between p-3 bg-slate-50 rounded-xl mb-2"
-                      >
-                        <span className="text-sm truncate flex-1">
-                          {f.new_file_name || f.original_name}
-                        </span>
-                        {/* <button
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Supprimer"
-                        >
-                          <Trash2 size={16} />
-                        </button> */}
-                        <button
-                          onClick={() =>
-                            setViewer({
-                              visible: true,
-                              url: `http://localhost:5001/${f.fichier}`,
-                              isPreview: false,
-                            })
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {lotFiles.map((f: DocumentFile) => (
+                        <FileItem
+                          key={f.id}
+                          file={f}
+                          documentId={document.id}
+                          pieceId={null}
+                          fileType="document"
+                          onDeleteSuccess={() => refreshLotFiles()}
+                          onView={(url) =>
+                            setViewer({ visible: true, url, isPreview: false })
                           }
-                          className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-lg"
-                        >
-                          <Eye size={16} />
-                        </button>
-                      </div>
-                    ))}
+                        />
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1222,37 +1261,48 @@ export default function DocumentUploadPieces({
                                                               key={field.id}
                                                               className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap"
                                                             >
+                                                              {/* Dans le tableau des enregistrements (records), modifier la colonne "Fichiers" */}
                                                               {field.field_type ===
                                                               "file" ? (
                                                                 record.files &&
                                                                 record.files
                                                                   .length >
                                                                   0 ? (
-                                                                  <button
-                                                                    onClick={() => {
-                                                                      if (
-                                                                        record.files &&
-                                                                        record
-                                                                          .files[0]
-                                                                      ) {
-                                                                        setViewer(
-                                                                          {
-                                                                            visible: true,
-                                                                            url: `http://localhost:5001/${record.files[0].fichier}`,
-                                                                            isPreview: false,
-                                                                          },
-                                                                        );
-                                                                      }
-                                                                    }}
-                                                                    className="text-emerald-600 hover:text-emerald-800 inline-flex items-center gap-1"
-                                                                  >
-                                                                    <Eye
-                                                                      size={14}
-                                                                    />
-                                                                    <span className="text-xs">
-                                                                      Voir
-                                                                    </span>
-                                                                  </button>
+                                                                  <div className="space-y-1">
+                                                                    {record.files.map(
+                                                                      (f) => (
+                                                                        <FileItem
+                                                                          key={
+                                                                            f.id
+                                                                          }
+                                                                          file={
+                                                                            f
+                                                                          }
+                                                                          documentId={
+                                                                            document.id
+                                                                          }
+                                                                          pieceId={
+                                                                            p.id
+                                                                          }
+                                                                          fileType="piece" // 🔥 Fichier dans pieces_fichiers
+                                                                          onDeleteSuccess={() =>
+                                                                            refreshMetaFiles()
+                                                                          }
+                                                                          onView={(
+                                                                            url,
+                                                                          ) =>
+                                                                            setViewer(
+                                                                              {
+                                                                                visible: true,
+                                                                                url,
+                                                                                isPreview: false,
+                                                                              },
+                                                                            )
+                                                                          }
+                                                                        />
+                                                                      ),
+                                                                    )}
+                                                                  </div>
                                                                 ) : (
                                                                   <span className="text-slate-300">
                                                                     -
@@ -1459,33 +1509,34 @@ export default function DocumentUploadPieces({
                                                 </label>
                                               </div>
                                             </div>
-
+                                            {/*
+                                            Dans la partie où vous affichez
+                                            les fichiers pour les pièces sans
+                                            métadonnées
+                                            */}
                                             {pieceFiles[p.id]?.length > 0 && (
                                               <div className="mt-3 space-y-2">
-                                                {pieceFiles[p.id].map((f) => (
-                                                  <div
-                                                    key={f.id}
-                                                    className="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-100"
-                                                  >
-                                                    <span className="text-xs truncate flex-1">
-                                                      {f.new_file_name ||
-                                                        f.original_name}
-                                                    </span>
-                                                    <button
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
+                                                {pieceFiles[p.id].map(
+                                                  (f: DocumentFile) => (
+                                                    <FileItem
+                                                      key={f.id}
+                                                      file={f}
+                                                      documentId={document.id}
+                                                      pieceId={p.id}
+                                                      fileType="document"
+                                                      onDeleteSuccess={() =>
+                                                        refreshSimpleFiles(p.id)
+                                                      }
+                                                      onView={(url) =>
                                                         setViewer({
                                                           visible: true,
-                                                          url: `http://localhost:5001/${f.fichier}`,
+                                                          url,
                                                           isPreview: false,
-                                                        });
-                                                      }}
-                                                      className="text-emerald-600 hover:text-emerald-800"
-                                                    >
-                                                      <Eye size={14} />
-                                                    </button>
-                                                  </div>
-                                                ))}
+                                                        })
+                                                      }
+                                                    />
+                                                  ),
+                                                )}
                                               </div>
                                             )}
                                           </>

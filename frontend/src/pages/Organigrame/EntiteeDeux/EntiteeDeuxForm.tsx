@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { Save, Layers, Building2, Info, Hash } from "lucide-react";
 import { EntiteeDeux, EntiteeUn } from "../../../interfaces";
+import { getAllEntiteeDeux } from "../../../api/entiteeDeux";
+import { Toast } from "primereact/toast";
+
 type Props = {
   visible: boolean;
   onHide: () => void;
@@ -29,8 +32,31 @@ export default function EntiteeDeuxForm({
   const [entitee_un_id, setEntitee_un_id] = useState<number>(
     initial.entitee_un_id || entiteeUn[0]?.id || 0,
   );
+  const toast = useRef<Toast>(null);
+  const [entiteeDeux, SetEntiteeDeux] = useState<EntiteeDeux[]>([]);
 
   const [loading, setLoading] = useState(false);
+
+  const affichage = async () => {
+    setLoading(true);
+    try {
+      const data = await getAllEntiteeDeux();
+      SetEntiteeDeux(Array.isArray(data) ? data : []);
+    } catch (error: any) {
+      toast?.current?.show({
+        severity: "error",
+        summary: "Erreur",
+        detail:
+          error?.response?.data?.message ||
+          "Erreur lors du chargement des statistiques",
+      });
+    }
+  };
+
+  useEffect(() => {
+    affichage();
+  }, []);
+  const titre = entiteeDeux[0]?.titre || "---";
 
   useEffect(() => {
     if (visible) {
@@ -69,7 +95,7 @@ export default function EntiteeDeuxForm({
       header={
         <div className="flex items-center gap-2 font-bold text-slate-800">
           <Layers className="text-emerald-500" size={20} />
-          {initial.id ? "Modifier" : "Nouveau"} {titreNiveau2}
+          {initial.id ? "Modifier" : "Nouveau"} {titre}
         </div>
       }
       visible={visible}
@@ -111,13 +137,13 @@ export default function EntiteeDeuxForm({
         <div>
           <label className="flex items-center gap-2 text-sm font-bold text-slate-700 mb-2">
             <Info size={16} className="text-emerald-500" />
-            Libellé de la {titreNiveau2}
+            Libellé du (de la) {titre}
           </label>
           <InputText
             value={libelle}
             onChange={(e) => setLibelle(e.target.value)}
             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-            placeholder={`Ex: ${titreNiveau2} Comptabilité`}
+            placeholder={`Ex: ${titre} Comptabilité`}
           />
         </div>
 

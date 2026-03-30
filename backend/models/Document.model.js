@@ -35,6 +35,11 @@ module.exports = (sequelize, DataTypes) => {
       otherKey: "piece_id",
       as: "pieces",
     });
+
+    Document.belongsTo(models.Agent, {
+      foreignKey: "agent_id",
+      as: "agent",
+    });
   };
 
   return Document;

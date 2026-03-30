@@ -77,6 +77,22 @@ router.get(
   ctrl.getDocumentPieces,
 );
 
+// Supprimer un fichier de document
+router.delete(
+  "/:documentId/files/:fileId",
+  verifyToken,
+  authorizePermission("document", "delete"),
+  ctrl.deleteDocumentFile,
+);
+
+// Supprimer un fichier de pièce
+router.delete(
+  "/:documentId/pieces/:pieceId/files/:fileId",
+  verifyToken,
+  authorizePermission("document", "delete"),
+  ctrl.deletePieceFile,
+);
+
 // =============================================
 // 2. ROUTES GÉNÉRIQUES (AVEC /:id) - EN DERNIER !
 // =============================================

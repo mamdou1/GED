@@ -13,11 +13,13 @@ const {
   sequelize,
   PieceValue,
   PieceMetaField,
+  Agent,
 } = require("../models");
 const buildAccessWhere = require("../utils/buildAccessWhere.utils");
 const path = require("path");
 const logger = require("../config/logger.config");
 const HistoriqueService = require("../services/historique.service");
+const fs = require("fs");
 
 exports.create = async (req, res) => {
   const t = await sequelize.transaction();
@@ -32,17 +34,28 @@ exports.create = async (req, res) => {
         .json({ message: "Le type de document est requis" });
     }
 
+    const currentUser = req.user.id;
+    const currentUserData = await Agent.findByPk(currentUser);
+
     logger.info("📄 Tentative de création d'un document", {
-      userId: req.user?.id,
+      userId: currentUser,
       type_document_id,
-      values
+      values,
     });
     console.log("🔍 values reçues:", values);
-  console.log("🔍 type de values:", typeof values);
-  console.log("🔍 clés:", Object.keys(values));
+    console.log("🔍 type de values:", typeof values);
+    console.log("🔍 clés:", Object.keys(values));
+    console.log("🔍 nom:", currentUserData.nom);
+    console.log("🔍 prénom:", currentUserData.prenom);
 
     // 1. Créer le document
-    const doc = await Document.create({ type_document_id }, { transaction: t });
+    const doc = await Document.create(
+      {
+        type_document_id,
+        agent_id: currentUser,
+      },
+      { transaction: t },
+    );
 
     // 2. Associer les pièces du type
     const typeDocumentPieces = await TypeDocumentPieces.findAll({
@@ -286,7 +299,10 @@ exports.update = async (req, res) => {
     });
 
     const oldDoc = await Document.findByPk(id, {
-      include: [{ model: DocumentValue, as: "values" }],
+      include: [
+        { model: DocumentValue, as: "values" },
+        { model: Agent, as: "agent" },
+      ],
     });
 
     if (!oldDoc) {
@@ -1005,5 +1021,219 @@ exports.getLotUniqueFiles = async (req, res) => {
       duration: Date.now() - startTime,
     });
     return res.status(500).json({ message: "Erreur récupération lot unique" });
+  }
+};
+
+/**
+ * Supprimer un fichier uploadé
+ * DELETE /api/documents/:documentId/files/:fileId
+ */
+exports.deleteDocumentFile = async (req, res) => {
+  const startTime = Date.now();
+  const { documentId, fileId } = req.params;
+
+  try {
+    logger.info(
+      "🗑️ Tentative de suppression d'un fichier dans document_fichier",
+      {
+        documentId,
+        fileId,
+        userId: req.user?.id,
+      },
+    );
+
+    // 1. Vérifier que le fichier existe
+    const file = await DocumentFichier.findOne({
+      where: {
+        id: fileId,
+        document_id: documentId,
+      },
+    });
+
+    if (!file) {
+      logger.warn("⚠️ Fichier non trouvé", {
+        documentId,
+        fileId,
+        userId: req.user?.id,
+      });
+      return res.status(404).json({ message: "Fichier non trouvé" });
+    }
+
+    // 2. Récupérer le chemin complet du fichier
+    const filePath = path.join(process.cwd(), file.fichier);
+
+    // 3. Supprimer le fichier du système de fichiers
+    try {
+      if (fs.existsSync(filePath)) {
+        await fs.promises.unlink(filePath);
+        logger.info("📁 Fichier physique supprimé", {
+          filePath,
+          userId: req.user?.id,
+        });
+      } else {
+        logger.warn("⚠️ Fichier physique non trouvé", {
+          filePath,
+          userId: req.user?.id,
+        });
+      }
+    } catch (unlinkError) {
+      logger.error("❌ Erreur lors de la suppression du fichier physique", {
+        filePath,
+        error: unlinkError.message,
+        userId: req.user?.id,
+      });
+      // On continue même si la suppression physique échoue
+    }
+
+    // 4. Supprimer l'enregistrement en base de données
+    await file.destroy();
+
+    logger.info("✅ Fichier supprimé avec succès", {
+      documentId,
+      fileId,
+      originalName: file.original_name,
+      userId: req.user?.id,
+      duration: Date.now() - startTime,
+    });
+
+    // 5. Journalisation dans l'historique
+    await HistoriqueService.log({
+      agent_id: req.user?.id || null,
+      action: "delete",
+      resource: "document_fichier",
+      resource_id: fileId,
+      resource_identifier: file.original_name,
+      description: `Suppression du fichier "${file.original_name}" du document #${documentId}`,
+      method: req.method,
+      path: req.originalUrl,
+      status: 200,
+      ip: req.ip,
+      user_agent: req.headers["user-agent"],
+      data: {
+        documentId,
+        fileId,
+        originalName: file.original_name,
+        filePath: file.fichier,
+        duration: Date.now() - startTime,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "Fichier supprimé avec succès",
+      deletedFile: {
+        id: file.id,
+        original_name: file.original_name,
+      },
+    });
+  } catch (error) {
+    logger.error("❌ Erreur lors de la suppression du fichier:", {
+      documentId,
+      fileId,
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id,
+      duration: Date.now() - startTime,
+    });
+    res.status(500).json({
+      message: "Erreur lors de la suppression du fichier",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Supprimer un fichier de pièce (PiecesFichier)
+ * DELETE /api/documents/:documentId/pieces/:pieceId/files/:fileId
+ */
+exports.deletePieceFile = async (req, res) => {
+  const startTime = Date.now();
+  const { documentId, pieceId, fileId } = req.params;
+
+  try {
+    logger.info("🗑️ Tentative de suppression d'un fichier de pièce", {
+      documentId,
+      pieceId,
+      fileId,
+      userId: req.user?.id,
+    });
+
+    // 1. Vérifier que le fichier existe
+    const file = await PiecesFichier.findOne({
+      where: {
+        id: fileId,
+        document_id: documentId,
+        piece_id: pieceId,
+      },
+    });
+
+    if (!file) {
+      logger.warn("⚠️ Fichier de pièce non trouvé", {
+        documentId,
+        pieceId,
+        fileId,
+        userId: req.user?.id,
+      });
+      return res.status(404).json({ message: "Fichier non trouvé" });
+    }
+
+    // 2. Récupérer le chemin complet du fichier
+    const filePath = path.join(process.cwd(), file.fichier);
+
+    // 3. Supprimer le fichier du système de fichiers
+    try {
+      if (fs.existsSync(filePath)) {
+        await fs.promises.unlink(filePath);
+        logger.info("📁 Fichier physique de pièce supprimé", {
+          filePath,
+          userId: req.user?.id,
+        });
+      }
+    } catch (unlinkError) {
+      logger.error("❌ Erreur suppression fichier physique pièce", {
+        filePath,
+        error: unlinkError.message,
+      });
+    }
+
+    // 4. Supprimer l'enregistrement
+    await file.destroy();
+
+    logger.info("✅ Fichier de pièce supprimé avec succès", {
+      documentId,
+      pieceId,
+      fileId,
+      userId: req.user?.id,
+      duration: Date.now() - startTime,
+    });
+
+    await HistoriqueService.log({
+      agent_id: req.user?.id || null,
+      action: "delete",
+      resource: "pieces_fichier",
+      resource_id: fileId,
+      resource_identifier: file.original_name,
+      description: `Suppression du fichier de pièce "${file.original_name}"`,
+      method: req.method,
+      path: req.originalUrl,
+      status: 200,
+      ip: req.ip,
+      user_agent: req.headers["user-agent"],
+    });
+
+    res.json({
+      success: true,
+      message: "Fichier supprimé avec succès",
+    });
+  } catch (error) {
+    logger.error("❌ Erreur suppression fichier de pièce:", {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id,
+    });
+    res.status(500).json({
+      message: "Erreur lors de la suppression",
+      error: error.message,
+    });
   }
 };

@@ -77,8 +77,13 @@ export default function DocumentPage() {
   const [formVisible, setFormVisible] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [query, setQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+
+  const [entiteePage, setEntiteePage] = useState(1);
+  const [typePage, setTypePage] = useState(1);
+
+  const entiteesPerPage = 5;
+  const typesPerPage = 5;
   const [documentType_id, setDocumentType_id] = useState<number | null>(null);
   const [filteredTypes, setFilteredTypes] = useState<TypeDocument[]>([]);
 
@@ -94,6 +99,7 @@ export default function DocumentPage() {
   const [selectedNiveau, setSelectedNiveau] = useState<string | null>(null);
   const [editingDoc, setEditingDoc] = useState<Partial<Document> | null>(null);
   const [pendingTypeId, setPendingTypeId] = useState<number | null>(null);
+  const [pageByType, setPageByType] = useState<Record<number, number>>({});
 
   // ✅ ÉTAT 3: Requêtes conditionnelles avec TanStack Query
   const { data: typeDocuments = [] } = useDocumentsByType(documentType_id);
@@ -185,11 +191,23 @@ export default function DocumentPage() {
 
     return types.filter((doc) => {
       if (niveau === "un")
-        return doc.entitee_un_id && targetSet.has(doc.entitee_un_id);
+        return (
+          doc.entitee_un_id !== null &&
+          doc.entitee_un_id !== undefined &&
+          targetSet.has(doc.entitee_un_id)
+        );
       if (niveau === "deux")
-        return doc.entitee_deux_id && targetSet.has(doc.entitee_deux_id);
+        return (
+          doc.entitee_deux_id !== null &&
+          doc.entitee_deux_id !== undefined &&
+          targetSet.has(doc.entitee_deux_id)
+        );
       if (niveau === "trois")
-        return doc.entitee_trois_id && targetSet.has(doc.entitee_trois_id);
+        return (
+          doc.entitee_trois_id !== null &&
+          doc.entitee_trois_id !== undefined &&
+          targetSet.has(doc.entitee_trois_id)
+        );
       return false;
     });
   };
@@ -201,9 +219,24 @@ export default function DocumentPage() {
     if (!entityType || !entityId) return [];
 
     return types.filter((doc) => {
-      if (entityType === "un") return doc.entitee_un_id === entityId;
-      if (entityType === "deux") return doc.entitee_deux_id === entityId;
-      if (entityType === "trois") return doc.entitee_trois_id === entityId;
+      if (entityType === "un")
+        return (
+          doc.entitee_un_id !== null &&
+          doc.entitee_un_id !== undefined &&
+          doc.entitee_un_id === entityId
+        );
+      if (entityType === "deux")
+        return (
+          doc.entitee_deux_id !== null &&
+          doc.entitee_deux_id !== undefined &&
+          doc.entitee_deux_id === entityId
+        );
+      if (entityType === "trois")
+        return (
+          doc.entitee_trois_id !== null &&
+          doc.entitee_trois_id !== undefined &&
+          doc.entitee_trois_id === entityId
+        );
       return false;
     });
   };
@@ -243,6 +276,22 @@ export default function DocumentPage() {
       setFilteredTypes(filtered);
     }
   }, [location.search, types]);
+
+  const filteredEntitees = useMemo(() => {
+    if (!selectedNiveau) return [];
+
+    let entiteesDuNiveau = entitees.filter((e) => e.type === selectedNiveau);
+
+    if (hasAdditionalAccess() && !isUserAdmin()) {
+      const accessibleIds = getUserAccessibleEntityIds();
+      const targetSet =
+        accessibleIds[selectedNiveau as keyof typeof accessibleIds];
+
+      entiteesDuNiveau = entiteesDuNiveau.filter((e) => targetSet.has(e.id));
+    }
+
+    return entiteesDuNiveau;
+  }, [entitees, selectedNiveau, user]);
 
   // ✅ ÉTAPE 4: Remplacer onEdit
   const onEdit = async (payload: any) => {
@@ -297,9 +346,28 @@ export default function DocumentPage() {
   };
 
   // ✅ ÉTAPE 6: Remplacer handleDelete
+  // const handleDelete = (id: string) => {
+  //   confirmDialog({
+  //     message: "Voulez-vous supprimer ce document définitivement ?",
+  //     header: "Confirmation",
+  //     icon: "pi pi-info-circle",
+  //     acceptLabel: "Supprimer",
+  //     rejectLabel: "Annuler",
+  //     acceptClassName: "p-button-danger p-button-raised p-button-rounded p-2",
+  //     rejectClassName:
+  //       "p-button-secondary p-button-outlined p-button-rounded mr-4 p-2",
+  //     style: { width: "450px" },
+  //     accept: async () => {
+  //       await deleteMutation.mutateAsync(id);
+  //       toast.current?.show({ severity: "success", summary: "Supprimé" });
+  //     },
+  //   });
+  // };
+
   const handleDelete = (id: string) => {
     confirmDialog({
-      message: "Voulez-vous supprimer ce document définitivement ?",
+      message:
+        "Voulez-vous supprimer ce type de document définitivement ? Cette action est irréversible.",
       header: "Confirmation",
       icon: "pi pi-info-circle",
       acceptLabel: "Supprimer",
@@ -308,45 +376,120 @@ export default function DocumentPage() {
       rejectClassName:
         "p-button-secondary p-button-outlined p-button-rounded mr-4 p-2",
       style: { width: "450px" },
+
       accept: async () => {
-        await deleteMutation.mutateAsync(id);
-        toast.current?.show({ severity: "success", summary: "Supprimé" });
+        try {
+          await deleteMutation.mutateAsync(id);
+
+          toast.current?.show({
+            severity: "success",
+            summary: "Succès",
+            detail: "Type de document supprimé avec succès",
+          });
+        } catch (error) {
+          toast.current?.show({
+            severity: "error",
+            summary: "Suppression impossible",
+            detail:
+              "Ce type de document ne peut pas être supprimé car il contient des pièces charger avec ou sans méta donnée associées.",
+            life: 5000,
+          });
+        }
       },
     });
   };
 
-  // FILTRER LES ENTITÉS PAR NIVEAU SÉLECTIONNÉ
-  const filteredEntitees = useMemo(() => {
-    if (!selectedNiveau) return [];
-
-    let entiteesDuNiveau = entitees.filter((e) => e.type === selectedNiveau);
-
-    if (hasAdditionalAccess() && !isUserAdmin()) {
-      const accessibleIds = getUserAccessibleEntityIds();
-      const targetSet =
-        accessibleIds[selectedNiveau as keyof typeof accessibleIds];
-
-      entiteesDuNiveau = entiteesDuNiveau.filter((e) => targetSet.has(e.id));
-    }
-
-    return entiteesDuNiveau;
-  }, [entitees, selectedNiveau, user]);
-
-  // Grouper les types par entité
+  // Grouper les types par entité - UNIQUEMENT pour le niveau sélectionné
   const typesByEntitee = useMemo(() => {
     const grouped: Record<number, TypeDocument[]> = {};
 
-    (filteredTypes.length > 0 ? filteredTypes : types).forEach((type) => {
-      const entiteeId =
-        type.entitee_un_id || type.entitee_deux_id || type.entitee_trois_id;
-      if (entiteeId) {
+    // Récupérer les types à afficher
+    let typesToShow: TypeDocument[] = [];
+
+    if (isUserAdmin()) {
+      // Pour ADMIN, filtrer selon le niveau sélectionné
+      if (selectedNiveau === "un") {
+        // Niveau 1 : uniquement les types liés DIRECTEMENT à une entitee_un
+        // (sans entitee_deux_id et sans entitee_trois_id)
+        typesToShow = types.filter(
+          (type) =>
+            type.entitee_un_id !== null &&
+            type.entitee_un_id !== undefined &&
+            !type.entitee_deux_id &&
+            !type.entitee_trois_id,
+        );
+      } else if (selectedNiveau === "deux") {
+        // Niveau 2 : uniquement les types liés DIRECTEMENT à une entitee_deux
+        // (avec entitee_deux_id mais sans entitee_trois_id)
+        typesToShow = types.filter(
+          (type) =>
+            type.entitee_deux_id !== null &&
+            type.entitee_deux_id !== undefined &&
+            !type.entitee_trois_id,
+        );
+      } else if (selectedNiveau === "trois") {
+        // Niveau 3 : uniquement les types liés DIRECTEMENT à une entitee_trois
+        typesToShow = types.filter(
+          (type) =>
+            type.entitee_trois_id !== null &&
+            type.entitee_trois_id !== undefined,
+        );
+      }
+    } else if (hasAdditionalAccess()) {
+      // Pour utilisateur avec accès supplémentaires
+      const accessibleIds = getUserAccessibleEntityIds();
+
+      if (selectedNiveau === "un") {
+        typesToShow = types.filter(
+          (type) =>
+            type.entitee_un_id !== null &&
+            type.entitee_un_id !== undefined &&
+            accessibleIds.un.has(type.entitee_un_id) &&
+            !type.entitee_deux_id &&
+            !type.entitee_trois_id,
+        );
+      } else if (selectedNiveau === "deux") {
+        typesToShow = types.filter(
+          (type) =>
+            type.entitee_deux_id !== null &&
+            type.entitee_deux_id !== undefined &&
+            accessibleIds.deux.has(type.entitee_deux_id) &&
+            !type.entitee_trois_id,
+        );
+      } else if (selectedNiveau === "trois") {
+        typesToShow = types.filter(
+          (type) =>
+            type.entitee_trois_id !== null &&
+            type.entitee_trois_id !== undefined &&
+            accessibleIds.trois.has(type.entitee_trois_id),
+        );
+      }
+    } else {
+      // Cas sans accès supplémentaires (ne devrait pas arriver ici car CAS 2.2 est séparé)
+      typesToShow = [];
+    }
+
+    // Grouper les types par entité (l'entité à laquelle ils sont directement liés)
+    typesToShow.forEach((type) => {
+      let entiteeId: number | null | undefined = null;
+
+      if (selectedNiveau === "un") {
+        entiteeId = type.entitee_un_id;
+      } else if (selectedNiveau === "deux") {
+        entiteeId = type.entitee_deux_id;
+      } else if (selectedNiveau === "trois") {
+        entiteeId = type.entitee_trois_id;
+      }
+
+      // Vérifier que entiteeId est un nombre valide avant de l'utiliser
+      if (entiteeId !== null && entiteeId !== undefined) {
         if (!grouped[entiteeId]) grouped[entiteeId] = [];
         grouped[entiteeId].push(type);
       }
     });
 
     return grouped;
-  }, [filteredTypes, types]);
+  }, [types, selectedNiveau, user]);
 
   const toggleEntitee = (entiteeId: number) => {
     setExpandedEntitee(expandedEntitee === entiteeId ? null : entiteeId);
@@ -359,6 +502,12 @@ export default function DocumentPage() {
     } else {
       setExpandedType(typeId);
       setDocumentType_id(typeId);
+
+      // ✅ reset pagination
+      setPageByType((prev) => ({
+        ...prev,
+        [typeId]: 1,
+      }));
     }
   };
 
@@ -411,503 +560,398 @@ export default function DocumentPage() {
     );
   }
 
+  const handlePageChange = (typeId: number, page: number) => {
+    setPageByType((prev) => ({
+      ...prev,
+      [typeId]: page,
+    }));
+  };
+
+  const getCurrentPageForType = (typeId: number) => {
+    return pageByType[typeId] || 1;
+  };
+
   // Déterminer ce qu'il faut afficher
   const getDisplayContent = () => {
     const params = new URLSearchParams(location.search);
     const typeId = params.get("typeId");
-
-    // ===== CAS 2.2 : Affichage direct des documents du type sélectionné
-    if (typeId) {
-      if (typeDocuments.length === 0) {
+    const entitee = params.get("entitee");
+    // ===== CAS 1 : ADMIN (affichage complet avec entités + types)
+    if (isUserAdmin()) {
+      if (!selectedNiveau && !entitee) {
         return (
           <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-100">
-            <FileText size={48} className="mx-auto text-slate-300 mb-4" />
+            <div className="inline-flex p-4 bg-slate-50 rounded-full text-slate-300 mb-4">
+              <Layers size={40} />
+            </div>
             <p className="text-slate-400 font-medium">
-              Aucun document pour ce type
+              Sélectionnez un niveau dans le menu de gauche
             </p>
-            <button
-              onClick={() => {
-                setDocumentType_id(Number(typeId));
-                setFormVisible(true);
-              }}
-              className="mt-4 bg-emerald-600 text-white px-6 py-3 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all"
-            >
-              <Plus size={16} className="inline mr-2" />
-              Créer le premier document
-            </button>
           </div>
         );
       }
 
-      const paginatedDocs = typeDocuments.slice(
-        (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage,
+      // Filtrer et paginer les entités
+      const filteredEntiteesList = filteredEntitees.filter((e: Entitee) =>
+        e.libelle?.toLowerCase().includes(query.toLowerCase()),
+      );
+      const paginatedEntiteesList = filteredEntiteesList.slice(
+        (entiteePage - 1) * entiteesPerPage,
+        entiteePage * entiteesPerPage,
       );
 
       return (
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-emerald-50/30 border-b border-emerald-50">
-                  <th className="p-4 text-[11px] font-black text-emerald-800 uppercase tracking-widest w-24">
-                    Réf.
-                  </th>
-                  {metaFields.map((m) => (
-                    <th
-                      key={m.id}
-                      className="p-4 text-[11px] font-black text-emerald-800 uppercase tracking-widest"
-                    >
-                      {m.label}
-                    </th>
-                  ))}
-                  <th className="p-4 text-[11px] font-black text-emerald-800 uppercase tracking-widest text-center">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-emerald-50">
-                {paginatedDocs.map((doc) => (
-                  <tr
-                    key={doc.id}
-                    onClick={() => {
-                      setSelected(doc);
-                      setDetailsVisible(true);
-                    }}
-                    className="cursor-pointer group hover:bg-emerald-50/40 transition-colors"
-                  >
-                    <td className="p-4">
-                      <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-lg text-xs font-bold border border-emerald-200">
-                        #{String(doc.id).padStart(3, "0")}
-                      </span>
-                    </td>
+          {filteredEntiteesList.length > 0 ? (
+            paginatedEntiteesList.map((entiteeItem: Entitee) => {
+              const entiteeTypes = typesByEntitee[entiteeItem.id] || [];
+              const isExpanded = expandedEntitee === entiteeItem.id;
 
-                    {metaFields.map((m) => {
-                      const value = doc.values?.find(
-                        (v: any) => v.metaField?.id === m.id,
-                      )?.value;
-                      return (
-                        <td
-                          key={m.id}
-                          className="p-4 text-sm text-emerald-900 font-medium"
-                        >
-                          {value || (
-                            <span className="text-emerald-200">---</span>
-                          )}
-                        </td>
-                      );
-                    })}
-
-                    <td className="p-4">
-                      <div
-                        className="flex justify-center gap-2"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          onClick={(e) => {
-                            setSelected(doc);
-                            setDisponibleVisible(true);
-                            e.stopPropagation();
-                          }}
-                          className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-white rounded-lg transition-all"
-                          title="Contrôle de la disponibilité des pièces"
-                        >
-                          <Check size={18} />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            setSelected(doc);
-                            setAjoutVisible(true);
-                            e.stopPropagation();
-                          }}
-                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all"
-                          title="Chargement des fichiers"
-                        >
-                          <CloudDownload size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(String(doc.id))}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-4 flex justify-center">
-            <Pagination
-              currentPage={currentPage}
-              itemsPerPage={itemsPerPage}
-              totalItems={typeDocuments.length}
-              onPageChange={setCurrentPage}
-            />
-          </div>
-        </div>
-      );
-    }
-
-    // ===== CAS 1 : ADMIN ou Utilisateur avec accès supplémentaires
-    if (selectedNiveau) {
-      return (
-        <div className="space-y-4">
-          {filteredEntitees.length > 0 ? (
-            filteredEntitees
-              .filter((e) =>
-                e.libelle?.toLowerCase().includes(query.toLowerCase()),
-              )
-              .map((entitee) => {
-                const entiteeTypes = typesByEntitee[entitee.id] || [];
-                const isExpanded = expandedEntitee === entitee.id;
-
-                return (
-                  <div
-                    key={`${entitee.type}-${entitee.id}`}
-                    className={`bg-white border rounded-2xl overflow-hidden shadow-sm transition-all ${
-                      isExpanded
-                        ? "border-emerald-500 ring-2 ring-emerald-200"
-                        : "border-slate-100"
+              return (
+                <div
+                  key={`${entiteeItem.type}-${entiteeItem.id}`}
+                  className={`bg-white border rounded-2xl overflow-hidden shadow-sm transition-all ${
+                    isExpanded
+                      ? "border-emerald-500 ring-2 ring-emerald-200"
+                      : "border-slate-100"
+                  }`}
+                >
+                  {/* HEADER ENTITÉ - garde ton code existant ici */}
+                  <button
+                    onClick={() => toggleEntitee(entiteeItem.id)}
+                    className={`w-full flex items-center justify-between p-5 transition-all ${
+                      isExpanded ? "bg-emerald-50/50" : "hover:bg-slate-50"
                     }`}
                   >
-                    {/* HEADER ENTITÉ */}
-                    <button
-                      onClick={() => toggleEntitee(entitee.id)}
-                      className={`w-full flex items-center justify-between p-5 transition-all ${
-                        isExpanded ? "bg-emerald-50/50" : "hover:bg-slate-50"
-                      }`}
-                    >
-                      <div className="flex items-center gap-4">
-                        <div
-                          className={`p-2 rounded-lg ${
-                            isExpanded
-                              ? "bg-emerald-500 text-white"
-                              : "bg-slate-100 text-slate-500"
-                          }`}
-                        >
-                          {entitee.type === "un" && <Building2 size={20} />}
-                          {entitee.type === "deux" && <Layers size={20} />}
-                          {entitee.type === "trois" && <GitMerge size={20} />}
-                        </div>
-                        <div className="text-left">
-                          <div className="flex items-center gap-2">
-                            <h3
-                              className={`font-bold ${
-                                isExpanded
-                                  ? "text-emerald-800"
-                                  : "text-slate-700"
-                              }`}
-                            >
-                              {entitee.libelle}
-                            </h3>
-                            {entitee.code && (
-                              <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-mono">
-                                {entitee.code}
-                              </span>
-                            )}
-                            <span
-                              className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                                entitee.type === "un"
-                                  ? "bg-blue-100 text-blue-700"
-                                  : entitee.type === "deux"
-                                    ? "bg-purple-100 text-purple-700"
-                                    : "bg-emerald-100 text-emerald-700"
-                              }`}
-                            >
-                              N
-                              {entitee.type === "un"
-                                ? "1"
-                                : entitee.type === "deux"
-                                  ? "2"
-                                  : "3"}
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-500 font-medium">
-                            {entiteeTypes.length} type(s) de document
-                          </p>
-                        </div>
+                    <div className="flex items-center gap-4">
+                      <div
+                        className={`p-2 rounded-lg ${
+                          isExpanded
+                            ? "bg-emerald-500 text-white"
+                            : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {entiteeItem.type === "un" && <Building2 size={20} />}
+                        {entiteeItem.type === "deux" && <Layers size={20} />}
+                        {entiteeItem.type === "trois" && <GitMerge size={20} />}
                       </div>
-                      {isExpanded ? (
-                        <ChevronDown size={20} className="text-emerald-500" />
-                      ) : (
-                        <ChevronRight size={20} className="text-slate-400" />
-                      )}
-                    </button>
+                      <div className="text-left">
+                        <div className="flex items-center gap-2">
+                          <h3
+                            className={`font-bold ${
+                              isExpanded ? "text-emerald-800" : "text-slate-700"
+                            }`}
+                          >
+                            {entiteeItem.libelle}
+                          </h3>
+                          {entiteeItem.code && (
+                            <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-mono">
+                              {entiteeItem.code}
+                            </span>
+                          )}
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                              entiteeItem.type === "un"
+                                ? "bg-blue-100 text-blue-700"
+                                : entiteeItem.type === "deux"
+                                  ? "bg-purple-100 text-purple-700"
+                                  : "bg-emerald-100 text-emerald-700"
+                            }`}
+                          >
+                            N
+                            {entiteeItem.type === "un"
+                              ? "1"
+                              : entiteeItem.type === "deux"
+                                ? "2"
+                                : "3"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 font-medium">
+                          {entiteeTypes.length} type(s) de document
+                        </p>
+                      </div>
+                    </div>
+                    {isExpanded ? (
+                      <ChevronDown size={20} className="text-emerald-500" />
+                    ) : (
+                      <ChevronRight size={20} className="text-slate-400" />
+                    )}
+                  </button>
 
-                    {/* TYPES DE DOCUMENTS DE L'ENTITÉ */}
-                    {isExpanded && (
-                      <div className="border-t border-slate-100 p-5 space-y-3 bg-slate-50/30">
-                        {entiteeTypes.length > 0 ? (
-                          entiteeTypes.map((type) => {
-                            const isTypeExpanded = expandedType === type.id;
-                            const typeDocs = allDocs.filter(
-                              (d) => d.type_document_id === type.id,
-                            );
-                            const paginatedDocs = typeDocs.slice(
-                              (currentPage - 1) * itemsPerPage,
-                              currentPage * itemsPerPage,
-                            );
+                  {/* TYPES DE DOCUMENTS DE L'ENTITÉ - garde ton code existant */}
+                  {/* TYPES DE DOCUMENTS DE L'ENTITÉ */}
+                  {isExpanded && (
+                    <div className="border-t border-slate-100 p-5 space-y-3 bg-slate-50/30">
+                      {entiteeTypes.length > 0 ? (
+                        entiteeTypes.map((type) => {
+                          const isTypeExpanded = expandedType === type.id;
+                          const typeDocs = allDocs.filter(
+                            (d) => d.type_document_id === type.id,
+                          );
+                          const currentPageForType = getCurrentPageForType(
+                            type.id,
+                          );
+                          const paginatedDocs = typeDocs.slice(
+                            (currentPageForType - 1) * itemsPerPage,
+                            currentPageForType * itemsPerPage,
+                          );
 
-                            return (
+                          return (
+                            <div
+                              key={type.id}
+                              className={`bg-white border rounded-xl overflow-hidden transition-all ${
+                                isTypeExpanded
+                                  ? "border-emerald-400"
+                                  : "border-slate-100"
+                              }`}
+                            >
+                              {/* HEADER TYPE */}
                               <div
-                                key={type.id}
-                                className={`bg-white border rounded-xl overflow-hidden transition-all ${
+                                onClick={() => toggleType(type.id)}
+                                className={`w-full flex items-center justify-between p-4 transition-all ${
                                   isTypeExpanded
-                                    ? "border-emerald-400"
-                                    : "border-slate-100"
+                                    ? "bg-emerald-50/50"
+                                    : "hover:bg-slate-50"
                                 }`}
                               >
-                                {/* HEADER TYPE */}
-                                <div
-                                  onClick={() => toggleType(type.id)}
-                                  className={`w-full flex items-center justify-between p-4 transition-all ${
-                                    isTypeExpanded
-                                      ? "bg-emerald-50/50"
-                                      : "hover:bg-slate-50"
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <div
-                                      className={`p-1.5 rounded-lg ${
-                                        isTypeExpanded
-                                          ? "bg-emerald-500 text-white"
-                                          : "bg-slate-100 text-slate-500"
-                                      }`}
-                                    >
-                                      <FileText size={16} />
-                                    </div>
-                                    <div className="text-left">
-                                      <div className="flex items-center gap-2">
-                                        <span
-                                          className={`text-sm font-bold ${
-                                            isTypeExpanded
-                                              ? "text-emerald-700"
-                                              : "text-slate-700"
-                                          }`}
-                                        >
-                                          {type.nom}
-                                        </span>
-                                        <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[10px] font-mono">
-                                          {type.code}
-                                        </span>
-                                      </div>
-                                      <p className="text-[10px] text-slate-500">
-                                        {typeDocs.length} document(s)
-                                      </p>
-                                    </div>
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className={`p-1.5 rounded-lg ${
+                                      isTypeExpanded
+                                        ? "bg-emerald-500 text-white"
+                                        : "bg-slate-100 text-slate-500"
+                                    }`}
+                                  >
+                                    <FileStack size={16} />
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setPendingTypeId(type.id);
-                                        setEditingDoc(null);
-                                        setFormVisible(true);
-                                      }}
-                                      className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"
-                                      title="Nouveau document"
-                                    >
-                                      <Plus size={14} />
-                                    </button>
-                                    {isTypeExpanded ? (
-                                      <ChevronDown
-                                        size={16}
-                                        className="text-emerald-500"
-                                      />
-                                    ) : (
-                                      <ChevronRight
-                                        size={16}
-                                        className="text-slate-400"
-                                      />
-                                    )}
+                                  <div className="text-left">
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className={`text-sm font-bold ${
+                                          isTypeExpanded
+                                            ? "text-emerald-700"
+                                            : "text-slate-700"
+                                        }`}
+                                      >
+                                        {type.nom}
+                                      </span>
+                                      <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[10px] font-mono">
+                                        {type.code}
+                                      </span>
+                                    </div>
+                                    <p className="text-[10px] text-slate-500">
+                                      {typeDocs.length} document(s)
+                                    </p>
                                   </div>
                                 </div>
-
-                                {/* TABLEAU DES DOCUMENTS */}
-                                {isTypeExpanded && (
-                                  <div className="border-t border-slate-100 p-4 bg-slate-50/30">
-                                    {typeDocs.length > 0 ? (
-                                      <>
-                                        <div className="overflow-x-auto">
-                                          <table className="w-full text-left border-collapse">
-                                            <thead>
-                                              <tr className="bg-emerald-50/30 border-b border-emerald-50">
-                                                <th className="p-3 text-[11px] font-black text-emerald-800 uppercase tracking-widest w-24">
-                                                  Réf.
-                                                </th>
-                                                {metaFields.map((m) => (
-                                                  <th
-                                                    key={m.id}
-                                                    className="p-3 text-[11px] font-black text-emerald-800 uppercase tracking-widest"
-                                                  >
-                                                    {m.label}
-                                                  </th>
-                                                ))}
-                                                <th className="p-3 text-[11px] font-black text-emerald-800 uppercase tracking-widest text-center">
-                                                  Actions
-                                                </th>
-                                              </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-emerald-50">
-                                              {paginatedDocs.map((doc) => (
-                                                <tr
-                                                  key={doc.id}
-                                                  onClick={() => {
-                                                    setSelected(doc);
-                                                    setDetailsVisible(true);
-                                                  }}
-                                                  className="cursor-pointer group hover:bg-emerald-50/40 transition-colors"
-                                                >
-                                                  <td className="p-3">
-                                                    <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-lg text-xs font-bold border border-emerald-200">
-                                                      #
-                                                      {String(doc.id).padStart(
-                                                        3,
-                                                        "0",
-                                                      )}
-                                                    </span>
-                                                  </td>
-
-                                                  {metaFields.map((m) => {
-                                                    const value =
-                                                      doc.values?.find(
-                                                        (v: any) =>
-                                                          v.metaField?.id ===
-                                                          m.id,
-                                                      )?.value;
-                                                    return (
-                                                      <td
-                                                        key={m.id}
-                                                        className="p-3 text-sm text-emerald-900 font-medium"
-                                                      >
-                                                        {value || (
-                                                          <span className="text-emerald-200">
-                                                            ---
-                                                          </span>
-                                                        )}
-                                                      </td>
-                                                    );
-                                                  })}
-
-                                                  <td className="p-3">
-                                                    <div
-                                                      className="flex justify-center gap-1"
-                                                      onClick={(e) =>
-                                                        e.stopPropagation()
-                                                      }
-                                                    >
-                                                      <button
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          setEditingDoc(doc);
-                                                          setPendingTypeId(
-                                                            type.id,
-                                                          );
-                                                          setFormVisible(true);
-                                                        }}
-                                                        className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
-                                                        title="Modifier le document"
-                                                      >
-                                                        <Pencil size={18} />
-                                                      </button>
-
-                                                      <button
-                                                        onClick={(e) => {
-                                                          setSelected(doc);
-                                                          setDisponibleVisible(
-                                                            true,
-                                                          );
-                                                          e.stopPropagation();
-                                                        }}
-                                                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
-                                                        title="Contrôle de la disponibilité des pièces"
-                                                      >
-                                                        <Check size={18} />
-                                                      </button>
-                                                      <button
-                                                        onClick={(e) => {
-                                                          setSelected(doc);
-                                                          setAjoutVisible(true);
-                                                          e.stopPropagation();
-                                                        }}
-                                                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
-                                                        title="Chargement des fichiers"
-                                                      >
-                                                        <CloudDownload
-                                                          size={18}
-                                                        />
-                                                      </button>
-                                                      <button
-                                                        onClick={() =>
-                                                          handleDelete(
-                                                            String(doc.id),
-                                                          )
-                                                        }
-                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                                      >
-                                                        <Trash2 size={18} />
-                                                      </button>
-                                                    </div>
-                                                  </td>
-                                                </tr>
-                                              ))}
-                                            </tbody>
-                                          </table>
-                                        </div>
-
-                                        <div className="mt-4 flex justify-center">
-                                          <Pagination
-                                            currentPage={currentPage}
-                                            itemsPerPage={itemsPerPage}
-                                            totalItems={typeDocs.length}
-                                            onPageChange={setCurrentPage}
-                                          />
-                                        </div>
-                                      </>
-                                    ) : (
-                                      <div className="text-center py-8">
-                                        <FileText
-                                          size={32}
-                                          className="mx-auto text-slate-300 mb-2"
-                                        />
-                                        <p className="text-sm text-slate-400 italic">
-                                          Aucun document pour ce type
-                                        </p>
-                                        <button
-                                          onClick={() => {
-                                            setDocumentType_id(type.id);
-                                            setFormVisible(true);
-                                          }}
-                                          className="mt-3 text-sm bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition-all"
-                                        >
-                                          <Plus
-                                            size={14}
-                                            className="inline mr-1"
-                                          />
-                                          Créer le premier document
-                                        </button>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPendingTypeId(type.id);
+                                      setEditingDoc(null);
+                                      setFormVisible(true);
+                                    }}
+                                    className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                                    title="Nouveau document"
+                                  >
+                                    <Plus size={14} />
+                                  </button>
+                                  {isTypeExpanded ? (
+                                    <ChevronDown
+                                      size={16}
+                                      className="text-emerald-500"
+                                    />
+                                  ) : (
+                                    <ChevronRight
+                                      size={16}
+                                      className="text-slate-400"
+                                    />
+                                  )}
+                                </div>
                               </div>
-                            );
-                          })
-                        ) : (
-                          <div className="text-center py-8">
-                            <p className="text-slate-400 text-sm italic">
-                              Aucun type de document pour cette entité
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
+
+                              {/* TABLEAU DES DOCUMENTS */}
+                              {isTypeExpanded && (
+                                <div className="border-t border-slate-100 p-4 bg-slate-50/30">
+                                  {typeDocs.length > 0 ? (
+                                    <>
+                                      <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
+                                          <thead>
+                                            <tr className="bg-emerald-50/30 border-b border-emerald-50">
+                                              <th className="p-3 text-[11px] font-black text-emerald-800 uppercase tracking-widest w-24">
+                                                Réf.
+                                              </th>
+                                              {metaFields.map((m) => (
+                                                <th
+                                                  key={m.id}
+                                                  className="p-3 text-[11px] font-black text-emerald-800 uppercase tracking-widest"
+                                                >
+                                                  {m.label}
+                                                </th>
+                                              ))}
+                                              <th className="p-3 text-[11px] font-black text-emerald-800 uppercase tracking-widest text-center">
+                                                Actions
+                                              </th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-emerald-50">
+                                            {paginatedDocs.map((doc) => (
+                                              <tr
+                                                key={doc.id}
+                                                onClick={() => {
+                                                  setSelected(doc);
+                                                  setDetailsVisible(true);
+                                                }}
+                                                className="cursor-pointer group hover:bg-emerald-50/40 transition-colors"
+                                              >
+                                                <td className="p-3">
+                                                  <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-lg text-xs font-bold border border-emerald-200">
+                                                    #
+                                                    {String(doc.id).padStart(
+                                                      3,
+                                                      "0",
+                                                    )}
+                                                  </span>
+                                                </td>
+                                                {metaFields.map((m) => {
+                                                  const value =
+                                                    doc.values?.find(
+                                                      (v: any) =>
+                                                        v.metaField?.id ===
+                                                        m.id,
+                                                    )?.value;
+                                                  return (
+                                                    <td
+                                                      key={m.id}
+                                                      className="p-3 text-sm text-emerald-900 font-medium"
+                                                    >
+                                                      {value || (
+                                                        <span className="text-emerald-200">
+                                                          ---
+                                                        </span>
+                                                      )}
+                                                    </td>
+                                                  );
+                                                })}
+                                                <td className="p-3">
+                                                  <div
+                                                    className="flex justify-center gap-1"
+                                                    onClick={(e) =>
+                                                      e.stopPropagation()
+                                                    }
+                                                  >
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setEditingDoc(doc);
+                                                        setPendingTypeId(
+                                                          type.id,
+                                                        );
+                                                        setFormVisible(true);
+                                                      }}
+                                                      className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                                                      title="Modifier le document"
+                                                    >
+                                                      <Pencil size={18} />
+                                                    </button>
+                                                    <button
+                                                      onClick={(e) => {
+                                                        setSelected(doc);
+                                                        setDisponibleVisible(
+                                                          true,
+                                                        );
+                                                        e.stopPropagation();
+                                                      }}
+                                                      className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
+                                                      title="Contrôle de la disponibilité des pièces"
+                                                    >
+                                                      <Check size={18} />
+                                                    </button>
+                                                    <button
+                                                      onClick={(e) => {
+                                                        setSelected(doc);
+                                                        setAjoutVisible(true);
+                                                        e.stopPropagation();
+                                                      }}
+                                                      className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                                                      title="Chargement des fichiers"
+                                                    >
+                                                      <CloudDownload
+                                                        size={18}
+                                                      />
+                                                    </button>
+                                                    <button
+                                                      onClick={() =>
+                                                        handleDelete(
+                                                          String(doc.id),
+                                                        )
+                                                      }
+                                                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                                    >
+                                                      <Trash2 size={18} />
+                                                    </button>
+                                                  </div>
+                                                </td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+
+                                      <div className="mt-4 flex justify-center">
+                                        <Pagination
+                                          currentPage={currentPageForType}
+                                          itemsPerPage={itemsPerPage}
+                                          totalItems={typeDocs.length}
+                                          onPageChange={(page) =>
+                                            handlePageChange(type.id, page)
+                                          }
+                                        />
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="text-center py-8">
+                                      <FileText
+                                        size={32}
+                                        className="mx-auto text-slate-300 mb-2"
+                                      />
+                                      <p className="text-sm text-slate-400 italic">
+                                        Aucun document pour ce type
+                                      </p>
+                                      <button
+                                        onClick={() => {
+                                          setDocumentType_id(type.id);
+                                          setFormVisible(true);
+                                        }}
+                                        className="mt-3 text-sm bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition-all"
+                                      >
+                                        <Plus
+                                          size={14}
+                                          className="inline mr-1"
+                                        />
+                                        Créer le premier document
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="text-center py-8">
+                          <p className="text-slate-400 text-sm italic">
+                            Aucun type de document pour cette entité
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           ) : (
             <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-100">
               <div className="inline-flex p-4 bg-slate-50 rounded-full text-slate-300 mb-4">
@@ -918,10 +962,683 @@ export default function DocumentPage() {
               </p>
             </div>
           )}
+          {filteredEntiteesList.length > entiteesPerPage && (
+            <div className="mt-6 flex justify-center">
+              <Pagination
+                currentPage={entiteePage}
+                itemsPerPage={entiteesPerPage}
+                totalItems={filteredEntiteesList.length}
+                onPageChange={setEntiteePage}
+              />
+            </div>
+          )}
         </div>
       );
     }
 
+    // ===== CAS 2.1 : Utilisateur avec accès supplémentaires
+    if (hasAdditionalAccess() && selectedNiveau) {
+      const filteredEntiteesList = filteredEntitees.filter((e: Entitee) =>
+        e.libelle?.toLowerCase().includes(query.toLowerCase()),
+      );
+      const paginatedEntiteesList = filteredEntiteesList.slice(
+        (entiteePage - 1) * entiteesPerPage,
+        entiteePage * entiteesPerPage,
+      );
+
+      return (
+        <div className="space-y-4">
+          {filteredEntiteesList.length > 0 ? (
+            paginatedEntiteesList.map((entiteeItem: Entitee) => {
+              const entiteeTypes = typesByEntitee[entiteeItem.id] || [];
+              const isExpanded = expandedEntitee === entiteeItem.id;
+
+              return (
+                <div
+                  key={`${entiteeItem.type}-${entiteeItem.id}`}
+                  className={`bg-white border rounded-2xl overflow-hidden shadow-sm transition-all ${
+                    isExpanded
+                      ? "border-emerald-500 ring-2 ring-emerald-200"
+                      : "border-slate-100"
+                  }`}
+                >
+                  {/* HEADER ENTITÉ - même contenu que CAS 1 */}
+                  <button
+                    onClick={() => toggleEntitee(entiteeItem.id)}
+                    className={`w-full flex items-center justify-between p-5 transition-all ${
+                      isExpanded ? "bg-emerald-50/50" : "hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div
+                        className={`p-2 rounded-lg ${
+                          isExpanded
+                            ? "bg-emerald-500 text-white"
+                            : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {entiteeItem.type === "un" && <Building2 size={20} />}
+                        {entiteeItem.type === "deux" && <Layers size={20} />}
+                        {entiteeItem.type === "trois" && <GitMerge size={20} />}
+                      </div>
+                      <div className="text-left">
+                        <div className="flex items-center gap-2">
+                          <h3
+                            className={`font-bold ${
+                              isExpanded ? "text-emerald-800" : "text-slate-700"
+                            }`}
+                          >
+                            {entiteeItem.libelle}
+                          </h3>
+                          {entiteeItem.code && (
+                            <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-mono">
+                              {entiteeItem.code}
+                            </span>
+                          )}
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                              entiteeItem.type === "un"
+                                ? "bg-blue-100 text-blue-700"
+                                : entiteeItem.type === "deux"
+                                  ? "bg-purple-100 text-purple-700"
+                                  : "bg-emerald-100 text-emerald-700"
+                            }`}
+                          >
+                            N
+                            {entiteeItem.type === "un"
+                              ? "1"
+                              : entiteeItem.type === "deux"
+                                ? "2"
+                                : "3"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 font-medium">
+                          {entiteeTypes.length} type(s) de document
+                        </p>
+                      </div>
+                    </div>
+                    {isExpanded ? (
+                      <ChevronDown size={20} className="text-emerald-500" />
+                    ) : (
+                      <ChevronRight size={20} className="text-slate-400" />
+                    )}
+                  </button>
+
+                  {/* TYPES DE DOCUMENTS DE L'ENTITÉ */}
+                  {isExpanded && (
+                    <div className="border-t border-slate-100 p-5 space-y-3 bg-slate-50/30">
+                      {entiteeTypes.length > 0 ? (
+                        entiteeTypes.map((type) => {
+                          const isTypeExpanded = expandedType === type.id;
+                          const typeDocs = allDocs.filter(
+                            (d) => d.type_document_id === type.id,
+                          );
+                          const currentPageForType = getCurrentPageForType(
+                            type.id,
+                          );
+
+                          const paginatedDocs = typeDocs.slice(
+                            (currentPageForType - 1) * itemsPerPage,
+                            currentPageForType * itemsPerPage,
+                          );
+
+                          return (
+                            <div
+                              key={type.id}
+                              className={`bg-white border rounded-xl overflow-hidden transition-all ${
+                                isTypeExpanded
+                                  ? "border-emerald-400"
+                                  : "border-slate-100"
+                              }`}
+                            >
+                              {/* HEADER TYPE */}
+                              <div
+                                onClick={() => toggleType(type.id)}
+                                className={`w-full flex items-center justify-between p-4 transition-all ${
+                                  isTypeExpanded
+                                    ? "bg-emerald-50/50"
+                                    : "hover:bg-slate-50"
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className={`p-1.5 rounded-lg ${
+                                      isTypeExpanded
+                                        ? "bg-emerald-500 text-white"
+                                        : "bg-slate-100 text-slate-500"
+                                    }`}
+                                  >
+                                    <FileStack size={16} />
+                                  </div>
+                                  <div className="text-left">
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className={`text-sm font-bold ${
+                                          isTypeExpanded
+                                            ? "text-emerald-700"
+                                            : "text-slate-700"
+                                        }`}
+                                      >
+                                        {type.nom}
+                                      </span>
+                                      <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[10px] font-mono">
+                                        {type.code}
+                                      </span>
+                                    </div>
+                                    <p className="text-[10px] text-slate-500">
+                                      {typeDocs.length} document(s)
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPendingTypeId(type.id);
+                                      setEditingDoc(null);
+                                      setFormVisible(true);
+                                    }}
+                                    className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                                    title="Nouveau document"
+                                  >
+                                    <Plus size={14} />
+                                  </button>
+                                  {isTypeExpanded ? (
+                                    <ChevronDown
+                                      size={16}
+                                      className="text-emerald-500"
+                                    />
+                                  ) : (
+                                    <ChevronRight
+                                      size={16}
+                                      className="text-slate-400"
+                                    />
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* TABLEAU DES DOCUMENTS */}
+                              {isTypeExpanded && (
+                                <div className="border-t border-slate-100 p-4 bg-slate-50/30">
+                                  {typeDocs.length > 0 ? (
+                                    <>
+                                      <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
+                                          <thead>
+                                            <tr className="bg-emerald-50/30 border-b border-emerald-50">
+                                              <th className="p-3 text-[11px] font-black text-emerald-800 uppercase tracking-widest w-24">
+                                                Réf.
+                                              </th>
+                                              {metaFields.map((m) => (
+                                                <th
+                                                  key={m.id}
+                                                  className="p-3 text-[11px] font-black text-emerald-800 uppercase tracking-widest"
+                                                >
+                                                  {m.label}
+                                                </th>
+                                              ))}
+                                              <th className="p-3 text-[11px] font-black text-emerald-800 uppercase tracking-widest text-center">
+                                                Actions
+                                              </th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-emerald-50">
+                                            {paginatedDocs.map((doc) => (
+                                              <tr
+                                                key={doc.id}
+                                                onClick={() => {
+                                                  setSelected(doc);
+                                                  setDetailsVisible(true);
+                                                }}
+                                                className="cursor-pointer group hover:bg-emerald-50/40 transition-colors"
+                                              >
+                                                <td className="p-3">
+                                                  <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-lg text-xs font-bold border border-emerald-200">
+                                                    #
+                                                    {String(doc.id).padStart(
+                                                      3,
+                                                      "0",
+                                                    )}
+                                                  </span>
+                                                </td>
+                                                {metaFields.map((m) => {
+                                                  const value =
+                                                    doc.values?.find(
+                                                      (v: any) =>
+                                                        v.metaField?.id ===
+                                                        m.id,
+                                                    )?.value;
+                                                  return (
+                                                    <td
+                                                      key={m.id}
+                                                      className="p-3 text-sm text-emerald-900 font-medium"
+                                                    >
+                                                      {value || (
+                                                        <span className="text-emerald-200">
+                                                          ---
+                                                        </span>
+                                                      )}
+                                                    </td>
+                                                  );
+                                                })}
+                                                <td className="p-3">
+                                                  <div
+                                                    className="flex justify-center gap-1"
+                                                    onClick={(e) =>
+                                                      e.stopPropagation()
+                                                    }
+                                                  >
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setEditingDoc(doc);
+                                                        setPendingTypeId(
+                                                          type.id,
+                                                        );
+                                                        setFormVisible(true);
+                                                      }}
+                                                      className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                                                      title="Modifier le document"
+                                                    >
+                                                      <Pencil size={18} />
+                                                    </button>
+
+                                                    <button
+                                                      onClick={(e) => {
+                                                        setSelected(doc);
+                                                        setDisponibleVisible(
+                                                          true,
+                                                        );
+                                                        e.stopPropagation();
+                                                      }}
+                                                      className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
+                                                      title="Contrôle de la disponibilité des pièces"
+                                                    >
+                                                      <Check size={18} />
+                                                    </button>
+                                                    <button
+                                                      onClick={(e) => {
+                                                        setSelected(doc);
+                                                        setAjoutVisible(true);
+                                                        e.stopPropagation();
+                                                      }}
+                                                      className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                                                      title="Chargement des fichiers"
+                                                    >
+                                                      <CloudDownload
+                                                        size={18}
+                                                      />
+                                                    </button>
+                                                    <button
+                                                      onClick={() =>
+                                                        handleDelete(
+                                                          String(doc.id),
+                                                        )
+                                                      }
+                                                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                                    >
+                                                      <Trash2 size={18} />
+                                                    </button>
+                                                  </div>
+                                                </td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+
+                                      <div className="mt-4 flex justify-center">
+                                        <Pagination
+                                          currentPage={currentPageForType}
+                                          itemsPerPage={itemsPerPage}
+                                          totalItems={typeDocs.length}
+                                          onPageChange={(page) =>
+                                            handlePageChange(type.id, page)
+                                          }
+                                        />
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="text-center py-8">
+                                      <FileText
+                                        size={32}
+                                        className="mx-auto text-slate-300 mb-2"
+                                      />
+                                      <p className="text-sm text-slate-400 italic">
+                                        Aucun document pour ce type
+                                      </p>
+                                      <button
+                                        onClick={() => {
+                                          setDocumentType_id(type.id);
+                                          setFormVisible(true);
+                                        }}
+                                        className="mt-3 text-sm bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition-all"
+                                      >
+                                        <Plus
+                                          size={14}
+                                          className="inline mr-1"
+                                        />
+                                        Créer le premier document
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="text-center py-8">
+                          <p className="text-slate-400 text-sm italic">
+                            Aucun type de document pour cette entité
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-100">
+              <div className="inline-flex p-4 bg-slate-50 rounded-full text-slate-300 mb-4">
+                <Building2 size={40} />
+              </div>
+              <p className="text-slate-400 font-medium">
+                Aucune entité trouvée pour ce niveau
+              </p>
+            </div>
+          )}
+
+          {filteredEntitees.length > entiteesPerPage && (
+            <div className="mt-6 flex justify-center">
+              <Pagination
+                currentPage={entiteePage}
+                itemsPerPage={entiteesPerPage}
+                totalItems={filteredEntitees.length}
+                onPageChange={setEntiteePage}
+              />
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ===== CAS 2.2 : Utilisateur SANS accès supplémentaires (fonction seulement)
+    if (!hasAdditionalAccess() && !isUserAdmin()) {
+      const fonctionTypes = getUserFonctionTypes();
+
+      const paginatedTypes = fonctionTypes.slice(
+        (typePage - 1) * typesPerPage,
+        typePage * typesPerPage,
+      );
+
+      if (fonctionTypes.length === 0) {
+        return (
+          <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-100">
+            <FileStack size={48} className="mx-auto text-slate-300 mb-4" />
+            <p className="text-slate-400 font-medium">
+              Aucun type de document disponible pour votre fonction
+            </p>
+          </div>
+        );
+      }
+
+      return (
+        <div className="space-y-4">
+          {paginatedTypes.map((type) => {
+            const typeDocs = allDocs.filter(
+              (d) => d.type_document_id === type.id,
+            );
+            const isTypeExpanded = expandedType === type.id;
+
+            // ✅ Pagination spécifique à ce type
+            const currentPageForType = getCurrentPageForType(type.id);
+            const totalItems = typeDocs.length;
+            const paginatedDocs = typeDocs.slice(
+              (currentPageForType - 1) * itemsPerPage,
+              currentPageForType * itemsPerPage,
+            );
+
+            return (
+              <div
+                key={type.id}
+                className={`bg-white border rounded-2xl overflow-hidden shadow-sm transition-all ${
+                  isTypeExpanded
+                    ? "border-emerald-500 ring-2 ring-emerald-200"
+                    : "border-slate-100"
+                }`}
+              >
+                {/* HEADER TYPE */}
+                <div
+                  onClick={() => toggleType(type.id)}
+                  className={`w-full flex items-center justify-between p-5 transition-all ${
+                    isTypeExpanded ? "bg-emerald-50/50" : "hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={`p-2 rounded-lg ${
+                        isTypeExpanded
+                          ? "bg-emerald-500 text-white"
+                          : "bg-red-100 text-slate-500"
+                      }`}
+                    >
+                      <FileStack size={20} />
+                    </div>
+                    <div className="text-left">
+                      <div className="flex items-center gap-2">
+                        <h3
+                          className={`font-bold ${
+                            isTypeExpanded
+                              ? "text-emerald-800"
+                              : "text-slate-700"
+                          }`}
+                        >
+                          {type.nom}
+                        </h3>
+                        {type.code && (
+                          <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-mono">
+                            {type.code}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500 font-medium">
+                        {typeDocs.length} document(s)
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPendingTypeId(type.id);
+                        setEditingDoc(null);
+                        setFormVisible(true);
+                      }}
+                      className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                      title="Nouveau document"
+                    >
+                      <Plus size={16} />
+                    </button>
+                    {isTypeExpanded ? (
+                      <ChevronDown size={20} className="text-emerald-500" />
+                    ) : (
+                      <ChevronRight size={20} className="text-slate-400" />
+                    )}
+                  </div>
+                </div>
+
+                {/* TABLEAU DES DOCUMENTS */}
+                {isTypeExpanded && (
+                  <div className="border-t border-slate-100 p-5 bg-slate-50/30">
+                    {typeDocs.length > 0 ? (
+                      <>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-emerald-50/30 border-b border-emerald-50">
+                                <th className="p-3 text-[11px] font-black text-emerald-800 uppercase tracking-widest w-24">
+                                  Réf.
+                                </th>
+                                {metaFields.map((m) => (
+                                  <th
+                                    key={m.id}
+                                    className="p-3 text-[11px] font-black text-emerald-800 uppercase tracking-widest"
+                                  >
+                                    {m.label}
+                                  </th>
+                                ))}
+                                <th className="p-3 text-[11px] font-black text-emerald-800 uppercase tracking-widest text-center">
+                                  Actions
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-emerald-50">
+                              {paginatedDocs.map((doc) => (
+                                <tr
+                                  key={doc.id}
+                                  onClick={() => {
+                                    setSelected(doc);
+                                    setDetailsVisible(true);
+                                  }}
+                                  className="cursor-pointer group hover:bg-emerald-50/40 transition-colors"
+                                >
+                                  <td className="p-3">
+                                    <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-lg text-xs font-bold border border-emerald-200">
+                                      #{String(doc.id).padStart(3, "0")}
+                                    </span>
+                                  </td>
+                                  {metaFields.map((m) => {
+                                    const value = doc.values?.find(
+                                      (v: any) => v.metaField?.id === m.id,
+                                    )?.value;
+                                    return (
+                                      <td
+                                        key={m.id}
+                                        className="p-3 text-sm text-emerald-900 font-medium"
+                                      >
+                                        {value || (
+                                          <span className="text-emerald-200">
+                                            ---
+                                          </span>
+                                        )}
+                                      </td>
+                                    );
+                                  })}
+                                  <td className="p-3">
+                                    <div
+                                      className="flex justify-center gap-1"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditingDoc(doc);
+                                          setPendingTypeId(type.id);
+                                          setFormVisible(true);
+                                        }}
+                                        className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                                        title="Modifier le document"
+                                      >
+                                        <Pencil size={18} />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          setSelected(doc);
+                                          setDisponibleVisible(true);
+                                          e.stopPropagation();
+                                        }}
+                                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
+                                        title="Contrôle de la disponibilité des pièces"
+                                      >
+                                        <Check size={18} />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          setSelected(doc);
+                                          setAjoutVisible(true);
+                                          e.stopPropagation();
+                                        }}
+                                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                                        title="Chargement des fichiers"
+                                      >
+                                        <CloudDownload size={18} />
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          handleDelete(String(doc.id))
+                                        }
+                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                      >
+                                        <Trash2 size={18} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/*
+                         * pourquoi la pagination ne marche t'elle pas
+                         */}
+
+                        {/* ✅ PAGINATION spécifique à ce type */}
+                        {totalItems > itemsPerPage && (
+                          <div className="mt-4 flex justify-center">
+                            <Pagination
+                              currentPage={currentPageForType}
+                              itemsPerPage={itemsPerPage}
+                              totalItems={totalItems}
+                              onPageChange={(page) =>
+                                handlePageChange(type.id, page)
+                              }
+                            />
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-center py-8">
+                        <FileText
+                          size={32}
+                          className="mx-auto text-slate-300 mb-2"
+                        />
+                        <p className="text-sm text-slate-400 italic">
+                          Aucun document pour ce type
+                        </p>
+                        <button
+                          onClick={() => {
+                            setDocumentType_id(type.id);
+                            setFormVisible(true);
+                          }}
+                          className="mt-3 text-sm bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition-all"
+                        >
+                          <Plus size={14} className="inline mr-1" />
+                          Créer le premier document
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {fonctionTypes.length > typesPerPage && (
+            <div className="mt-6 flex justify-center">
+              <Pagination
+                currentPage={typePage}
+                itemsPerPage={typesPerPage}
+                totalItems={fonctionTypes.length}
+                onPageChange={setTypePage}
+              />
+            </div>
+          )}
+        </div>
+      );
+    }
+    // ===== CAS PAR DÉFAUT (affichage du message de sélection)
     return (
       <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-100">
         <div className="inline-flex p-4 bg-slate-50 rounded-full text-slate-300 mb-4">
@@ -1018,6 +1735,15 @@ export default function DocumentPage() {
         visible={disponibleVisible}
         onHide={() => setDisponibleVisible(false)}
         document={selected}
+        onSuccess={() => {
+          refetch();
+          // if (selected) {
+          //   const updatedDoc = allDocs.find((d) => d.id === selected.id);
+          //   if (updatedDoc) {
+          //     setSelected(updatedDoc);
+          //   }
+          // }
+        }}
       />
     </Layout>
   );

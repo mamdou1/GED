@@ -46,6 +46,7 @@
             "hash": "dc2192b4eabd16145d3d4a6f63ee2202bde3b030c58824d96844675690a4314e"
         },
         {
+<<<<<<< HEAD
             "date": 1774259540759,
             "name": "logs\\historique-2026-03-23.log",
             "hash": "72676791a24c72ce215d03e8c74813a1fa80b424ac172d815a97815fefa92ac5"
@@ -84,6 +85,26 @@
             "date": 1774831323621,
             "name": "logs\\historique-2026-03-30.log",
             "hash": "fe759056a9f1f2fd866f76135ef236d9c1bce5391a71a1185809782e58f16719"
+=======
+            "date": 1774355643035,
+            "name": "logs\\historique-2026-03-24.log",
+            "hash": "4b1968285adaedb96545e1e8bb278512dd39088eaa3d1ba5b304982827457fc8"
+        },
+        {
+            "date": 1774435130710,
+            "name": "logs\\historique-2026-03-25.log",
+            "hash": "cc00bc234ab9c74d61052b5af4c38fddefebc256dd5a66470a6cd423ae8e7451"
+        },
+        {
+            "date": 1774721708161,
+            "name": "logs\\historique-2026-03-28.log",
+            "hash": "001f7492d1836945ad13922f9f1e3fa0b9a084433d23102145063b1e0899ec2f"
+        },
+        {
+            "date": 1774869086644,
+            "name": "logs\\historique-2026-03-30.log",
+            "hash": "c4947e5f4e01c0ed5faf80a75a1cabd13855102b520f176558e3999f0c9d4fa3"
+>>>>>>> ma-nouvelle-branche
         }
     ],
     "hashType": "sha256"

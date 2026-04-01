@@ -2,6 +2,8 @@ const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const path = require("path");
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./swagger");
 
 dotenv.config();
 
@@ -45,6 +47,9 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // ✅ routes publiques AVANT verifyToken
 app.use("/api/auth", require("./routes/auth.routes"));
 
+// Swagger docs (PUBLIC)
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 // ✅ middleware auth après auth routes
 app.use(verifyToken);
 app.use(updateActivity);
@@ -79,6 +84,7 @@ app.use("/api/entiteeTrois", require("./routes/entiteeTrois.routes"));
 app.use("/api/agent-access", require("./routes/agentAccess.routes"));
 app.use("/api", require("./routes/pieceMetaField.routes"));
 app.use("/api", require("./routes/pieceValue.routes"));
+app.use("/api/courrier", require("./routes/courrier.routes"))
 
 app.use("/api/sync", require("./routes/sync.routes"));
 

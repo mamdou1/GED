@@ -1,0 +1,16 @@
+2026-03-28 18:15:08 [INFO] ✅ Logger initialisé avec succès 
+2026-03-28 19:13:01 [INFO] ✅ Logger initialisé avec succès 
+2026-03-28 19:16:35 [INFO] ✅ Logger initialisé avec succès 
+2026-03-28 19:17:13 [INFO] ✅ Logger initialisé avec succès 
+2026-03-28 19:23:35 [INFO] ✅ Logger initialisé avec succès 
+2026-03-28 19:29:26 [INFO] HISTORIQUE {"agent_id":1,"action":"login","resource":"auth/connexion","method":"POST","path":"/api/auth/connexion","status":200,"ip":"::1","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36 Edg/146.0.0.0"}
+2026-03-28 19:39:25 [INFO] ✅ Logger initialisé avec succès 
+2026-03-28 19:40:48 [INFO] ✅ Logger initialisé avec succès 
+2026-03-28 19:43:31 [INFO] ✅ Logger initialisé avec succès 
+2026-03-28 19:59:14 [INFO] ✅ Logger initialisé avec succès 
+2026-03-28 20:00:54 [INFO] ✅ Logger initialisé avec succès 
+2026-03-28 20:01:59 [INFO] ✅ Logger initialisé avec succès 
+2026-03-28 20:02:18 [INFO] ✅ Logger initialisé avec succès 
+2026-03-28 20:09:18 [INFO] ✅ Logger initialisé avec succès 
+2026-03-28 20:10:39 [INFO] ✅ Logger initialisé avec succès 
+2026-03-28 20:16:33 [INFO] HISTORIQUE {"agent_id":1,"action":"login","resource":"auth/connexion","method":"POST","path":"/api/auth/connexion","status":200,"ip":"::1","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36 Edg/146.0.0.0"}

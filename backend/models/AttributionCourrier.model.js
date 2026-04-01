@@ -1,0 +1,61 @@
+// backend/models/AttributionCourrier.model.js
+module.exports = (sequelize, DataTypes) => {
+  const AttributionCourrier = sequelize.define(
+    "AttributionCourrier",
+    {
+      id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true,
+      },
+      courrier_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      },
+      attribue_par_agent_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      },
+      attribue_a_agent_id: DataTypes.INTEGER,
+      attribue_a_entitee_id: DataTypes.INTEGER,   // EntiteeDeux ou EntiteeTrois
+      delai_heures_applique: DataTypes.INTEGER,
+      date_limite_traitement: DataTypes.DATE,
+      instructions_copiees: DataTypes.TEXT,
+      commentaire: DataTypes.TEXT,
+      date_attribution: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+      },
+      est_transfert: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+      },
+    },
+    {
+      tableName: "attribution_courrier",
+      underscored: true,
+      timestamps: true,
+    }
+  );
+
+  AttributionCourrier.associate = (models) => {
+    AttributionCourrier.belongsTo(models.Courrier, {
+      foreignKey: "courrier_id",
+      as: "courrier",
+    });
+    AttributionCourrier.belongsTo(models.Agent, {
+      foreignKey: "attribue_par_agent_id",
+      as: "attribue_par",
+    });
+    AttributionCourrier.belongsTo(models.Agent, {
+      foreignKey: "attribue_a_agent_id",
+      as: "attribue_a",
+    });
+    AttributionCourrier.belongsTo(models.EntiteeDeux, {
+      foreignKey: "attribue_a_entitee_id",
+      as: "entitee",
+    });
+  };
+
+  return AttributionCourrier;
+};

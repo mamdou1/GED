@@ -5,7 +5,7 @@ module.exports = (sequelize, DataTypes) => {
       libelle: DataTypes.STRING,
     },
     {
-      tableName: "Droit",
+      tableName: "droit",
       timestamps: true,
       underscored: true,
     },

@@ -13,7 +13,7 @@ RUN npm ci --only=production
 # Copier le reste du code source
 COPY . .
 
-# Exposer le port de l'application (ex: 3000)
+# Exposer le port de l'application (ex: 5000, 5001, etc.),
 EXPOSE 5000
 
 # Démarrer l'application

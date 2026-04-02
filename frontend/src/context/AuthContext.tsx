@@ -27,9 +27,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!permissions.length) return false;
 
     if (action) {
+      console.log("if action", permissions.includes(`${resource}.${action}`));
       return permissions.includes(`${resource}.${action}`);
     }
 
+    console.log(
+      "some",
+      permissions.some((p) => p.startsWith(resource + ".")),
+    );
     return permissions.some((p) => p.startsWith(resource + "."));
   };
 
@@ -50,6 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     // récupérer user connecté via /user/me
 
     const me = await api.get("/user/me");
+    console.log("me", me);
 
     const perms =
       me.data?.droit?.Permissions?.map(
@@ -94,7 +100,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, permissions, can, login, logout, inscription, setUser }}
+      value={{
+        user,
+        loading,
+        permissions,
+        can,
+        login,
+        logout,
+        inscription,
+        setUser,
+      }}
     >
       {children}
     </AuthContext.Provider>

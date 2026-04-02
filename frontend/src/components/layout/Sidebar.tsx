@@ -368,14 +368,15 @@ export default function Sidebar({ children }: SidebarProps) {
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 mt-4 custom-scrollbar">
           <SidebarContext.Provider value={{ expended, treeOpen, toggleTree }}>
             <ul className="space-y-1">
-              {can("statistique", "access") ? (
+              {can("statistique", "access") && (
                 <SidebarLink
                   icon={LayoutDashboard}
                   text="Tableau de bord"
                   to="/"
                   active={location.pathname === "/"}
                 />
-              ) : (
+              )}
+              {!can("statistique", "access") && (
                 <SidebarLink
                   icon={LayoutDashboard}
                   text="Tableau de bord"

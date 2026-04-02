@@ -29,10 +29,15 @@
 // export default api;
 
 // axios.ts
-import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosError } from "axios";
+import axios, {
+  AxiosInstance,
+  InternalAxiosRequestConfig,
+  AxiosError,
+} from "axios";
 
 const api: AxiosInstance = axios.create({
   baseURL: process.env.REACT_APP_API_URL || "http://localhost:5001/api",
+  //||"https://paleobiologic-unfederatively-brigette.ngrok-free.dev/api",
   timeout: 10000,
 });
 

@@ -87,6 +87,11 @@ app.use((req, res) => {
   res.status(404).json({ message: "Route non trouvée" });
 });
 
+// app.use(express.static(path.join(__dirname, "build")));
+// app.get(/^\/(?!api).*/, (req, res) => {
+//   res.sendFile(path.join(__dirname, "build", "index.html"));
+// });
+
 // Connexion MySQL + lancement serveur
 // 2️⃣ Connexion + sync
 sequelize

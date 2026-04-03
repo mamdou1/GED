@@ -83,7 +83,7 @@ module.exports = (sequelize, DataTypes) => {
       },
     },
     {
-      tableName: "historiqueLog",
+      tableName: "historiquelog",
       timestamps: true,
       underscored: true,
     },

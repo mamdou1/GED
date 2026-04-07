@@ -207,7 +207,18 @@ exports.getUsers = async (req, res) => {
     const users = await Agent.findAll({
       attributes: { exclude: ["password"] },
       include: [
-        { model: Droit, as: "droit", attributes: ["libelle"] },
+        {
+          model: Droit,
+          as: "droit",
+          //attributes: ["id", "libelle", "createdAt", "updatedAt"],
+          include: [
+            {
+              model: Permission,
+              as: "Permissions",
+              attributes: ["id", "resource", "action"],
+            },
+          ],
+        },
         fonctionInclude,
         agentAccessInclude,
       ],
@@ -271,7 +282,18 @@ exports.getUsersById = async (req, res) => {
       attributes: { exclude: ["password"] },
       include: [
         { model: Agent, as: "createur", attributes: ["nom", "prenom"] },
-        { model: Droit, as: "droit", attributes: ["id", "libelle"] },
+        {
+          model: Droit,
+          as: "droit",
+          //attributes: ["id", "libelle", "createdAt", "updatedAt"],
+          include: [
+            {
+              model: Permission,
+              as: "Permissions",
+              attributes: ["id", "resource", "action"],
+            },
+          ],
+        },
         fonctionInclude,
         agentAccessInclude,
       ],

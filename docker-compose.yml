@@ -1,4 +1,3 @@
-
 services:
   mysql:
     image: mysql:8
@@ -23,7 +22,7 @@ services:
       retries: 5
       timeout: 5s
     networks:
-    - liquidation_network
+      - liquidation_network
 
   backend:
     build: ./backend
@@ -32,7 +31,7 @@ services:
     environment:
       - NODE_ENV=docker
     ports:
-      - "7001:5000"
+      - "7000:5000"
     depends_on:
       mysql:
         condition: service_healthy

@@ -148,6 +148,41 @@ export default function BoxPage() {
     }
   };
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "LIBRE":
+        return (
+          <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">
+            🟢 Libre
+          </span>
+        );
+      case "OCCUPE":
+        return (
+          <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold">
+            🟠 Occupé
+          </span>
+        );
+      case "PLIEN":
+        return (
+          <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold">
+            🔴 Plein
+          </span>
+        );
+      case "RESERVER":
+        return (
+          <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">
+            🔵 Réservé
+          </span>
+        );
+      default:
+        return (
+          <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs">
+            Inconnu
+          </span>
+        );
+    }
+  };
+
   const getEntiteeLibelle = (box: Box): string => {
     if (box.entitee_trois) return box.entitee_trois.libelle;
     if (box.entitee_deux) return box.entitee_deux.libelle;
@@ -208,15 +243,26 @@ export default function BoxPage() {
             </p>
           </div>
         </div>
-        <Button
-          label="Nouveau Box"
-          icon={<Plus size={20} className="mr-2" />}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white border-none px-6 py-3 rounded-xl shadow-emerald-200 shadow-lg"
-          onClick={() => {
-            setEditing(null);
-            setFormVisible(true);
-          }}
-        />
+        <div>
+          <Button
+            label="Ajouter au Box"
+            icon={<Plus size={20} className="mr-2" />}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white border-none px-6 py-3 rounded-xl mr-3 shadow-emerald-200 shadow-lg"
+            // onClick={() => {
+            //   setEditing(null);
+            //   setFormVisible(true);
+            // }}
+          />
+          <Button
+            label="Nouveau Box"
+            icon={<Plus size={20} className="mr-2" />}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white border-none px-6 py-3 rounded-xl shadow-emerald-200 shadow-lg"
+            onClick={() => {
+              setEditing(null);
+              setFormVisible(true);
+            }}
+          />
+        </div>
       </div>
 
       {/* Barre de recherche (inchangée) */}
@@ -254,6 +300,9 @@ export default function BoxPage() {
               </th>
               <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
                 Travée
+              </th>
+              <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
+                Statut
               </th>
               <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
                 Capacité
@@ -350,6 +399,7 @@ export default function BoxPage() {
                         </span>
                       )}
                     </td>
+                    <td className="p-5">{getStatusBadge(box.status)}</td>
                     <td className="p-5">
                       <div className="space-y-2 min-w-[120px]">
                         <div className="flex items-center justify-between gap-2">

@@ -1,5 +1,5 @@
 import React, { ReactElement } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, Router } from "react-router-dom";
 import AuthSwitcher from "../pages/Auth/AuthSwitcher";
 import Pieces from "../pages/Pieces/PiecesPage";
 import Dashboard from "../pages/Dashboard/Dashboard";
@@ -54,7 +54,6 @@ export default function AppRouter() {
         path="/"
         element={
           <PrivateRoute>
-            {/* 💡 On vérifie ici aussi la permission ! */}
             {can("statistique", "read") ? (
               <Dashboard />
             ) : (
@@ -63,6 +62,7 @@ export default function AppRouter() {
           </PrivateRoute>
         }
       />
+      {/* <Route path="/" element={<AuthSwitcher />} /> */}
       <Route
         path="/welcome"
         element={

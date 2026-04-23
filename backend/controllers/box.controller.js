@@ -363,22 +363,11 @@ exports.addDocumentToBox = async (req, res) => {
     const doc = await Document.findByPk(documentId);
 
     if (!box || !doc) {
-      logger.warn("⚠️ Box ou Document introuvable", {
-        boxId,
-        documentId,
-        userId: req.user?.id,
-      });
       return res.status(404).json({ message: "Box ou Document introuvable" });
     }
 
     // Vérification Capacité
     if (box.current_count >= box.capacite_max) {
-      logger.warn("⛔ Capacité maximale atteinte", {
-        boxId,
-        current_count: box.current_count,
-        capacite_max: box.capacite_max,
-        userId: req.user?.id,
-      });
       return res
         .status(400)
         .json({ message: "Capacité maximale atteinte pour ce box" });
@@ -386,12 +375,6 @@ exports.addDocumentToBox = async (req, res) => {
 
     // Vérification Type
     if (box.type_document_id && box.type_document_id !== doc.type_document_id) {
-      logger.warn("⛔ Type de document incompatible", {
-        boxId,
-        boxType: box.type_document_id,
-        docType: doc.type_document_id,
-        userId: req.user?.id,
-      });
       return res
         .status(400)
         .json({ message: "Le type de document ne correspond pas à ce box" });
@@ -402,28 +385,27 @@ exports.addDocumentToBox = async (req, res) => {
     box.current_count += 1;
     doc.box_id = box.id;
 
+    // 🔹 Mise à jour du status
+    if (box.current_count === 0) {
+      box.status = "LIBRE";
+    } else if (box.current_count >= box.capacite_max) {
+      box.status = "PLIEN";
+    } else if (box.current_count >= 1) {
+      box.status = "OCCUPE";
+    }
+
     await box.save();
     await doc.save();
 
-    logger.info("✅ Document ajouté au box avec succès", {
-      boxId,
-      documentId,
-      new_count: box.current_count,
-      userId: req.user?.id,
-      duration: Date.now() - startTime,
-    });
+    // Journalisation dans l'historique
+    await HistoriqueService.logCreate(req, "box", box);
 
-    res.json({ success: true, current_count: box.current_count });
+    res.json({
+      success: true,
+      current_count: box.current_count,
+      status: box.status,
+    });
   } catch (error) {
-    logger.error("❌ Erreur ajout document au box", {
-      boxId,
-      documentId,
-      error: error.message,
-      stack: error.stack,
-      userId: req.user?.id,
-      duration: Date.now() - startTime,
-    });
-
     res.status(500).json({
       message: "Erreur lors de l'ajout du document",
       error: error.message,
@@ -436,17 +418,8 @@ exports.retireDocumentToBox = async (req, res) => {
   const { documentId } = req.params;
 
   try {
-    logger.info("📤 Tentative de retrait de document du box", {
-      documentId,
-      userId: req.user?.id,
-    });
-
     const doc = await Document.findByPk(documentId);
     if (!doc || !doc.box_id) {
-      logger.warn("⚠️ Document non trouvé ou déjà hors box", {
-        documentId,
-        userId: req.user?.id,
-      });
       return res
         .status(404)
         .json({ message: "Document non trouvé ou déjà hors box" });
@@ -455,31 +428,29 @@ exports.retireDocumentToBox = async (req, res) => {
     const box = await Box.findByPk(doc.box_id);
     if (box) {
       box.current_count = Math.max(0, box.current_count - 1);
-      if (box.current_count === 0) box.type_document_id = null;
+      if (box.current_count === 0) {
+        box.type_document_id = null;
+        box.status = "LIBRE";
+      } else if (box.current_count >= box.capacite_max) {
+        box.status = "PLIEN";
+      } else {
+        box.status = "OCCUPE";
+      }
       await box.save();
     }
 
     doc.box_id = null;
     await doc.save();
 
-    logger.info("✅ Document retiré du box avec succès", {
-      documentId,
-      boxId: box?.id,
-      new_count: box?.current_count,
-      userId: req.user?.id,
-      duration: Date.now() - startTime,
-    });
+    // Journalisation dans l'historique
+    await HistoriqueService.logCreate(req, "box", box);
 
-    res.json({ success: true, message: "Document retiré avec succès" });
+    res.json({
+      success: true,
+      message: "Document retiré avec succès",
+      status: box?.status,
+    });
   } catch (error) {
-    logger.error("❌ Erreur retrait document du box", {
-      documentId,
-      error: error.message,
-      stack: error.stack,
-      userId: req.user?.id,
-      duration: Date.now() - startTime,
-    });
-
     res.status(500).json({
       message: "Erreur lors du retrait du document",
       error: error.message,

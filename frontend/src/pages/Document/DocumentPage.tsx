@@ -1715,6 +1715,7 @@ export default function DocumentPage() {
         visible={detailsVisible}
         onHide={() => setDetailsVisible(false)}
         doc={selected}
+        onRefresh={() => refetch()}
       />
       <UploadPreview
         visible={previewVisible}

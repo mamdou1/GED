@@ -130,6 +130,11 @@ export default function DocumentDetails({
                     onSuccess={() => {
                       setShowArchiveForm(false);
                       if (onRefresh) onRefresh();
+                      toast.current?.show({
+                        severity: "success",
+                        summary: "Ok",
+                        detail: "Document archivé avec succès",
+                      });
                     }}
                   />
                 </div>
@@ -182,9 +187,6 @@ export default function DocumentDetails({
                     {doc.pieces.map((piece: any) => {
                       const isDisponible =
                         piece.DocumentPieces?.disponible || false;
-                      const hasFiles =
-                        piece.fichiers && piece.fichiers.length > 0;
-
                       return (
                         <div
                           key={piece.id}
@@ -234,53 +236,10 @@ export default function DocumentDetails({
                                       ? "Disponible"
                                       : "Non disponible"}
                                   </span>
-                                  {hasFiles && (
-                                    <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">
-                                      {piece.fichiers.length} fichier(s)
-                                    </span>
-                                  )}
                                 </div>
                               </div>
                             </div>
-                            {hasFiles && (
-                              <button
-                                onClick={() =>
-                                  window.open(
-                                    `http://localhost:5001/${piece.fichiers[0].fichier}`,
-                                  )
-                                }
-                                className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-lg"
-                              >
-                                <Eye size={14} />
-                              </button>
-                            )}
                           </div>
-
-                          {/* Liste des fichiers si plusieurs */}
-                          {hasFiles && piece.fichiers.length > 1 && (
-                            <div className="mt-2 pl-8 space-y-1">
-                              {piece.fichiers.slice(1).map((file: any) => (
-                                <div
-                                  key={file.id}
-                                  className="flex items-center justify-between text-xs"
-                                >
-                                  <span className="truncate flex-1">
-                                    {file.original_name}
-                                  </span>
-                                  <button
-                                    onClick={() =>
-                                      window.open(
-                                        `http://localhost:5001/${file.fichier}`,
-                                      )
-                                    }
-                                    className="text-emerald-600 hover:text-emerald-800 ml-2"
-                                  >
-                                    <Eye size={12} />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       );
                     })}

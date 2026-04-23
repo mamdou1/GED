@@ -4,6 +4,11 @@ module.exports = (sequelize, DataTypes) => {
     {
       code_box: { type: DataTypes.STRING, allowNull: false },
       libelle: { type: DataTypes.STRING, allowNull: false },
+      status: {
+        type: DataTypes.ENUM("OCCUPE", "LIBRE", "PLIEN", "RESERVER"),
+        allowNull: false,
+        defaultValue: "LIBRE",
+      },
       capacite_max: { type: DataTypes.INTEGER, allowNull: false },
       current_count: { type: DataTypes.INTEGER, defaultValue: 0 },
       type_document_id: { type: DataTypes.INTEGER, allowNull: true },

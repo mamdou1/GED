@@ -321,7 +321,9 @@ export default function PiecesPage() {
         refresh={() => {}} // ✅ PLUS BESOIN de refresh !
         initial={editing || {}}
         title={
-          editing ? "Modifier le type de pièce" : "Ajouter un nouveau type"
+          editing
+            ? "Modifier le type de pièce"
+            : "Ajouter un nouveau type de pièce"
         }
       />
 

@@ -94,7 +94,7 @@ sequelize
   .then(async () => {
     console.log("✅ Connexion MySQL réussie");
 
-    //await sequelize.sync({ alter: true });
+    // await sequelize.sync({ alter: true });
     await sequelize.sync(); // ❌ PAS force / alter ici
 
     // Vérifier que les tables existent

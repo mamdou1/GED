@@ -4,7 +4,9 @@ import {
   getBoxById,
   getDocumentsByBox,
   retireDocumentFromBox,
+   // À ajouter dans ton API
 } from "../../api/box";
+import { updateDocument, deleteDocument } from "../../api/document"; // À créer
 import { Box } from "../../interfaces";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import {
@@ -20,10 +22,13 @@ import {
   MapPin,
   FolderTree,
   Eye,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Toast } from "primereact/toast";
 import { Badge } from "primereact/badge";
 import DocumentDetails from "../Document/DocumentDetails";
+import DocumentForm from "../Document/DocumentForm";
 
 export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
   const [box, setBox] = useState<Box | null>(null);
@@ -34,8 +39,26 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
   // États pour le modal de consultation du document
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
+  
+  // États pour la modification du document
+  const [editingDocument, setEditingDocument] = useState<any>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [documentTypes, setDocumentTypes] = useState<any[]>([]);
 
-  // Utiliser useCallback pour éviter les re-créations de fonction
+  // Charger les types de documents pour le formulaire
+  useEffect(() => {
+    const loadTypes = async () => {
+      try {
+        const { getTypeDocuments } = await import("../../api/typeDocument");
+        const res = await getTypeDocuments();
+        setDocumentTypes(res.typeDocument);
+      } catch (error) {
+        console.error("Erreur chargement types:", error);
+      }
+    };
+    loadTypes();
+  }, []);
+
   const loadData = useCallback(async () => {
     if (!boxId) return;
     setLoading(true);
@@ -56,7 +79,7 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
     } finally {
       setLoading(false);
     }
-  }, [boxId]); // boxId comme dépendance
+  }, [boxId]);
 
   useEffect(() => {
     if (visible && boxId) {
@@ -91,6 +114,72 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
     });
   };
 
+  // Fonction pour supprimer un document
+  const handleDeleteDocument = (doc: any) => {
+    confirmDialog({
+      message: `Supprimer définitivement le document #${String(doc.id).padStart(4, "0")} ?`,
+      header: "Confirmation de suppression",
+      icon: "pi pi-exclamation-triangle",
+      acceptLabel: "Supprimer",
+      rejectLabel: "Annuler",
+      acceptClassName: "p-button-danger",
+      accept: async () => {
+        try {
+          // Si le document est dans un box, le retirer d'abord
+          if (doc.box_id) {
+            await retireDocumentFromBox(boxId, doc.id);
+          }
+          // Puis supprimer le document
+          await deleteDocument(doc.id);
+          await loadData();
+          if (onUpdate) onUpdate();
+          toast.current?.show({
+            severity: "success",
+            summary: "Succès",
+            detail: "Document supprimé avec succès",
+          });
+        } catch (err) {
+          console.error("❌ Erreur suppression:", err);
+          toast.current?.show({
+            severity: "error",
+            summary: "Erreur",
+            detail: "Erreur lors de la suppression du document",
+          });
+        }
+      },
+    });
+  };
+
+  // Fonction pour ouvrir le modal de modification
+  const handleEditDocument = (doc: any) => {
+    setEditingDocument(doc);
+    setShowEditModal(true);
+  };
+
+  // Fonction pour sauvegarder la modification
+  const handleUpdateDocument = async (payload: any) => {
+    try {
+      await updateDocument(payload.id, payload);
+      await loadData();
+      if (onUpdate) onUpdate();
+      toast.current?.show({
+        severity: "success",
+        summary: "Succès",
+        detail: "Document modifié avec succès",
+      });
+      setShowEditModal(false);
+      setEditingDocument(null);
+    } catch (err) {
+      console.error("❌ Erreur modification:", err);
+      toast.current?.show({
+        severity: "error",
+        summary: "Erreur",
+        detail: "Erreur lors de la modification du document",
+      });
+      throw err;
+    }
+  };
+
   // Fonction pour ouvrir le modal de consultation du document
   const handleViewDocument = (doc: any) => {
     setSelectedDocument(doc);
@@ -100,7 +189,6 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
   // Fonction pour fermer le modal document
   const handleCloseDocumentModal = useCallback(() => {
     setShowDocumentModal(false);
-    // Petit délai avant de réinitialiser le document sélectionné pour éviter les flashs
     setTimeout(() => {
       setSelectedDocument(null);
     }, 300);
@@ -108,7 +196,6 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
 
   // Fonction après mise à jour du document (archivage/désarchivage)
   const handleDocumentUpdate = useCallback(() => {
-    // Recharger les données du box
     loadData();
     if (onUpdate) onUpdate();
   }, [loadData, onUpdate]);
@@ -145,7 +232,7 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
         className="w-full max-w-4xl rounded-3xl"
         modal
         draggable={false}
-        closable={!loading} // Empêche la fermeture pendant le chargement
+        closable={!loading}
       >
         {loading ? (
           <div className="flex justify-center items-center py-20">
@@ -311,7 +398,7 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
                             </div>
                            </td>
                           <td className="px-6 py-4">
-                            <div className="flex items-center justify-center gap-2">
+                            <div className="flex items-center justify-center gap-1">
                               {/* Bouton pour consulter le document */}
                               <button
                                 onClick={() => handleViewDocument(doc)}
@@ -319,17 +406,37 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
                                 title="Consulter le document"
                                 type="button"
                               >
-                                <Eye size={20} />
+                                <Eye size={18} />
+                              </button>
+                              
+                              {/* Bouton pour modifier le document */}
+                              <button
+                                onClick={() => handleEditDocument(doc)}
+                                className="p-2 text-amber-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
+                                title="Modifier le document"
+                                type="button"
+                              >
+                                <Pencil size={18} />
+                              </button>
+                              
+                              {/* Bouton pour supprimer le document */}
+                              <button
+                                onClick={() => handleDeleteDocument(doc)}
+                                className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                title="Supprimer le document"
+                                type="button"
+                              >
+                                <Trash2 size={18} />
                               </button>
                               
                               {/* Bouton pour retirer le document */}
                               <button
                                 onClick={() => handleRetire(doc.id)}
-                                className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                className="p-2 text-orange-400 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-all"
                                 title="Retirer du box"
                                 type="button"
                               >
-                                <MinusCircle size={20} />
+                                <MinusCircle size={18} />
                               </button>
                             </div>
                            </td>
@@ -385,13 +492,29 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
         )}
       </Dialog>
 
-      {/* Modal de consultation du document - Rendu uniquement si nécessaire */}
+      {/* Modal de consultation du document */}
       {showDocumentModal && selectedDocument && (
         <DocumentDetails
           visible={showDocumentModal}
           onHide={handleCloseDocumentModal}
           doc={selectedDocument}
           onRefresh={handleDocumentUpdate}
+        />
+      )}
+
+      {/* Modal de modification du document */}
+      {showEditModal && editingDocument && (
+        <DocumentForm
+          visible={showEditModal}
+          onHide={() => {
+            setShowEditModal(false);
+            setEditingDocument(null);
+          }}
+          onSubmit={handleUpdateDocument}
+          refresh={loadData}
+          documentType={documentTypes}
+          selectedTypeId={editingDocument.type_document_id}
+          editingDoc={editingDocument}
         />
       )}
     </>

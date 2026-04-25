@@ -10,6 +10,7 @@ const {
 } = require("../models");
 const logger = require("../config/logger.config");
 const HistoriqueService = require("../services/historique.service");
+const BoxModel = require("../models/Box.model");
 
 // --- Méthodes de gestion de Box ---
 

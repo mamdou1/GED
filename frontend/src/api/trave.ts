@@ -30,3 +30,13 @@ export const getBoxesByTrave = async (traveId: string) => {
   const { data } = await api.get(`/trave/${traveId}/box`);
   return data;
 };
+
+export const addBoxToTrve = async (traveId: string) => {
+  const { data } = await api.post(`/box/${traveId}/add`);
+  return data;
+};
+
+export const retireBoxToTrve = async (traveId: string) => {
+  const { data } = await api.post(`/box/${traveId}/remove`);
+  return data;
+};

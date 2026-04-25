@@ -13,7 +13,11 @@ exports.create = async (req, res) => {
       body: req.body,
     });
 
-    const data = await Rayon.create(req.body);
+    //const data = await Rayon.create(req.body);
+    const data = await Rayon.create({
+      ...req.body,
+      current_count: 0,
+    });
 
     logger.info("✅ Rayon créé avec succès", {
       rayonId: data.id,
@@ -184,9 +188,13 @@ exports.update = async (req, res) => {
     }
 
     const oldCopy = oldRayon.toJSON();
-    const [updated] = await Rayon.update(req.body, {
+    const { current_count, ...updateData } = req.body;
+    const [updated] = await Box.update(updateData, {
       where: { id },
     });
+    // const [updated] = await Rayon.update(req.body, {
+    //   where: { id },
+    // });
 
     if (updated === 0) {
       logger.warn("⚠️ Aucune modification apportée", {

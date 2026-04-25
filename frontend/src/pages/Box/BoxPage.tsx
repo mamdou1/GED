@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import Layout from "../../components/layout/Layoutt";
 import BoxDetails from "./BoxDetails";
 import BoxForm from "./BoxForm";
+import BoxAffectationForm from "./BoxAffectationForm"; // ✅ Import du nouveau composant
 import type { Box } from "../../interfaces";
 import { confirmDialog } from "primereact/confirmdialog";
 import { Toast } from "primereact/toast";
 import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
 import Pagination from "../../components/layout/Pagination";
+import { Dialog } from "primereact/dialog";
 // ✅ IMPORTER LES NOUVEAUX HOOKS
 import {
   useBoxes,
@@ -32,13 +34,18 @@ import {
   MapPin,
   CheckCircle,
   XCircle,
+  PackageOpen,
+  SplinePointer,
+  Link2, // ✅ Nouvelle icône pour l'affectation
 } from "lucide-react";
-import AddToBoxForm from "./AddToBoxForm";
 import { Badge } from "primereact/badge";
+
+// ✅ IMPORTER LE NOUVEAU COMPOSANT
+import DocumentListeEtArchivage from "./Add/DocumentListeEtArchivage";
 
 export default function BoxPage() {
   // ✅ ÉTAPE 4: Remplacer useState par useQuery
-  const { data: allBoxes = [], isLoading, error } = useBoxes();
+  const { data: allBoxes = [], isLoading, error, refetch } = useBoxes();
 
   // ✅ ÉTAPE 5: Remplacer les mutations
   const createMutation = useCreateBox();
@@ -55,10 +62,11 @@ export default function BoxPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // ✅ PLUS BESOIN DE fetchBoxes et useEffect !!
-  // TanStack Query s'en charge automatiquement
+  // ✅ ÉTATS POUR LES MODALES
+  const [archivageVisible, setArchivageVisible] = useState(false);
+  const [affectationVisible, setAffectationVisible] = useState(false); // ✅ Nouvel état pour BoxAffectationForm
 
-  // ✅ ÉTAPE 6: Modifier handleAction
+  // ✅ ÉTAPE 6: Modifier handleAction (pour BoxForm)
   const handleAction = async (payload: any) => {
     try {
       if (editing?.id) {
@@ -81,12 +89,38 @@ export default function BoxPage() {
       }
       setFormVisible(false);
       setEditing(null);
-      // ✅ PLUS BESOIN de setAllBoxes manuellement !
     } catch (err) {
       toast.current?.show({
         severity: "error",
         summary: "Erreur",
         detail: "L'opération a échoué",
+      });
+    }
+  };
+
+  // ✅ NOUVEAU: Handler pour BoxAffectationForm
+  const handleAffectationSubmit = async (payload: any) => {
+    try {
+      // Appel API pour mettre à jour l'affectation du box
+      await updateMutation.mutateAsync({
+        id: String(selected?.id),
+        data: payload,
+      });
+
+      toast.current?.show({
+        severity: "success",
+        summary: "Succès",
+        detail: "Affectation du box mise à jour avec succès",
+      });
+
+      setAffectationVisible(false);
+      setSelected(null);
+      refetch(); // Recharger la liste des boxes
+    } catch (err) {
+      toast.current?.show({
+        severity: "error",
+        summary: "Erreur",
+        detail: "Échec de l'affectation du box",
       });
     }
   };
@@ -112,7 +146,6 @@ export default function BoxPage() {
             summary: "Supprimé",
             detail: "Box supprimé avec succès",
           });
-          // ✅ PLUS BESOIN de setAllBoxes manuellement !
         } catch (err) {
           toast.current?.show({
             severity: "error",
@@ -121,6 +154,16 @@ export default function BoxPage() {
           });
         }
       },
+    });
+  };
+
+  // ✅ Callback appelé après un archivage réussi
+  const handleArchivageSuccess = () => {
+    setArchivageVisible(false);
+    toast.current?.show({
+      severity: "success",
+      summary: "Archivage terminé",
+      detail: "Les documents ont été archivés avec succès",
     });
   };
 
@@ -228,7 +271,7 @@ export default function BoxPage() {
     <Layout>
       <Toast ref={toast} />
 
-      {/* Header (inchangé) */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-4">
           <div className="bg-emerald-600 p-3 rounded-2xl text-white shadow-lg">
@@ -243,16 +286,15 @@ export default function BoxPage() {
             </p>
           </div>
         </div>
-        <div>
+        <div className="flex gap-3">
+          {/* Bouton "Ajouter au Box" */}
           <Button
             label="Ajouter au Box"
-            icon={<Plus size={20} className="mr-2" />}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white border-none px-6 py-3 rounded-xl mr-3 shadow-emerald-200 shadow-lg"
-            // onClick={() => {
-            //   setEditing(null);
-            //   setFormVisible(true);
-            // }}
+            icon={<PackageOpen size={20} className="mr-2" />}
+            className="bg-amber-500 hover:bg-amber-600 text-white border-none px-6 py-3 rounded-xl shadow-amber-200 shadow-lg transition-all"
+            onClick={() => setArchivageVisible(true)}
           />
+          {/* Bouton "Nouveau Box" */}
           <Button
             label="Nouveau Box"
             icon={<Plus size={20} className="mr-2" />}
@@ -265,7 +307,7 @@ export default function BoxPage() {
         </div>
       </div>
 
-      {/* Barre de recherche (inchangée) */}
+      {/* Barre de recherche */}
       <div className="bg-white p-4 rounded-2xl border border-slate-100 mb-6">
         <div className="relative group max-w-md">
           <Search
@@ -281,12 +323,12 @@ export default function BoxPage() {
         </div>
       </div>
 
-      {/* TABLEAU (inchangé) */}
+      {/* TABLEAU */}
       <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl overflow-hidden">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-emerald-50/30 border-b border-emerald-50">
-              <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest w-24">
+              <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest ">
                 Code
               </th>
               <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
@@ -434,6 +476,20 @@ export default function BoxPage() {
                         className="flex justify-center gap-2"
                         onClick={(e) => e.stopPropagation()}
                       >
+                        {/* ✅ Bouton Affectation (SplinePointer) */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelected(box);
+                            setAffectationVisible(true);
+                          }}
+                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                          title="Affecter à une structure"
+                        >
+                          <SplinePointer size={18} />
+                        </button>
+
+                        {/* Bouton Voir détails */}
                         <button
                           onClick={() => {
                             setSelected(box);
@@ -444,6 +500,8 @@ export default function BoxPage() {
                         >
                           <Eye size={18} />
                         </button>
+
+                        {/* Bouton Modifier */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -455,6 +513,8 @@ export default function BoxPage() {
                         >
                           <Pencil size={18} />
                         </button>
+
+                        {/* Bouton Supprimer */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -472,7 +532,7 @@ export default function BoxPage() {
               })
             ) : (
               <tr>
-                <td colSpan={7} className="p-12 text-center text-slate-500">
+                <td colSpan={8} className="p-12 text-center text-slate-500">
                   <Archive size={48} className="mx-auto text-slate-200 mb-4" />
                   <p className="text-slate-400">Aucune box trouvée.</p>
                   {query && (
@@ -487,7 +547,7 @@ export default function BoxPage() {
         </table>
       </div>
 
-      {/* Pagination (inchangée) */}
+      {/* Pagination */}
       <div className="mt-8 flex justify-center">
         <Pagination
           currentPage={currentPage}
@@ -497,7 +557,38 @@ export default function BoxPage() {
         />
       </div>
 
-      {/* Modals (inchangées) */}
+      {/* ✅ MODALE POUR L'ARCHIVAGE */}
+      <Dialog
+        visible={archivageVisible}
+        onHide={() => setArchivageVisible(false)}
+        header={
+          <div className="flex items-center gap-2">
+            <PackageOpen size={24} className="text-emerald-600" />
+            <span className="text-xl font-bold">Archiver des documents</span>
+          </div>
+        }
+        style={{ width: "90vw", height: "85vh" }}
+        maximizable
+        contentStyle={{ padding: 0, height: "calc(85vh - 120px)" }}
+        breakpoints={{ "960px": "95vw", "640px": "100vw" }}
+        draggable={false}
+        resizable={false}
+      >
+        <DocumentListeEtArchivage />
+      </Dialog>
+
+      {/* ✅ MODALE POUR L'AFFECTATION (BoxAffectationForm) */}
+      <BoxAffectationForm
+        visible={affectationVisible}
+        onHide={() => {
+          setAffectationVisible(false);
+          setSelected(null);
+        }}
+        box={selected}
+        onSubmit={handleAffectationSubmit}
+      />
+
+      {/* Modals existantes */}
       <BoxForm
         visible={formVisible}
         onHide={() => {
@@ -505,7 +596,7 @@ export default function BoxPage() {
           setEditing(null);
         }}
         onSubmit={handleAction}
-        refresh={() => {}} // ✅ PLUS BESOIN de refresh !
+        refresh={() => {}}
         initial={editing || {}}
       />
       <BoxDetails
@@ -515,7 +606,7 @@ export default function BoxPage() {
           setSelected(null);
         }}
         boxId={selected?.id}
-        onUpdate={() => {}} // ✅ PLUS BESOIN de onUpdate !
+        onUpdate={() => refetch()}
       />
     </Layout>
   );

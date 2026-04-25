@@ -13,7 +13,11 @@ exports.create = async (req, res) => {
       body: req.body,
     });
 
-    const data = await Trave.create(req.body);
+    //const data = await Rayon.create(req.body);
+    const data = await Trave.create({
+      ...req.body,
+      current_count: 0,
+    });
 
     logger.info("✅ Travée créée avec succès", {
       traveId: data.id,
@@ -185,9 +189,13 @@ exports.update = async (req, res) => {
     }
 
     const oldCopy = oldTrave.toJSON();
-    const [updated] = await Trave.update(req.body, {
+    const { current_count, ...updateData } = req.body;
+    const [updated] = await Box.update(updateData, {
       where: { id },
     });
+    // const [updated] = await Trave.update(req.body, {
+    //   where: { id },
+    // });
 
     if (updated === 0) {
       logger.warn("⚠️ Aucune modification apportée", {
@@ -228,6 +236,107 @@ exports.update = async (req, res) => {
     res
       .status(500)
       .json({ message: "Erreur lors de la mise à jour", error: error.message });
+  }
+};
+
+exports.addBoxToTrve = async (req, res) => {
+  const startTime = Date.now();
+  const { boxId, traveId } = req.params;
+
+  try {
+    logger.info("📥 Tentative d'ajout de document dans box", {
+      boxId,
+      documentId,
+      traveId,
+      userId: req.user?.id,
+    });
+
+    const box = await Box.findByPk(boxId);
+    const trave = await Trave.findByPk(traveId);
+
+    if (!box || !trave) {
+      return res.status(404).json({ message: "Box ou Travé introuvable" });
+    }
+
+    // Vérification Capacité
+    if (trave.current_count >= trave.capacite_max) {
+      return res
+        .status(400)
+        .json({ message: "Capacité maximale atteinte pour ce travé" });
+    }
+
+    trave.current_count += 1;
+
+    // 🔹 Mise à jour du status
+    if (trave.current_count === 0) {
+      trave.status = "LIBRE";
+    } else if (trave.current_count >= box.capacite_max) {
+      trave.status = "PLIEN";
+    } else if (trave.current_count >= 1) {
+      trave.status = "OCCUPE";
+    }
+
+    await trave.save();
+    await box.save();
+
+    // Journalisation dans l'historique
+    await HistoriqueService.logCreate(req, "box", box);
+
+    res.json({
+      success: true,
+      current_count: box.current_count,
+      status: box.status,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Erreur lors de l'ajout du document",
+      error: error.message,
+    });
+  }
+};
+
+exports.retireBoxToTrve = async (req, res) => {
+  const startTime = Date.now();
+  const { boxId } = req.params;
+
+  try {
+    const box = await Box.findByPk(boxId);
+    if (!box || !box.trave_id) {
+      return res
+        .status(404)
+        .json({ message: "Box non trouvé ou déjà hors box" });
+    }
+
+    const trave = await Trave.findByPk(box.trave_id);
+    if (trave) {
+      trave.current_count = Math.max(0, box.current_count - 1);
+      if (trave.current_count === 0) {
+        trave.type_document_id = null;
+        trave.status = "LIBRE";
+      } else if (trave.current_count >= trave.capacite_max) {
+        trave.status = "PLIEN";
+      } else {
+        trave.status = "OCCUPE";
+      }
+      await trave.save();
+    }
+
+    box.trave_id = null;
+    await box.save();
+
+    // Journalisation dans l'historique
+    await HistoriqueService.logCreate(req, "trave", trave);
+
+    res.json({
+      success: true,
+      message: "Box retiré avec succès",
+      status: box?.status,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Erreur lors du retrait du box",
+      error: error.message,
+    });
   }
 };
 

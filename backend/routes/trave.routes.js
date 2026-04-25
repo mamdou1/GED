@@ -42,5 +42,17 @@ router.get(
   authorizePermission("trave", "read"),
   ctrl.getAllBoxByTrave,
 );
+router.post(
+  "/:traveId/add",
+  verifyToken,
+  authorizePermission("box", "create"),
+  ctrl.addBoxToTrve,
+);
+router.post(
+  "/:traveId/remove",
+  verifyToken,
+  authorizePermission("box", "create"),
+  ctrl.retireBoxToTrve,
+);
 
 module.exports = router;

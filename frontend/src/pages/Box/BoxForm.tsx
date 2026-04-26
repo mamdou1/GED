@@ -25,8 +25,14 @@ import {
 } from "../../interfaces";
 import { Dropdown } from "primereact/dropdown";
 import { getAllEntiteeUn } from "../../api/entiteeUn";
-import { getEntiteeDeuxByEntiteeUn } from "../../api/entiteeDeux";
-import { getEntiteeTroisByEntiteeDeux } from "../../api/entiteeTrois";
+import {
+  getAllEntiteeDeux,
+  getEntiteeDeuxByEntiteeUn,
+} from "../../api/entiteeDeux";
+import {
+  getAllEntiteeTrois,
+  getEntiteeTroisByEntiteeDeux,
+} from "../../api/entiteeTrois";
 import { getTypeDocuments } from "../../api/typeDocument";
 
 export default function BoxForm({
@@ -79,18 +85,26 @@ export default function BoxForm({
   const titreTroisExiste =
     titreEntiteeTrois.length > 0 && titreEntiteeTrois[0]?.titre;
 
+  // console.log("titre 1: ", titreUnExiste);
+  // console.log("titre 2: ", titreDeuxExiste);
+  // console.log("titre 3: ", titreTroisExiste);
+
   // Chargement initial des données
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [entitees, types] = await Promise.all([
+        const [entitees, types, ent2, ent3] = await Promise.all([
           getAllEntiteeUn(),
           getTypeDocuments(), // ✅ Correction : ajout des parenthèses
+          getAllEntiteeDeux(),
+          getAllEntiteeTrois(),
         ]);
         setAllEntiteeUn(Array.isArray(entitees) ? entitees : []);
         setAllTypeDocuments(
           Array.isArray(types?.typeDocument) ? types.typeDocument : [],
         );
+        setTitreEntiteeDeux(Array.isArray(ent2) ? ent2 : []);
+        setTitreEntiteeTrois(Array.isArray(ent3) ? ent3 : []);
       } catch (error) {
         console.error("❌ Erreur chargement données initiales:", error);
       }
@@ -259,9 +273,9 @@ export default function BoxForm({
     }));
   };
 
-  const titreUn = allEntiteeUn[0]?.titre || "Niveau 1";
-  const titreDeux = allEntiteeDeux[0]?.titre || "Niveau 2";
-  const titreTrois = allEntiteeTrois[0]?.titre || "Niveau 3";
+  const titreUn = allEntiteeUn[0]?.titre || "Entité 1";
+  const titreDeux = titreEntiteeDeux[0]?.titre || "Entité 2";
+  const titreTrois = titreEntiteeTrois[0]?.titre || "Entité 3";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

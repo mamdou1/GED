@@ -246,6 +246,109 @@ function computeStatus(current, max) {
   return "OCCUPE";
 }
 
+// exports.addBoxToTrve = async (req, res) => {
+//   const { boxId, traveId } = req.params;
+
+//   try {
+//     const box = await Box.findByPk(boxId);
+//     const trave = await Trave.findByPk(traveId);
+
+//     if (!box || !trave) {
+//       return res.status(404).json({ message: "Box ou Travé introuvable" });
+//     }
+
+//     // Si le box est déjà dans une autre travée, la retirer d'abord
+//     if (box.trave_id) {
+//       const oldTrave = await Trave.findByPk(box.trave_id);
+//       if (oldTrave) {
+//         oldTrave.current_count = Math.max(0, oldTrave.current_count - 1);
+//         oldTrave.status = computeStatus(
+//           oldTrave.current_count,
+//           oldTrave.capacite_max,
+//         );
+//         await oldTrave.save();
+//       }
+//     }
+
+//     // Vérification capacité de la TRAVÉE
+//     if (trave.current_count >= trave.capacite_max) {
+//       return res
+//         .status(400)
+//         .json({ message: "Capacité maximale atteinte pour ce travé" });
+//     }
+
+//     // ✅ ASSOCIER le box à la nouvelle travée (c'était ça qui manquait !)
+//     box.trave_id = traveId;
+
+//     // Incrémentation des compteurs
+//     trave.current_count = Number(trave.current_count) + 1;
+
+//     // Mise à jour des statuts
+//     trave.status = computeStatus(trave.current_count, trave.capacite_max);
+
+//     await trave.save();
+//     await box.save();
+
+//     await HistoriqueService.logCreate(req, "box", box);
+
+//     res.json({
+//       success: true,
+//       trave_status: trave.status,
+//       box_status: box.status,
+//       trave_count: trave.current_count,
+//       box_count: box.current_count,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       message: "Erreur lors de l'ajout du box à la travé",
+//       error: error.message,
+//     });
+//   }
+// };
+
+// exports.retireBoxToTrve = async (req, res) => {
+//   const { boxId } = req.params;
+
+//   try {
+//     const box = await Box.findByPk(boxId);
+//     if (!box || !box.trave_id) {
+//       return res
+//         .status(404)
+//         .json({ message: "Box non trouvé ou déjà hors travé" });
+//     }
+
+//     const trave = await Trave.findByPk(box.trave_id);
+//     if (trave) {
+//       // Décrémentation
+//       trave.current_count = Math.max(0, Number(trave.current_count) - 1);
+
+//       // Mise à jour des statuts
+//       trave.status = computeStatus(trave.current_count, trave.capacite_max);
+
+//       await trave.save();
+//     }
+
+//     // ✅ RETIRER l'association du box à la travée
+//     box.trave_id = null;
+//     await box.save();
+
+//     await HistoriqueService.logCreate(req, "trave", trave);
+
+//     res.json({
+//       success: true,
+//       message: "Box retiré avec succès",
+//       trave_status: trave?.status,
+//       box_status: box?.status,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       message: "Erreur lors du retrait du box",
+//       error: error.message,
+//     });
+//   }
+// };
+
+// ✅ Ajouter un box à une travée (et mettre à jour le rayon)
 exports.addBoxToTrve = async (req, res) => {
   const { boxId, traveId } = req.params;
 
@@ -257,55 +360,90 @@ exports.addBoxToTrve = async (req, res) => {
       return res.status(404).json({ message: "Box ou Travé introuvable" });
     }
 
-    // Si le box est déjà dans une autre travée, la retirer d'abord
+    // ✅ Récupérer le rayon de la travée
+    const rayon = await Rayon.findByPk(trave.rayon_id);
+    if (!rayon) {
+      return res.status(404).json({ message: "Rayon introuvable" });
+    }
+
+    // Si le box est déjà dans une autre travée, le retirer d'abord
     if (box.trave_id) {
       const oldTrave = await Trave.findByPk(box.trave_id);
       if (oldTrave) {
-        oldTrave.current_count = Math.max(0, oldTrave.current_count - 1);
+        // Décrémenter l'ancienne travée
+        oldTrave.current_count = Math.max(
+          0,
+          Number(oldTrave.current_count) - 1,
+        );
         oldTrave.status = computeStatus(
           oldTrave.current_count,
           oldTrave.capacite_max,
         );
         await oldTrave.save();
+
+        // ✅ Décrémenter l'ancien rayon
+        const oldRayon = await Rayon.findByPk(oldTrave.rayon_id);
+        if (oldRayon) {
+          oldRayon.current_count = Math.max(
+            0,
+            Number(oldRayon.current_count) - 1,
+          );
+          oldRayon.status = computeStatus(
+            oldRayon.current_count,
+            oldRayon.capacite_max,
+          );
+          await oldRayon.save();
+        }
       }
     }
 
     // Vérification capacité de la TRAVÉE
-    if (trave.current_count >= trave.capacite_max) {
+    if (Number(trave.current_count) >= Number(trave.capacite_max)) {
       return res
         .status(400)
-        .json({ message: "Capacité maximale atteinte pour ce travé" });
+        .json({ message: "Capacité maximale atteinte pour cette travée" });
     }
 
-    // ✅ ASSOCIER le box à la nouvelle travée (c'était ça qui manquait !)
+    // ✅ Vérification capacité du RAYON
+    if (Number(rayon.current_count) >= Number(rayon.capacite_max)) {
+      return res
+        .status(400)
+        .json({ message: "Capacité maximale atteinte pour ce rayon" });
+    }
+
+    // ✅ Associer le box à la nouvelle travée
     box.trave_id = traveId;
 
-    // Incrémentation des compteurs
+    // ✅ Incrémentertravée ET rayon
     trave.current_count = Number(trave.current_count) + 1;
+    rayon.current_count = Number(rayon.current_count) + 1;
 
     // Mise à jour des statuts
     trave.status = computeStatus(trave.current_count, trave.capacite_max);
+    rayon.status = computeStatus(rayon.current_count, rayon.capacite_max);
 
-    await trave.save();
     await box.save();
+    await trave.save();
+    await rayon.save();
 
     await HistoriqueService.logCreate(req, "box", box);
 
     res.json({
       success: true,
       trave_status: trave.status,
-      box_status: box.status,
       trave_count: trave.current_count,
-      box_count: box.current_count,
+      rayon_status: rayon.status,
+      rayon_count: rayon.current_count,
     });
   } catch (error) {
     res.status(500).json({
-      message: "Erreur lors de l'ajout du box à la travé",
+      message: "Erreur lors de l'ajout du box à la travée",
       error: error.message,
     });
   }
 };
 
+// ✅ Retirer un box de sa travée (et mettre à jour le rayon)
 exports.retireBoxToTrve = async (req, res) => {
   const { boxId } = req.params;
 
@@ -314,21 +452,37 @@ exports.retireBoxToTrve = async (req, res) => {
     if (!box || !box.trave_id) {
       return res
         .status(404)
-        .json({ message: "Box non trouvé ou déjà hors travé" });
+        .json({ message: "Box non trouvé ou déjà hors travée" });
     }
 
     const trave = await Trave.findByPk(box.trave_id);
-    if (trave) {
-      // Décrémentation
-      trave.current_count = Math.max(0, Number(trave.current_count) - 1);
-
-      // Mise à jour des statuts
-      trave.status = computeStatus(trave.current_count, trave.capacite_max);
-
-      await trave.save();
+    if (!trave) {
+      return res.status(404).json({ message: "Travée introuvable" });
     }
 
-    // ✅ RETIRER l'association du box à la travée
+    // ✅ Récupérer le rayon de la travée
+    const rayon = await Rayon.findByPk(trave.rayon_id);
+
+    // ✅ Décrémenter la travée
+    trave.current_count = Math.max(0, Number(trave.current_count) - 1);
+    trave.status = computeStatus(trave.current_count, trave.capacite_max);
+
+    // Si travée vide → reset type_document
+    if (Number(trave.current_count) === 0) {
+      trave.type_document_id = null;
+    }
+    await trave.save();
+
+    // ✅ Décrémenter le rayon
+    if (rayon) {
+      rayon.current_count = Math.max(0, Number(rayon.current_count) - 1);
+      rayon.status = computeStatus(rayon.current_count, rayon.capacite_max);
+      await rayon.save();
+    }
+
+    // ✅ Décrémenter le box et retirer l'association
+    // box.current_count = Math.max(0, Number(box.current_count) - 1);
+    // box.status = computeStatus(box.current_count, box.capacite_max);
     box.trave_id = null;
     await box.save();
 
@@ -337,8 +491,10 @@ exports.retireBoxToTrve = async (req, res) => {
     res.json({
       success: true,
       message: "Box retiré avec succès",
-      trave_status: trave?.status,
-      box_status: box?.status,
+      trave_status: trave.status,
+      trave_count: trave.current_count,
+      rayon_status: rayon?.status,
+      rayon_count: rayon?.current_count,
     });
   } catch (error) {
     res.status(500).json({

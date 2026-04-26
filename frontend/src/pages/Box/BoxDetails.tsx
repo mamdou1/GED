@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Dialog } from "primereact/dialog";
 import {
   getBoxById,
   getDocumentsByBox,
   retireDocumentFromBox,
+   // À ajouter dans ton API
 } from "../../api/box";
+import { updateDocument, deleteDocument } from "../../api/document"; // À créer
 import { Box } from "../../interfaces";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import {
@@ -19,17 +21,45 @@ import {
   Briefcase,
   MapPin,
   FolderTree,
+  Eye,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Toast } from "primereact/toast";
 import { Badge } from "primereact/badge";
+import DocumentDetails from "../Document/DocumentDetails";
+import DocumentForm from "../Document/DocumentForm";
 
 export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
   const [box, setBox] = useState<Box | null>(null);
   const [documents, setDocuments] = useState<any[]>([]);
   const toast = useRef<Toast>(null);
   const [loading, setLoading] = useState(false);
+  
+  // États pour le modal de consultation du document
+  const [selectedDocument, setSelectedDocument] = useState<any>(null);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  
+  // États pour la modification du document
+  const [editingDocument, setEditingDocument] = useState<any>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [documentTypes, setDocumentTypes] = useState<any[]>([]);
 
-  const loadData = async () => {
+  // Charger les types de documents pour le formulaire
+  useEffect(() => {
+    const loadTypes = async () => {
+      try {
+        const { getTypeDocuments } = await import("../../api/typeDocument");
+        const res = await getTypeDocuments();
+        setDocumentTypes(res.typeDocument);
+      } catch (error) {
+        console.error("Erreur chargement types:", error);
+      }
+    };
+    loadTypes();
+  }, []);
+
+  const loadData = useCallback(async () => {
     if (!boxId) return;
     setLoading(true);
     try {
@@ -49,11 +79,13 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [boxId]);
 
   useEffect(() => {
-    if (visible) loadData();
-  }, [visible, boxId]);
+    if (visible && boxId) {
+      loadData();
+    }
+  }, [visible, boxId, loadData]);
 
   const handleRetire = (docId: string) => {
     confirmDialog({
@@ -64,7 +96,7 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
         try {
           await retireDocumentFromBox(boxId, docId);
           await loadData();
-          onUpdate?.();
+          if (onUpdate) onUpdate();
           toast.current?.show({
             severity: "success",
             summary: "Succès",
@@ -81,6 +113,92 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
       },
     });
   };
+
+  // Fonction pour supprimer un document
+  const handleDeleteDocument = (doc: any) => {
+    confirmDialog({
+      message: `Supprimer définitivement le document #${String(doc.id).padStart(4, "0")} ?`,
+      header: "Confirmation de suppression",
+      icon: "pi pi-exclamation-triangle",
+      acceptLabel: "Supprimer",
+      rejectLabel: "Annuler",
+      acceptClassName: "p-button-danger",
+      accept: async () => {
+        try {
+          // Si le document est dans un box, le retirer d'abord
+          if (doc.box_id) {
+            await retireDocumentFromBox(boxId, doc.id);
+          }
+          // Puis supprimer le document
+          await deleteDocument(doc.id);
+          await loadData();
+          if (onUpdate) onUpdate();
+          toast.current?.show({
+            severity: "success",
+            summary: "Succès",
+            detail: "Document supprimé avec succès",
+          });
+        } catch (err) {
+          console.error("❌ Erreur suppression:", err);
+          toast.current?.show({
+            severity: "error",
+            summary: "Erreur",
+            detail: "Erreur lors de la suppression du document",
+          });
+        }
+      },
+    });
+  };
+
+  // Fonction pour ouvrir le modal de modification
+  const handleEditDocument = (doc: any) => {
+    setEditingDocument(doc);
+    setShowEditModal(true);
+  };
+
+  // Fonction pour sauvegarder la modification
+  const handleUpdateDocument = async (payload: any) => {
+    try {
+      await updateDocument(payload.id, payload);
+      await loadData();
+      if (onUpdate) onUpdate();
+      toast.current?.show({
+        severity: "success",
+        summary: "Succès",
+        detail: "Document modifié avec succès",
+      });
+      setShowEditModal(false);
+      setEditingDocument(null);
+    } catch (err) {
+      console.error("❌ Erreur modification:", err);
+      toast.current?.show({
+        severity: "error",
+        summary: "Erreur",
+        detail: "Erreur lors de la modification du document",
+      });
+      throw err;
+    }
+  };
+
+  // Fonction pour ouvrir le modal de consultation du document
+  const handleViewDocument = (doc: any) => {
+    setSelectedDocument(doc);
+    setShowDocumentModal(true);
+  };
+
+  // Fonction pour fermer le modal document
+  const handleCloseDocumentModal = useCallback(() => {
+    setShowDocumentModal(false);
+    setTimeout(() => {
+      setSelectedDocument(null);
+    }, 300);
+  }, []);
+
+  // Fonction après mise à jour du document (archivage/désarchivage)
+  const handleDocumentUpdate = useCallback(() => {
+    loadData();
+    if (onUpdate) onUpdate();
+  }, [loadData, onUpdate]);
 
   // Fonction pour obtenir l'icône selon le niveau
   const getNiveauIcon = (type: string) => {
@@ -99,6 +217,9 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
   return (
     <>
       <Toast ref={toast} />
+      <ConfirmDialog />
+      
+      {/* Modal des détails du box */}
       <Dialog
         visible={visible}
         onHide={onHide}
@@ -111,6 +232,7 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
         className="w-full max-w-4xl rounded-3xl"
         modal
         draggable={false}
+        closable={!loading}
       >
         {loading ? (
           <div className="flex justify-center items-center py-20">
@@ -208,101 +330,139 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
                 </h3>
               </div>
 
-              <table className="w-full text-left">
-                <thead className="bg-slate-50/50 border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-widest">
-                  <tr>
-                    <th className="px-6 py-4">Référence</th>
-                    <th className="px-6 py-4">Type</th>
-                    <th className="px-6 py-4">Structure</th>
-                    <th className="px-6 py-4 text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {documents.length > 0 ? (
-                    documents.map((doc) => (
-                      <tr
-                        key={doc.id}
-                        className="hover:bg-emerald-50/30 transition-colors group"
-                      >
-                        <td className="px-6 py-4 font-bold text-slate-700 flex items-center gap-3">
-                          <FileText
-                            size={18}
-                            className="text-slate-300 group-hover:text-emerald-500 transition-colors"
-                          />
-                          <span className="font-mono text-sm bg-slate-100 px-2 py-1 rounded">
-                            #{String(doc.id).padStart(4, "0")}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <Briefcase size={14} className="text-slate-400" />
-                            <span className="text-sm text-slate-600">
-                              {doc.typeDocument?.nom || "Archive standard"}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            {doc.typeDocument?.entitee_trois && (
-                              <>
-                                {getNiveauIcon("trois")}
-                                <span className="text-xs text-slate-600">
-                                  {doc.typeDocument.entitee_trois.libelle}
-                                </span>
-                              </>
-                            )}
-                            {!doc.typeDocument?.entitee_trois &&
-                              doc.typeDocument?.entitee_deux && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50/50 border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-widest">
+                    <tr>
+                      <th className="px-6 py-4">Référence</th>
+                      <th className="px-6 py-4">Type</th>
+                      <th className="px-6 py-4">Structure</th>
+                      <th className="px-6 py-4 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {documents.length > 0 ? (
+                      documents.map((doc) => (
+                        <tr
+                          key={doc.id}
+                          className="hover:bg-emerald-50/30 transition-colors group"
+                        >
+                          <td className="px-6 py-4 font-bold text-slate-700">
+                            <div className="flex items-center gap-3">
+                              <FileText
+                                size={18}
+                                className="text-slate-300 group-hover:text-emerald-500 transition-colors flex-shrink-0"
+                              />
+                              <span className="font-mono text-sm bg-slate-100 px-2 py-1 rounded">
+                                #{String(doc.id).padStart(4, "0")}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <Briefcase size={14} className="text-slate-400 flex-shrink-0" />
+                              <span className="text-sm text-slate-600">
+                                {doc.typeDocument?.nom || "Archive standard"}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              {doc.typeDocument?.entitee_trois && (
                                 <>
-                                  {getNiveauIcon("deux")}
+                                  {getNiveauIcon("trois")}
                                   <span className="text-xs text-slate-600">
-                                    {doc.typeDocument.entitee_deux.libelle}
+                                    {doc.typeDocument.entitee_trois.libelle}
                                   </span>
                                 </>
                               )}
-                            {!doc.typeDocument?.entitee_trois &&
-                              !doc.typeDocument?.entitee_deux &&
-                              doc.typeDocument?.entitee_un && (
-                                <>
-                                  {getNiveauIcon("un")}
-                                  <span className="text-xs text-slate-600">
-                                    {doc.typeDocument.entitee_un.libelle}
-                                  </span>
-                                </>
-                              )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <button
-                            onClick={() => handleRetire(doc.id)}
-                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                            title="Retirer du box"
-                          >
-                            <MinusCircle size={20} />
-                          </button>
+                              {!doc.typeDocument?.entitee_trois &&
+                                doc.typeDocument?.entitee_deux && (
+                                  <>
+                                    {getNiveauIcon("deux")}
+                                    <span className="text-xs text-slate-600">
+                                      {doc.typeDocument.entitee_deux.libelle}
+                                    </span>
+                                  </>
+                                )}
+                              {!doc.typeDocument?.entitee_trois &&
+                                !doc.typeDocument?.entitee_deux &&
+                                doc.typeDocument?.entitee_un && (
+                                  <>
+                                    {getNiveauIcon("un")}
+                                    <span className="text-xs text-slate-600">
+                                      {doc.typeDocument.entitee_un.libelle}
+                                    </span>
+                                  </>
+                                )}
+                            </div>
+                           </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-center gap-1">
+                              {/* Bouton pour consulter le document */}
+                              <button
+                                onClick={() => handleViewDocument(doc)}
+                                className="p-2 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                title="Consulter le document"
+                                type="button"
+                              >
+                                <Eye size={18} />
+                              </button>
+                              
+                              {/* Bouton pour modifier le document */}
+                              <button
+                                onClick={() => handleEditDocument(doc)}
+                                className="p-2 text-amber-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
+                                title="Modifier le document"
+                                type="button"
+                              >
+                                <Pencil size={18} />
+                              </button>
+                              
+                              {/* Bouton pour supprimer le document */}
+                              <button
+                                onClick={() => handleDeleteDocument(doc)}
+                                className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                title="Supprimer le document"
+                                type="button"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                              
+                              {/* Bouton pour retirer le document */}
+                              <button
+                                onClick={() => handleRetire(doc.id)}
+                                className="p-2 text-orange-400 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-all"
+                                title="Retirer du box"
+                                type="button"
+                              >
+                                <MinusCircle size={18} />
+                              </button>
+                            </div>
+                           </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan={4}
+                          className="px-6 py-12 text-center text-slate-400"
+                        >
+                          <Inbox size={48} className="mx-auto mb-3 opacity-20" />
+                          <p className="text-sm font-medium">
+                            Ce box ne contient aucun document pour le moment.
+                          </p>
+                          <p className="text-xs mt-1 text-slate-300">
+                            La capacité disponible est de{" "}
+                            {Number(box.current_count) || 0}/
+                            {Number(box.capacite_max) || 0} documents.
+                          </p>
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="px-6 py-12 text-center text-slate-400"
-                      >
-                        <Inbox size={48} className="mx-auto mb-3 opacity-20" />
-                        <p className="text-sm font-medium">
-                          Ce box ne contient aucun document pour le moment.
-                        </p>
-                        <p className="text-xs mt-1 text-slate-300">
-                          La capacité disponible est de{" "}
-                          {Number(box.current_count) || 0}/
-                          {Number(box.capacite_max) || 0} documents.
-                        </p>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Pied de page avec résumé */}
@@ -330,8 +490,33 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
             <p className="text-slate-400">Box introuvable</p>
           </div>
         )}
-        <ConfirmDialog />
       </Dialog>
+
+      {/* Modal de consultation du document */}
+      {showDocumentModal && selectedDocument && (
+        <DocumentDetails
+          visible={showDocumentModal}
+          onHide={handleCloseDocumentModal}
+          doc={selectedDocument}
+          onRefresh={handleDocumentUpdate}
+        />
+      )}
+
+      {/* Modal de modification du document */}
+      {showEditModal && editingDocument && (
+        <DocumentForm
+          visible={showEditModal}
+          onHide={() => {
+            setShowEditModal(false);
+            setEditingDocument(null);
+          }}
+          onSubmit={handleUpdateDocument}
+          refresh={loadData}
+          documentType={documentTypes}
+          selectedTypeId={editingDocument.type_document_id}
+          editingDoc={editingDocument}
+        />
+      )}
     </>
   );
 }

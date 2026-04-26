@@ -43,3 +43,15 @@ export const retireDocumentFromBox = async (
   const { data } = await api.post(`/box/${boxId}/remove/${documentId}`);
   return data;
 };
+
+// Déplacer un document d'un box à un autre
+export const moveDocumentToBox = async (
+  documentId: string,
+  sourceBoxId: string,
+  destinationBoxId: string
+) => {
+  const response = await api.post(`/boxes/${sourceBoxId}/move/${documentId}`, {
+    destinationBoxId,
+  });
+  return response.data;
+};

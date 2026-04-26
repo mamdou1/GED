@@ -3,6 +3,7 @@ import Layout from "../../components/layout/Layoutt";
 import { Toast } from "primereact/toast";
 import { Checkbox } from "primereact/checkbox";
 import { Dropdown } from "primereact/dropdown";
+import { Dialog } from "primereact/dialog";
 import {
   Search,
   Layers,
@@ -13,6 +14,16 @@ import {
   Pencil,
   Trash2,
   CloudDownload,
+  MapPin,
+  Archive,
+  Info,
+  Hash,
+  Box,
+  Map,
+  FolderTree,
+  AlertCircle,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 import { getMetaById } from "../../api/metaField";
 import { getDocuments } from "../../api/document";
@@ -34,6 +45,199 @@ import {
 } from "../../api/entiteeTrois";
 import DocumentDetails from "../Document/DocumentDetails";
 import RechercheUploadPieces from "./RechercheUploadPieces";
+import { Badge } from "primereact/badge";
+
+// Composant pour le modal d'emplacement
+function LocationModal({ visible, onHide, doc }: any) {
+  if (!doc) return null;
+
+  const location = {
+    site: doc.box?.trave?.rayon?.salle?.site?.nom || null,
+    salle: doc.box?.trave?.rayon?.salle?.libelle || null,
+    rayon: doc.box?.trave?.rayon?.code || null,
+    trave: doc.box?.trave?.code || null,
+    box: doc.box?.libelle || null,
+    boxCode: doc.box?.code_box || null,
+    capaciteMax: doc.box?.capacite_max || null,
+    currentCount: doc.box?.current_count || null,
+    status: doc.box?.status || null,
+    typeDocument: doc.box?.typeDocument?.nom || null,
+  };
+
+  const isArchived = doc.box_id !== null;
+  const ratio = location.capaciteMax ? (location.currentCount / location.capaciteMax) * 100 : 0;
+  const isFull = ratio >= 100;
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "LIBRE":
+        return { bg: "bg-green-100", text: "text-green-700", icon: <CheckCircle size={16} /> };
+      case "OCCUPE":
+        return { bg: "bg-orange-100", text: "text-orange-700", icon: <AlertCircle size={16} /> };
+      case "PLIEN":
+        return { bg: "bg-red-100", text: "text-red-700", icon: <XCircle size={16} /> };
+      default:
+        return { bg: "bg-slate-100", text: "text-slate-700", icon: <Info size={16} /> };
+    }
+  };
+
+  return (
+    <Dialog
+      header={
+        <div className="flex items-center gap-2">
+          <MapPin size={18} className="text-emerald-600" />
+          <span className="font-black text-emerald-900">Emplacement du document</span>
+        </div>
+      }
+      visible={visible}
+      onHide={onHide}
+      className="w-full max-w-md rounded-2xl"
+      modal
+    >
+      <div className="space-y-4 pt-2">
+        {/* En-tête document */}
+        <div className="bg-emerald-50 p-4 rounded-xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black text-emerald-500 uppercase">Document</p>
+              <p className="font-bold text-emerald-900">
+                #{String(doc.id).padStart(4, "0")}
+              </p>
+            </div>
+            <Badge
+              value={doc.typeDocument?.nom || "Non classé"}
+              severity="info"
+            />
+          </div>
+        </div>
+
+        {!isArchived ? (
+          <div className="text-center py-8">
+            <Archive size={48} className="mx-auto text-slate-300 mb-3" />
+            <p className="text-slate-500 font-medium">Document non archivé</p>
+            <p className="text-xs text-slate-400 mt-1">
+              Ce document n'est pas encore rangé dans un box
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Chemin hiérarchique */}
+            <div className="space-y-3">
+              <p className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">
+                📍 Localisation physique
+              </p>
+              
+              {/* Site */}
+              {location.site && (
+                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                  <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                    <Building2 size={16} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 uppercase">Site</p>
+                    <p className="font-bold text-slate-700">{location.site}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Salle */}
+              {location.salle && (
+                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                  <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+                    <FolderTree size={16} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 uppercase">Salle</p>
+                    <p className="font-bold text-slate-700">{location.salle}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Rayon */}
+              {location.rayon && (
+                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                  <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
+                    <Layers size={16} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 uppercase">Rayon</p>
+                    <p className="font-bold text-slate-700">{location.rayon}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Travée */}
+              {location.trave && (
+                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                  <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                    <GitMerge size={16} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 uppercase">Travée</p>
+                    <p className="font-bold text-slate-700">{location.trave}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Box */}
+              <div className="border-t border-emerald-100 pt-3">
+                <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl">
+                  <div className="p-2 bg-emerald-200 rounded-lg text-emerald-700">
+                    <Box size={16} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-[10px] text-emerald-500 uppercase">Box</p>
+                        <p className="font-bold text-emerald-900">{location.box}</p>
+                        <p className="text-xs text-emerald-600 font-mono">{location.boxCode}</p>
+                      </div>
+                      {location.typeDocument && (
+                        <Badge value={location.typeDocument} severity="info" className="text-xs" />
+                      )}
+                    </div>
+                    
+                    {/* Capacité */}
+                    <div className="mt-3 space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-emerald-600">Occupation</span>
+                        <span className="font-bold text-emerald-800">
+                          {location.currentCount}/{location.capaciteMax}
+                        </span>
+                      </div>
+                      <div className="w-full bg-emerald-200 rounded-full h-1.5">
+                        <div
+                          className={`h-1.5 rounded-full transition-all ${
+                            isFull ? "bg-red-500" : "bg-emerald-600"
+                          }`}
+                          style={{ width: `${Math.min(ratio, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Statut */}
+                    <div className="mt-3">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold ${
+                          getStatusColor(location.status).bg
+                        } ${getStatusColor(location.status).text}`}
+                      >
+                        {getStatusColor(location.status).icon}
+                        {location.status === "LIBRE" && "Libre"}
+                        {location.status === "OCCUPE" && "Occupé"}
+                        {location.status === "PLIEN" && "Plein"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </Dialog>
+  );
+}
 
 export default function Recherche() {
   const { user } = useAuth();
@@ -56,6 +260,8 @@ export default function Recherche() {
   const [selected, setSelected] = useState<any>(null);
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [ajoutVisible, setAjoutVisible] = useState(false);
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [selectedForLocation, setSelectedForLocation] = useState<any>(null);
 
   // Titres dynamiques
   const [titres, setTitres] = useState<{
@@ -80,7 +286,7 @@ export default function Recherche() {
   const toast = useRef<Toast>(null);
 
   // =============================================
-  // FONCTIONS UTILITAIRES
+  // FONCTIONS UTILITAIRES (inchangées)
   // =============================================
 
   const isUserAdmin = (user: User | null): boolean => {
@@ -111,7 +317,6 @@ export default function Recherche() {
       trois: new Set<number>(),
     };
 
-    // Entité de la fonction
     if (user.fonction_details?.entitee_un?.id) {
       ids.un.add(user.fonction_details.entitee_un.id);
     }
@@ -122,7 +327,6 @@ export default function Recherche() {
       ids.trois.add(user.fonction_details.entitee_trois.id);
     }
 
-    // Entités des agent_access
     user.agent_access?.forEach((access) => {
       if (access.entitee_un?.id) ids.un.add(access.entitee_un.id);
       if (access.entitee_deux?.id) ids.deux.add(access.entitee_deux.id);
@@ -154,7 +358,6 @@ export default function Recherche() {
     );
   };
 
-  // Récupérer les types de documents de la fonction
   const getUserFonctionTypes = (
     user: User | null,
     allTypes: TypeDocument[],
@@ -172,7 +375,6 @@ export default function Recherche() {
     });
   };
 
-  // ✅ FILTRER LES TYPES DE DOCUMENTS SELON L'UTILISATEUR
   const filteredTypes = useMemo(() => {
     if (isUserAdmin(user)) return types;
 
@@ -181,7 +383,6 @@ export default function Recherche() {
     const hasDeuxAccess = accessibleIds.deux.size > 0;
     const hasTroisAccess = accessibleIds.trois.size > 0;
 
-    // Cas 2.1 : Utilisateur avec accès supplémentaires
     if (hasAdditionalAccess(user)) {
       return types.filter((typeDoc) => {
         if (
@@ -206,7 +407,6 @@ export default function Recherche() {
       });
     }
 
-    // Cas 2.2 : Utilisateur sans accès supplémentaires (fonction uniquement)
     const fonctionId = getUserFonctionEntityId(user);
     const fonctionType = getUserFonctionEntityType(user);
 
@@ -235,7 +435,6 @@ export default function Recherche() {
           getAllEntiteeTrois(),
         ]);
 
-        // ✅ Ne garder que les niveaux qui ont un titre
         const newTitres = {
           niveau1: t1.titre || "",
           niveau2: t2.titre || "",
@@ -254,13 +453,10 @@ export default function Recherche() {
   }, []);
 
   // Options pour le premier dropdown (niveaux)
-  // Options pour le premier dropdown (niveaux) - MODIFIÉ
   const niveauOptions = useMemo(() => {
     const options = [];
 
-    // Admin voit tous les niveaux avec titre
     if (isUserAdmin(user)) {
-      // ✅ Vérification explicite que le titre existe et n'est pas vide
       if (titres.niveau1 && titres.niveau1.trim() !== "") {
         options.push({ label: titres.niveau1, value: "un" });
       }
@@ -273,7 +469,6 @@ export default function Recherche() {
       return options;
     }
 
-    // Non-admin : vérifier les accès ET l'existence du titre
     const ids = getUserAccessibleEntityIds(user);
 
     if (ids.un.size > 0 && titres.niveau1 && titres.niveau1.trim() !== "") {
@@ -289,7 +484,7 @@ export default function Recherche() {
     return options;
   }, [titres, user]);
 
-  // Options pour le deuxième dropdown (entités du niveau sélectionné)
+  // Options pour le deuxième dropdown
   const entiteeOptions = useMemo(() => {
     if (!selectedNiveau) return [];
 
@@ -298,11 +493,9 @@ export default function Recherche() {
     if (selectedNiveau === "deux") entites = entiteeDeux;
     if (selectedNiveau === "trois") entites = entiteeTrois;
 
-    // Filtrer selon les accès si nécessaire
     if (!isUserAdmin(user)) {
       const ids = getUserAccessibleEntityIds(user);
       const targetSet = ids[selectedNiveau as keyof typeof ids];
-
       entites = entites.filter((e) => targetSet.has(e.id));
     }
 
@@ -313,7 +506,7 @@ export default function Recherche() {
     }));
   }, [selectedNiveau, entiteeUn, entiteeDeux, entiteeTrois, user]);
 
-  // Filtrer les types de documents selon l'entité sélectionnée
+  // Filtrer les types de documents
   useEffect(() => {
     if (!selectedEntitee || !selectedNiveau) {
       setFilteredTypesByEntitee([]);
@@ -333,7 +526,7 @@ export default function Recherche() {
     setFilteredTypesByEntitee(filtered);
   }, [selectedEntitee, selectedNiveau, types]);
 
-  // Chargement initial des documents et types
+  // Chargement initial
   useEffect(() => {
     const loadData = async () => {
       const [resDocs, resTypes] = await Promise.all([
@@ -346,7 +539,7 @@ export default function Recherche() {
     loadData();
   }, []);
 
-  // Chargement des métadonnées selon le type sélectionné
+  // Chargement des métadonnées
   useEffect(() => {
     if (documentType_id) {
       getMetaById(String(documentType_id)).then((res) => {
@@ -359,14 +552,13 @@ export default function Recherche() {
     }
   }, [documentType_id]);
 
-  // Gérer le changement des checkboxes
   const toggleField = (id: number) => {
     setSelectedFields((prev) =>
       prev.includes(id) ? prev.filter((fid) => fid !== id) : [...prev, id],
     );
   };
 
-  // Logique de filtrage avancée
+  // Logique de filtrage
   const filtered = docs.filter((d) => {
     const matchType = documentType_id
       ? d.typeDocument?.id === documentType_id
@@ -387,12 +579,36 @@ export default function Recherche() {
     currentPage * itemsPerPage,
   );
 
-  // Déterminer ce qu'il faut afficher
+  // Composant badge d'emplacement compact
+  const LocationBadge = ({ doc }: { doc: any }) => {
+    if (!doc.box_id) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded-lg text-xs">
+          <Archive size={12} />
+          Non archivé
+        </span>
+      );
+    }
+
+    return (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setSelectedForLocation(doc);
+          setLocationModalVisible(true);
+        }}
+        className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-medium hover:bg-emerald-200 transition-all"
+        title="Voir l'emplacement détaillé"
+      >
+        <MapPin size={12} />
+        {doc.box?.trave?.rayon?.salle?.site?.nom} → {doc.box?.libelle}
+      </button>
+    );
+  };
+
   const getSearchInterface = () => {
-    // Cas 3 : Sans accès supplémentaires
     if (!hasAdditionalAccess(user) && !isUserAdmin(user)) {
       const fonctionTypes = getUserFonctionTypes(user, types);
-      const fonctionEntityType = getUserFonctionEntityType(user);
 
       return (
         <div className="space-y-6">
@@ -415,11 +631,9 @@ export default function Recherche() {
       );
     }
 
-    // Cas 1 et 2 : Interface à 3 dropdowns
     return (
       <div className="bg-white p-6 rounded-2xl border border-emerald-100 shadow-sm mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Dropdown 1 : Niveaux */}
           <div>
             <label className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-2 block">
               Niveau structure
@@ -437,7 +651,6 @@ export default function Recherche() {
             />
           </div>
 
-          {/* Dropdown 2 : Entités du niveau */}
           <div>
             <label className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-2 block">
               {selectedNiveau
@@ -466,7 +679,6 @@ export default function Recherche() {
             />
           </div>
 
-          {/* Dropdown 3 : Types de documents */}
           <div>
             <label className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-2 block">
               Type de document
@@ -506,10 +718,8 @@ export default function Recherche() {
         </h1>
       </div>
 
-      {/* Interface adaptative */}
       {getSearchInterface()}
 
-      {/* Checkboxes des libellés (Critères) - à afficher si un type est sélectionné */}
       {documentType_id && metaFields.length > 0 && (
         <div className="bg-white p-6 rounded-2xl border border-emerald-100 shadow-sm mb-6">
           <p className="text-sm font-bold text-emerald-800 mb-3">
@@ -534,7 +744,6 @@ export default function Recherche() {
         </div>
       )}
 
-      {/* Champs de recherche dynamiques */}
       {selectedFields.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 animate-in fade-in duration-300">
           {metaFields
@@ -558,88 +767,96 @@ export default function Recherche() {
         </div>
       )}
 
-      {/* Résultats (Tableau) */}
+      {/* Résultats - Tableau compact */}
       <div className="bg-white rounded-[2rem] border border-emerald-100 shadow-xl overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-emerald-50/30 border-b border-emerald-50">
-              <th className="p-5 text-[11px] font-black text-emerald-800 uppercase w-24">
-                Réf.
-              </th>
-              {metaFields.map((m) => (
-                <th
-                  key={m.id}
-                  className="p-5 text-[11px] font-black text-emerald-800 uppercase"
-                >
-                  {m.label}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-emerald-50/30 border-b border-emerald-50">
+                <th className="p-5 text-[11px] font-black text-emerald-800 uppercase w-20">
+                  Réf.
                 </th>
-              ))}
-              <th className="p-5 text-[11px] font-black text-emerald-800 uppercase w-24">
-                Action
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-emerald-50">
-            {documentType_id &&
-              paginated.map((d) => (
-                <tr
-                  key={d.id}
-                  onClick={() => {
-                    setSelected(d);
-                    setDetailsVisible(true);
-                  }}
-                  className="cursor-pointer hover:bg-emerald-50/40 transition-colors"
-                >
-                  <td className="p-5">
-                    <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-xs font-bold">
-                      #{String(d.id).padStart(3, "0")}
-                    </span>
-                  </td>
-                  {metaFields.map((m) => {
-                    const value = d.values?.find(
-                      (v: any) => v.metaField?.id === m.id,
-                    )?.value;
-                    return (
-                      <td
-                        key={m.id}
-                        className="p-5 text-sm text-emerald-900 font-medium"
-                      >
-                        {value || <span className="text-emerald-200">---</span>}
-                      </td>
-                    );
-                  })}
-                  <td
-                    className="px-6 py-4"
-                    onClick={(e) => e.stopPropagation()}
+                {metaFields.map((m) => (
+                  <th
+                    key={m.id}
+                    className="p-5 text-[11px] font-black text-emerald-800 uppercase"
                   >
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => {
-                          setSelected(d);
-                          setDetailsVisible(true);
-                        }}
-                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                        title="Voir détails"
-                      >
-                        <Eye size={18} />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          setSelected(d);
-                          setAjoutVisible(true);
-                          e.stopPropagation();
-                        }}
-                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
-                        title="Chargement des fichiers"
-                      >
-                        <CloudDownload size={18} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
+                    {m.label}
+                  </th>
+                ))}
+                <th className="p-5 text-[11px] font-black text-emerald-800 uppercase w-48">
+                  Emplacement
+                </th>
+                <th className="p-5 text-[11px] font-black text-emerald-800 uppercase w-24">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-emerald-50">
+              {documentType_id &&
+                paginated.map((d) => (
+                  <tr
+                    key={d.id}
+                    onClick={() => {
+                      setSelected(d);
+                      setDetailsVisible(true);
+                    }}
+                    className="cursor-pointer hover:bg-emerald-50/40 transition-colors"
+                  >
+                    <td className="p-5">
+                      <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-xs font-bold">
+                        #{String(d.id).padStart(3, "0")}
+                      </span>
+                    </td>
+                    {metaFields.map((m) => {
+                      const value = d.values?.find(
+                        (v: any) => v.metaField?.id === m.id,
+                      )?.value;
+                      return (
+                        <td
+                          key={m.id}
+                          className="p-5 text-sm text-emerald-900 font-medium"
+                        >
+                          {value || <span className="text-emerald-200">---</span>}
+                        </td>
+                      );
+                    })}
+                    <td className="p-5">
+                      <LocationBadge doc={d} />
+                    </td>
+                    <td
+                      className="px-6 py-4"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => {
+                            setSelected(d);
+                            setDetailsVisible(true);
+                          }}
+                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                          title="Voir détails"
+                        >
+                          <Eye size={18} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            setSelected(d);
+                            setAjoutVisible(true);
+                            e.stopPropagation();
+                          }}
+                          className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                          title="Chargement des fichiers"
+                        >
+                          <CloudDownload size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
 
         {!documentType_id && (
           <div className="p-20 text-center">
@@ -661,16 +878,32 @@ export default function Recherche() {
         totalItems={filtered.length}
         onPageChange={setCurrentPage}
       />
+
       <DocumentDetails
         visible={detailsVisible}
         onHide={() => setDetailsVisible(false)}
         doc={selected}
+        onRefresh={() => {
+          getDocuments().then(setDocs);
+        }}
       />
+
       <RechercheUploadPieces
         visible={ajoutVisible}
         onHide={() => setAjoutVisible(false)}
         document={selected}
-        onSuccess={() => {}} // ✅ Recharger après upload
+        onSuccess={() => {
+          getDocuments().then(setDocs);
+        }}
+      />
+
+      <LocationModal
+        visible={locationModalVisible}
+        onHide={() => {
+          setLocationModalVisible(false);
+          setSelectedForLocation(null);
+        }}
+        doc={selectedForLocation}
       />
     </Layout>
   );

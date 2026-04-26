@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Layout from "../../components/layout/Layoutt";
 import BoxDetails from "./BoxDetails";
 import BoxForm from "./BoxForm";
-import BoxAffectationForm from "./BoxAffectationForm"; // ✅ Import du nouveau composant
+import BoxAffectationForm from "./BoxAffectationForm";
 import type { Box } from "../../interfaces";
 import { confirmDialog } from "primereact/confirmdialog";
 import { Toast } from "primereact/toast";
@@ -36,12 +36,13 @@ import {
   XCircle,
   PackageOpen,
   SplinePointer,
-  Link2, // ✅ Nouvelle icône pour l'affectation
+  Columns, // ✅ Pour la modale BoxListeEtAffectation
 } from "lucide-react";
 import { Badge } from "primereact/badge";
 
-// ✅ IMPORTER LE NOUVEAU COMPOSANT
+// ✅ IMPORTER LES COMPOSANTS
 import DocumentListeEtArchivage from "./Add/DocumentListeEtArchivage";
+import BoxListeEtAffectation from "./Classement/BoxListeEtAffectation";
 
 export default function BoxPage() {
   // ✅ ÉTAPE 4: Remplacer useState par useQuery
@@ -64,7 +65,9 @@ export default function BoxPage() {
 
   // ✅ ÉTATS POUR LES MODALES
   const [archivageVisible, setArchivageVisible] = useState(false);
-  const [affectationVisible, setAffectationVisible] = useState(false); // ✅ Nouvel état pour BoxAffectationForm
+  const [affectationVisible, setAffectationVisible] = useState(false);
+  const [affectationTraveeVisible, setAffectationTraveeVisible] =
+    useState(false); // ✅ Nouvel état pour BoxListeEtAffectation
 
   // ✅ ÉTAPE 6: Modifier handleAction (pour BoxForm)
   const handleAction = async (payload: any) => {
@@ -98,10 +101,9 @@ export default function BoxPage() {
     }
   };
 
-  // ✅ NOUVEAU: Handler pour BoxAffectationForm
+  // ✅ Handler pour BoxAffectationForm (structure)
   const handleAffectationSubmit = async (payload: any) => {
     try {
-      // Appel API pour mettre à jour l'affectation du box
       await updateMutation.mutateAsync({
         id: String(selected?.id),
         data: payload,
@@ -115,7 +117,7 @@ export default function BoxPage() {
 
       setAffectationVisible(false);
       setSelected(null);
-      refetch(); // Recharger la liste des boxes
+      refetch();
     } catch (err) {
       toast.current?.show({
         severity: "error",
@@ -123,6 +125,17 @@ export default function BoxPage() {
         detail: "Échec de l'affectation du box",
       });
     }
+  };
+
+  // ✅ Callback après affectation à une travée réussie
+  const handleAffectationTraveeSuccess = () => {
+    setAffectationTraveeVisible(false);
+    toast.current?.show({
+      severity: "success",
+      summary: "Succès",
+      detail: "Les box ont été affectés à la travée avec succès",
+    });
+    refetch();
   };
 
   // ✅ ÉTAPE 7: Modifier handleDelete
@@ -287,9 +300,16 @@ export default function BoxPage() {
           </div>
         </div>
         <div className="flex gap-3">
+          {/* ✅ Bouton "Affecter à une travée" avec icône Building2 */}
+          <Button
+            label="Affecter à une travée"
+            icon={<Building2 size={20} className="mr-2" />}
+            className="bg-purple-500 hover:bg-purple-600 text-white border-none px-6 py-3 rounded-xl shadow-purple-200 shadow-lg transition-all"
+            onClick={() => setAffectationTraveeVisible(true)}
+          />
           {/* Bouton "Ajouter au Box" */}
           <Button
-            label="Ajouter au Box"
+            label="Ajouter Document au Box"
             icon={<PackageOpen size={20} className="mr-2" />}
             className="bg-amber-500 hover:bg-amber-600 text-white border-none px-6 py-3 rounded-xl shadow-amber-200 shadow-lg transition-all"
             onClick={() => setArchivageVisible(true)}
@@ -328,7 +348,7 @@ export default function BoxPage() {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-emerald-50/30 border-b border-emerald-50">
-              <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest ">
+              <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
                 Code
               </th>
               <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
@@ -476,7 +496,7 @@ export default function BoxPage() {
                         className="flex justify-center gap-2"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {/* ✅ Bouton Affectation (SplinePointer) */}
+                        {/* ✅ Bouton Affectation structure (SplinePointer) */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -489,7 +509,7 @@ export default function BoxPage() {
                           <SplinePointer size={18} />
                         </button>
 
-                        {/* Bouton Voir détails */}
+                        {/* ✅ Bouton Voir détails */}
                         <button
                           onClick={() => {
                             setSelected(box);
@@ -557,7 +577,7 @@ export default function BoxPage() {
         />
       </div>
 
-      {/* ✅ MODALE POUR L'ARCHIVAGE */}
+      {/* ✅ MODALE POUR L'ARCHIVAGE DE DOCUMENTS */}
       <Dialog
         visible={archivageVisible}
         onHide={() => setArchivageVisible(false)}
@@ -577,7 +597,29 @@ export default function BoxPage() {
         <DocumentListeEtArchivage />
       </Dialog>
 
-      {/* ✅ MODALE POUR L'AFFECTATION (BoxAffectationForm) */}
+      {/* ✅ MODALE POUR L'AFFECTATION DES BOX À UNE TRAVÉE */}
+      <Dialog
+        visible={affectationTraveeVisible}
+        onHide={() => setAffectationTraveeVisible(false)}
+        header={
+          <div className="flex items-center gap-2">
+            <Building2 size={24} className="text-purple-600" />
+            <span className="text-xl font-bold">
+              Affecter des box à une travée
+            </span>
+          </div>
+        }
+        style={{ width: "90vw", height: "85vh" }}
+        maximizable
+        contentStyle={{ padding: 0, height: "calc(85vh - 120px)" }}
+        breakpoints={{ "960px": "95vw", "640px": "100vw" }}
+        draggable={false}
+        resizable={false}
+      >
+        <BoxListeEtAffectation />
+      </Dialog>
+
+      {/* ✅ MODALE POUR L'AFFECTATION DE STRUCTURE (BoxAffectationForm) */}
       <BoxAffectationForm
         visible={affectationVisible}
         onHide={() => {

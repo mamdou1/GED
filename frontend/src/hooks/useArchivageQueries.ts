@@ -30,53 +30,57 @@ export const useSites = () => {
 };
 
 // =============================================
-// SALLES (filtrées par site_id)
+// SALLES (filtrées par site_id, ou toutes si pas de filtre)
 // =============================================
 export const useSalles = (siteId?: number) => {
   return useQuery({
     queryKey: archivageKeys.salles(siteId),
     queryFn: async (): Promise<Salle[]> => {
-      if (!siteId) return [];
       const response = await getSalles();
       const salles = Array.isArray(response) ? response : response?.salle || [];
-      // ✅ Filtrer côté client si l'API ne supporte pas le filtre
-      return salles.filter((s: Salle) => s.site_id === siteId);
+      // ✅ Si siteId est fourni, filtrer ; sinon retourner tout
+      if (siteId && siteId > 0) {
+        return salles.filter((s: Salle) => s.site_id === siteId);
+      }
+      return salles;
     },
-    enabled: !!siteId && siteId > 0, // ✅ Ne s'exécute que si siteId est valide
+    // ✅ Toujours activé, mais avec un filtre optionnel
     staleTime: 5 * 60 * 1000,
   });
 };
 
 // =============================================
-// RAYONS (filtrés par salle_id)
+// RAYONS (filtrés par salle_id, ou tous si pas de filtre)
 // =============================================
 export const useRayons = (salleId?: number) => {
   return useQuery({
     queryKey: archivageKeys.rayons(salleId),
     queryFn: async (): Promise<Rayon[]> => {
-      if (!salleId) return [];
       const response = await getRayons();
       const rayons = Array.isArray(response) ? response : response?.rayon || [];
-      return rayons.filter((r: Rayon) => r.salle_id === salleId);
+      if (salleId && salleId > 0) {
+        return rayons.filter((r: Rayon) => r.salle_id === salleId);
+      }
+      return rayons;
     },
-    enabled: !!salleId && salleId > 0,
     staleTime: 5 * 60 * 1000,
   });
 };
 
 // =============================================
-// TRAVÉES (filtrées par rayon_id)
+// TRAVÉES (filtrées par rayon_id, ou toutes si pas de filtre)
 // =============================================
 export const useTraves = (rayonId?: number) => {
   return useQuery({
     queryKey: archivageKeys.traves(rayonId),
     queryFn: async (): Promise<Trave[]> => {
-      if (!rayonId) return [];
       const response = await getTraves();
       const traves = Array.isArray(response) ? response : response?.trave || [];
-      return traves.filter((t: Trave) => t.rayon_id === rayonId);
+      if (rayonId && rayonId > 0) {
+        return traves.filter((t: Trave) => t.rayon_id === rayonId);
+      }
+      return traves;
     },
-    enabled: !!rayonId && rayonId > 0,
     staleTime: 5 * 60 * 1000,
   });
 };

@@ -163,7 +163,7 @@ export default function SalleForm({ visible, onHide, onSubmit, initial }: any) {
 
             <div className="grid grid-cols-3 gap-4">
               {/* Rayons */}
-              <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-400">
                 <label className="text-[10px] font-black text-emerald-800 flex items-center gap-1 uppercase">
                   <Layers size={12} /> Rayons
                 </label>
@@ -173,7 +173,7 @@ export default function SalleForm({ visible, onHide, onSubmit, initial }: any) {
                     setFormData({ ...formData, mb_rayons: e.value || 1 })
                   }
                   min={1}
-                  className="w-full"
+                  className="w-full border"
                   inputClassName="p-2 w-full text-center font-bold"
                   showButtons
                 />
@@ -197,14 +197,14 @@ export default function SalleForm({ visible, onHide, onSubmit, initial }: any) {
                     onChange={(e) =>
                       setFormData({ ...formData, sigle_rayon: e.target.value })
                     }
-                    className="p-2 text-xs text-center uppercase"
+                    className="p-2 text-xs text-center uppercase border"
                     placeholder="Ex: R"
                   />
                 </div>
               </div>
 
               {/* Travées */}
-              <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-400">
                 <label className="text-[10px] font-black text-emerald-800 flex items-center gap-1 uppercase">
                   <Grid3X3 size={12} /> Travées / R
                 </label>
@@ -217,7 +217,7 @@ export default function SalleForm({ visible, onHide, onSubmit, initial }: any) {
                     })
                   }
                   min={1}
-                  className="w-full"
+                  className="w-full border"
                   inputClassName="p-2 w-full text-center font-bold"
                   showButtons
                 />
@@ -230,7 +230,7 @@ export default function SalleForm({ visible, onHide, onSubmit, initial }: any) {
                     })
                   }
                   min={1}
-                  className="w-full"
+                  className="w-full border"
                   inputClassName="p-2 w-full text-center font-bold"
                   placeholder="nombre de travé par rayon"
                   showButtons
@@ -244,7 +244,7 @@ export default function SalleForm({ visible, onHide, onSubmit, initial }: any) {
                     onChange={(e) =>
                       setFormData({ ...formData, sigle_trave: e.target.value })
                     }
-                    className="p-2 text-xs text-center uppercase"
+                    className="p-2 text-xs text-center uppercase border"
                     placeholder="Ex: T"
                   />
                 </div>

@@ -239,18 +239,17 @@ exports.update = async (req, res) => {
   }
 };
 
+// 🔹 Fonction utilitaire pour calculer le statut
+function computeStatus(current, max) {
+  if (current === 0) return "LIBRE";
+  if (current >= max) return "PLIEN";
+  return "OCCUPE";
+}
+
 exports.addBoxToTrve = async (req, res) => {
-  const startTime = Date.now();
   const { boxId, traveId } = req.params;
 
   try {
-    logger.info("📥 Tentative d'ajout de document dans box", {
-      boxId,
-      documentId,
-      traveId,
-      userId: req.user?.id,
-    });
-
     const box = await Box.findByPk(boxId);
     const trave = await Trave.findByPk(traveId);
 
@@ -258,45 +257,56 @@ exports.addBoxToTrve = async (req, res) => {
       return res.status(404).json({ message: "Box ou Travé introuvable" });
     }
 
-    // Vérification Capacité
+    // Si le box est déjà dans une autre travée, la retirer d'abord
+    if (box.trave_id) {
+      const oldTrave = await Trave.findByPk(box.trave_id);
+      if (oldTrave) {
+        oldTrave.current_count = Math.max(0, oldTrave.current_count - 1);
+        oldTrave.status = computeStatus(
+          oldTrave.current_count,
+          oldTrave.capacite_max,
+        );
+        await oldTrave.save();
+      }
+    }
+
+    // Vérification capacité de la TRAVÉE
     if (trave.current_count >= trave.capacite_max) {
       return res
         .status(400)
         .json({ message: "Capacité maximale atteinte pour ce travé" });
     }
 
-    trave.current_count += 1;
+    // ✅ ASSOCIER le box à la nouvelle travée (c'était ça qui manquait !)
+    box.trave_id = traveId;
 
-    // 🔹 Mise à jour du status
-    if (trave.current_count === 0) {
-      trave.status = "LIBRE";
-    } else if (trave.current_count >= box.capacite_max) {
-      trave.status = "PLIEN";
-    } else if (trave.current_count >= 1) {
-      trave.status = "OCCUPE";
-    }
+    // Incrémentation des compteurs
+    trave.current_count = Number(trave.current_count) + 1;
+
+    // Mise à jour des statuts
+    trave.status = computeStatus(trave.current_count, trave.capacite_max);
 
     await trave.save();
     await box.save();
 
-    // Journalisation dans l'historique
     await HistoriqueService.logCreate(req, "box", box);
 
     res.json({
       success: true,
-      current_count: box.current_count,
-      status: box.status,
+      trave_status: trave.status,
+      box_status: box.status,
+      trave_count: trave.current_count,
+      box_count: box.current_count,
     });
   } catch (error) {
     res.status(500).json({
-      message: "Erreur lors de l'ajout du document",
+      message: "Erreur lors de l'ajout du box à la travé",
       error: error.message,
     });
   }
 };
 
 exports.retireBoxToTrve = async (req, res) => {
-  const startTime = Date.now();
   const { boxId } = req.params;
 
   try {
@@ -304,33 +314,31 @@ exports.retireBoxToTrve = async (req, res) => {
     if (!box || !box.trave_id) {
       return res
         .status(404)
-        .json({ message: "Box non trouvé ou déjà hors box" });
+        .json({ message: "Box non trouvé ou déjà hors travé" });
     }
 
     const trave = await Trave.findByPk(box.trave_id);
     if (trave) {
-      trave.current_count = Math.max(0, box.current_count - 1);
-      if (trave.current_count === 0) {
-        trave.type_document_id = null;
-        trave.status = "LIBRE";
-      } else if (trave.current_count >= trave.capacite_max) {
-        trave.status = "PLIEN";
-      } else {
-        trave.status = "OCCUPE";
-      }
+      // Décrémentation
+      trave.current_count = Math.max(0, Number(trave.current_count) - 1);
+
+      // Mise à jour des statuts
+      trave.status = computeStatus(trave.current_count, trave.capacite_max);
+
       await trave.save();
     }
 
+    // ✅ RETIRER l'association du box à la travée
     box.trave_id = null;
     await box.save();
 
-    // Journalisation dans l'historique
     await HistoriqueService.logCreate(req, "trave", trave);
 
     res.json({
       success: true,
       message: "Box retiré avec succès",
-      status: box?.status,
+      trave_status: trave?.status,
+      box_status: box?.status,
     });
   } catch (error) {
     res.status(500).json({

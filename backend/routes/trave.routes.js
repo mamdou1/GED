@@ -43,13 +43,13 @@ router.get(
   ctrl.getAllBoxByTrave,
 );
 router.post(
-  "/:traveId/add",
+  "/box/:boxId/add/:traveId",
   verifyToken,
   authorizePermission("box", "create"),
   ctrl.addBoxToTrve,
 );
 router.post(
-  "/:traveId/remove",
+  "/box/:boxId/remove",
   verifyToken,
   authorizePermission("box", "create"),
   ctrl.retireBoxToTrve,

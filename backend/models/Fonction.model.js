@@ -8,7 +8,7 @@ module.exports = (sequelize, DataTypes) => {
       entitee_deux_id: { type: DataTypes.INTEGER, allowNull: true },
       entitee_trois_id: { type: DataTypes.INTEGER, allowNull: true },
     },
-    { tableName: "Fonctions", underscored: true },
+    { tableName: "fonctions", underscored: true },
   );
 
   Fonction.associate = (models) => {

@@ -11,15 +11,11 @@ import {
   Building2,
   GitMerge,
   Eye,
-  Pencil,
-  Trash2,
   CloudDownload,
   MapPin,
   Archive,
   Info,
-  Hash,
   Box,
-  Map,
   FolderTree,
   AlertCircle,
   CheckCircle,
@@ -46,38 +42,108 @@ import {
 import DocumentDetails from "../Document/DocumentDetails";
 import RechercheUploadPieces from "./RechercheUploadPieces";
 import { Badge } from "primereact/badge";
+import {
+  useSites,
+  useSalles,
+  useRayons,
+  useTraves,
+  useBoxes,
+} from "../../hooks/useArchivageQueries";
 
-// Composant pour le modal d'emplacement
+// =============================================
+// ✅ LocationModal - UNIQUEMENT avec les hooks
+// =============================================
 function LocationModal({ visible, onHide, doc }: any) {
+  const { data: allSites = [] } = useSites();
+  const { data: allSalles = [] } = useSalles();
+  const { data: allRayons = [] } = useRayons();
+  const { data: allTraves = [] } = useTraves();
+  const { data: allBoxes = [] } = useBoxes();
+
   if (!doc) return null;
 
-  const location = {
-    site: doc.box?.trave?.rayon?.salle?.site?.nom || null,
-    salle: doc.box?.trave?.rayon?.salle?.libelle || null,
-    rayon: doc.box?.trave?.rayon?.code || null,
-    trave: doc.box?.trave?.code || null,
-    box: doc.box?.libelle || null,
-    boxCode: doc.box?.code_box || null,
-    capaciteMax: doc.box?.capacite_max || null,
-    currentCount: doc.box?.current_count || null,
-    status: doc.box?.status || null,
-    typeDocument: doc.box?.typeDocument?.nom || null,
+  // ✅ Reconstruire le chemin UNIQUEMENT avec les hooks
+  const getDocumentLocation = () => {
+    const boxId = doc.box_id;
+    if (!boxId) return null;
+
+    const box = allBoxes.find((b) => Number(b.id) === Number(boxId));
+    if (!box) return null;
+
+    const result: any = {
+      box: box.libelle,
+      boxCode: box.code_box,
+      capaciteMax: Number(box.capacite_max) || 0,
+      currentCount: Number(box.current_count) || 0,
+      status: box.status || "",
+      typeDocument: box.typeDocument?.nom || null,
+    };
+
+    if (!box.trave_id) return result;
+
+    const trave = allTraves.find((t) => Number(t.id) === Number(box.trave_id));
+    if (!trave) return result;
+    result.trave = trave.code;
+
+    if (!trave.rayon_id) return result;
+
+    const rayon = allRayons.find(
+      (r) => Number(r.id) === Number(trave.rayon_id),
+    );
+    if (!rayon) return result;
+    result.rayon = rayon.code;
+
+    if (!rayon.salle_id) return result;
+
+    const salle = allSalles.find(
+      (s) => Number(s.id) === Number(rayon.salle_id),
+    );
+    if (!salle) return result;
+    result.salle = salle.libelle;
+
+    if (!salle.site_id) return result;
+
+    const site = allSites.find((s) => Number(s.id) === Number(salle.site_id));
+    if (!site) return result;
+    result.site = site.nom;
+
+    return result;
   };
 
-  const isArchived = doc.box_id !== null;
-  const ratio = location.capaciteMax ? (location.currentCount / location.capaciteMax) * 100 : 0;
+  const location = getDocumentLocation();
+  const isArchived = location !== null;
+
+  const ratio = location?.capaciteMax
+    ? (location.currentCount / location.capaciteMax) * 100
+    : 0;
   const isFull = ratio >= 100;
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "LIBRE":
-        return { bg: "bg-green-100", text: "text-green-700", icon: <CheckCircle size={16} /> };
+        return {
+          bg: "bg-green-100",
+          text: "text-green-700",
+          icon: <CheckCircle size={16} />,
+        };
       case "OCCUPE":
-        return { bg: "bg-orange-100", text: "text-orange-700", icon: <AlertCircle size={16} /> };
+        return {
+          bg: "bg-orange-100",
+          text: "text-orange-700",
+          icon: <AlertCircle size={16} />,
+        };
       case "PLIEN":
-        return { bg: "bg-red-100", text: "text-red-700", icon: <XCircle size={16} /> };
+        return {
+          bg: "bg-red-100",
+          text: "text-red-700",
+          icon: <XCircle size={16} />,
+        };
       default:
-        return { bg: "bg-slate-100", text: "text-slate-700", icon: <Info size={16} /> };
+        return {
+          bg: "bg-slate-100",
+          text: "text-slate-700",
+          icon: <Info size={16} />,
+        };
     }
   };
 
@@ -86,7 +152,9 @@ function LocationModal({ visible, onHide, doc }: any) {
       header={
         <div className="flex items-center gap-2">
           <MapPin size={18} className="text-emerald-600" />
-          <span className="font-black text-emerald-900">Emplacement du document</span>
+          <span className="font-black text-emerald-900">
+            Emplacement du document
+          </span>
         </div>
       }
       visible={visible}
@@ -95,11 +163,12 @@ function LocationModal({ visible, onHide, doc }: any) {
       modal
     >
       <div className="space-y-4 pt-2">
-        {/* En-tête document */}
         <div className="bg-emerald-50 p-4 rounded-xl">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-black text-emerald-500 uppercase">Document</p>
+              <p className="text-[10px] font-black text-emerald-500 uppercase">
+                Document
+              </p>
               <p className="font-bold text-emerald-900">
                 #{String(doc.id).padStart(4, "0")}
               </p>
@@ -115,130 +184,196 @@ function LocationModal({ visible, onHide, doc }: any) {
           <div className="text-center py-8">
             <Archive size={48} className="mx-auto text-slate-300 mb-3" />
             <p className="text-slate-500 font-medium">Document non archivé</p>
-            <p className="text-xs text-slate-400 mt-1">
-              Ce document n'est pas encore rangé dans un box
-            </p>
           </div>
         ) : (
-          <>
-            {/* Chemin hiérarchique */}
-            <div className="space-y-3">
-              <p className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">
-                📍 Localisation physique
-              </p>
-              
-              {/* Site */}
-              {location.site && (
-                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                  <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-                    <Building2 size={16} />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-400 uppercase">Site</p>
-                    <p className="font-bold text-slate-700">{location.site}</p>
-                  </div>
-                </div>
-              )}
+          <div className="space-y-3">
+            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">
+              📍 Localisation physique
+            </p>
 
-              {/* Salle */}
-              {location.salle && (
-                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                  <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
-                    <FolderTree size={16} />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-400 uppercase">Salle</p>
-                    <p className="font-bold text-slate-700">{location.salle}</p>
-                  </div>
+            {location.site && (
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                  <Building2 size={16} />
                 </div>
-              )}
-
-              {/* Rayon */}
-              {location.rayon && (
-                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                  <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
-                    <Layers size={16} />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-400 uppercase">Rayon</p>
-                    <p className="font-bold text-slate-700">{location.rayon}</p>
-                  </div>
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase">Site</p>
+                  <p className="font-bold text-slate-700">{location.site}</p>
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Travée */}
-              {location.trave && (
-                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                  <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
-                    <GitMerge size={16} />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-400 uppercase">Travée</p>
-                    <p className="font-bold text-slate-700">{location.trave}</p>
-                  </div>
+            {location.salle && (
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+                  <FolderTree size={16} />
                 </div>
-              )}
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase">Salle</p>
+                  <p className="font-bold text-slate-700">{location.salle}</p>
+                </div>
+              </div>
+            )}
 
-              {/* Box */}
-              <div className="border-t border-emerald-100 pt-3">
-                <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl">
-                  <div className="p-2 bg-emerald-200 rounded-lg text-emerald-700">
-                    <Box size={16} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-[10px] text-emerald-500 uppercase">Box</p>
-                        <p className="font-bold text-emerald-900">{location.box}</p>
-                        <p className="text-xs text-emerald-600 font-mono">{location.boxCode}</p>
-                      </div>
-                      {location.typeDocument && (
-                        <Badge value={location.typeDocument} severity="info" className="text-xs" />
-                      )}
+            {location.rayon && (
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
+                  <Layers size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase">Rayon</p>
+                  <p className="font-bold text-slate-700">{location.rayon}</p>
+                </div>
+              </div>
+            )}
+
+            {location.trave && (
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                  <GitMerge size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase">Travée</p>
+                  <p className="font-bold text-slate-700">{location.trave}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="border-t border-emerald-100 pt-3">
+              <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl">
+                <div className="p-2 bg-emerald-200 rounded-lg text-emerald-700">
+                  <Box size={16} />
+                </div>
+                <div className="flex-1">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-[10px] text-emerald-500 uppercase">
+                        Box
+                      </p>
+                      <p className="font-bold text-emerald-900">
+                        {location.box}
+                      </p>
+                      <p className="text-xs text-emerald-600 font-mono">
+                        {location.boxCode}
+                      </p>
                     </div>
-                    
-                    {/* Capacité */}
-                    <div className="mt-3 space-y-1">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-emerald-600">Occupation</span>
-                        <span className="font-bold text-emerald-800">
-                          {location.currentCount}/{location.capaciteMax}
-                        </span>
-                      </div>
-                      <div className="w-full bg-emerald-200 rounded-full h-1.5">
-                        <div
-                          className={`h-1.5 rounded-full transition-all ${
-                            isFull ? "bg-red-500" : "bg-emerald-600"
-                          }`}
-                          style={{ width: `${Math.min(ratio, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Statut */}
-                    <div className="mt-3">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold ${
-                          getStatusColor(location.status).bg
-                        } ${getStatusColor(location.status).text}`}
-                      >
-                        {getStatusColor(location.status).icon}
-                        {location.status === "LIBRE" && "Libre"}
-                        {location.status === "OCCUPE" && "Occupé"}
-                        {location.status === "PLIEN" && "Plein"}
+                    {location.typeDocument && (
+                      <Badge
+                        value={location.typeDocument}
+                        severity="info"
+                        className="text-xs"
+                      />
+                    )}
+                  </div>
+                  <div className="mt-3 space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-emerald-600">Occupation</span>
+                      <span className="font-bold text-emerald-800">
+                        {location.currentCount}/{location.capaciteMax}
                       </span>
                     </div>
+                    <div className="w-full bg-emerald-200 rounded-full h-1.5">
+                      <div
+                        className={`h-1.5 rounded-full transition-all ${isFull ? "bg-red-500" : "bg-emerald-600"}`}
+                        style={{ width: `${Math.min(ratio, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold ${getStatusColor(location.status).bg} ${getStatusColor(location.status).text}`}
+                    >
+                      {getStatusColor(location.status).icon}
+                      {location.status === "LIBRE" && "Libre"}
+                      {location.status === "OCCUPE" && "Occupé"}
+                      {location.status === "PLIEN" && "Plein"}
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     </Dialog>
   );
 }
 
+// =============================================
+// ✅ LocationBadge - UNIQUEMENT avec les hooks
+// =============================================
+function LocationBadge({ doc, onClick }: { doc: any; onClick: () => void }) {
+  const { data: allBoxes = [] } = useBoxes();
+  const { data: allTraves = [] } = useTraves();
+  const { data: allRayons = [] } = useRayons();
+  const { data: allSalles = [] } = useSalles();
+  const { data: allSites = [] } = useSites();
+
+  if (!doc.box_id) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded-lg text-xs">
+        <Archive size={12} />
+        Non archivé
+      </span>
+    );
+  }
+
+  // ✅ Reconstruire le chemin pour l'affichage compact
+  const getCompactPath = () => {
+    const box = allBoxes.find((b) => Number(b.id) === Number(doc.box_id));
+    if (!box) return `Box #${doc.box_id}`;
+
+    let path = box.libelle;
+
+    if (box.trave_id) {
+      const trave = allTraves.find(
+        (t) => Number(t.id) === Number(box.trave_id),
+      );
+      if (trave) {
+        path = `${trave.code} → ${path}`;
+
+        if (trave.rayon_id) {
+          const rayon = allRayons.find(
+            (r) => Number(r.id) === Number(trave.rayon_id),
+          );
+          if (rayon && rayon.salle_id) {
+            const salle = allSalles.find(
+              (s) => Number(s.id) === Number(rayon.salle_id),
+            );
+            if (salle && salle.site_id) {
+              const site = allSites.find(
+                (s) => Number(s.id) === Number(salle.site_id),
+              );
+              if (site) {
+                path = `${site.nom} → ${path}`;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return path;
+  };
+
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-medium hover:bg-emerald-200 transition-all max-w-[200px] truncate"
+      title="Voir l'emplacement détaillé"
+    >
+      <MapPin size={12} className="flex-shrink-0" />
+      <span className="truncate">{getCompactPath()}</span>
+    </button>
+  );
+}
+
+// =============================================
+// Composant principal Recherche
+// =============================================
 export default function Recherche() {
   const { user } = useAuth();
   const [docs, setDocs] = useState<any[]>([]);
@@ -246,7 +381,6 @@ export default function Recherche() {
   const [documentType_id, setDocumentType_id] = useState<number | null>(null);
   const [metaFields, setMetaFields] = useState<any[]>([]);
 
-  // États pour les dropdowns en cascade
   const [entiteeUn, setEntiteeUn] = useState<EntiteeUn[]>([]);
   const [entiteeDeux, setEntiteeDeux] = useState<EntiteeDeux[]>([]);
   const [entiteeTrois, setEntiteeTrois] = useState<EntiteeTrois[]>([]);
@@ -263,7 +397,6 @@ export default function Recherche() {
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [selectedForLocation, setSelectedForLocation] = useState<any>(null);
 
-  // Titres dynamiques
   const [titres, setTitres] = useState<{
     niveau1: string;
     niveau2: string;
@@ -274,20 +407,15 @@ export default function Recherche() {
     niveau3: "",
   });
 
-  // États spécifiques à la recherche dynamique
   const [selectedFields, setSelectedFields] = useState<number[]>([]);
   const [searchValues, setSearchValues] = useState<{ [key: number]: string }>(
     {},
   );
-  const [loading, setLoading] = useState(false);
-
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
   const toast = useRef<Toast>(null);
 
-  // =============================================
-  // FONCTIONS UTILITAIRES (inchangées)
-  // =============================================
+  // ... (garder toutes les fonctions utilitaires isUserAdmin, getUserAccessibleEntityIds, etc. inchangées)
 
   const isUserAdmin = (user: User | null): boolean => {
     if (!user) return false;
@@ -310,35 +438,27 @@ export default function Recherche() {
         deux: new Set<number>(),
         trois: new Set<number>(),
       };
-
     const ids = {
       un: new Set<number>(),
       deux: new Set<number>(),
       trois: new Set<number>(),
     };
-
-    if (user.fonction_details?.entitee_un?.id) {
+    if (user.fonction_details?.entitee_un?.id)
       ids.un.add(user.fonction_details.entitee_un.id);
-    }
-    if (user.fonction_details?.entitee_deux?.id) {
+    if (user.fonction_details?.entitee_deux?.id)
       ids.deux.add(user.fonction_details.entitee_deux.id);
-    }
-    if (user.fonction_details?.entitee_trois?.id) {
+    if (user.fonction_details?.entitee_trois?.id)
       ids.trois.add(user.fonction_details.entitee_trois.id);
-    }
-
-    user.agent_access?.forEach((access) => {
+    user.agent_access?.forEach((access: any) => {
       if (access.entitee_un?.id) ids.un.add(access.entitee_un.id);
       if (access.entitee_deux?.id) ids.deux.add(access.entitee_deux.id);
       if (access.entitee_trois?.id) ids.trois.add(access.entitee_trois.id);
     });
-
     return ids;
   };
 
-  const hasAdditionalAccess = (user: User | null): boolean => {
-    return (user?.agent_access?.length ?? 0) > 0;
-  };
+  const hasAdditionalAccess = (user: User | null): boolean =>
+    (user?.agent_access?.length ?? 0) > 0;
 
   const getUserFonctionEntityType = (
     user: User | null,
@@ -364,9 +484,7 @@ export default function Recherche() {
   ) => {
     const entityType = getUserFonctionEntityType(user);
     const entityId = getUserFonctionEntityId(user);
-
     if (!entityType || !entityId) return [];
-
     return allTypes.filter((typeDoc) => {
       if (entityType === "un") return typeDoc.entitee_un_id === entityId;
       if (entityType === "deux") return typeDoc.entitee_deux_id === entityId;
@@ -377,41 +495,30 @@ export default function Recherche() {
 
   const filteredTypes = useMemo(() => {
     if (isUserAdmin(user)) return types;
-
     const accessibleIds = getUserAccessibleEntityIds(user);
-    const hasUnAccess = accessibleIds.un.size > 0;
-    const hasDeuxAccess = accessibleIds.deux.size > 0;
-    const hasTroisAccess = accessibleIds.trois.size > 0;
-
     if (hasAdditionalAccess(user)) {
       return types.filter((typeDoc) => {
         if (
           typeDoc.entitee_un_id &&
-          hasUnAccess &&
           accessibleIds.un.has(typeDoc.entitee_un_id)
         )
           return true;
         if (
           typeDoc.entitee_deux_id &&
-          hasDeuxAccess &&
           accessibleIds.deux.has(typeDoc.entitee_deux_id)
         )
           return true;
         if (
           typeDoc.entitee_trois_id &&
-          hasTroisAccess &&
           accessibleIds.trois.has(typeDoc.entitee_trois_id)
         )
           return true;
         return false;
       });
     }
-
     const fonctionId = getUserFonctionEntityId(user);
     const fonctionType = getUserFonctionEntityType(user);
-
     if (!fonctionId || !fonctionType) return [];
-
     return types.filter((typeDoc) => {
       if (fonctionType === "un") return typeDoc.entitee_un_id === fonctionId;
       if (fonctionType === "deux")
@@ -434,14 +541,11 @@ export default function Recherche() {
           getAllEntiteeDeux(),
           getAllEntiteeTrois(),
         ]);
-
-        const newTitres = {
+        setTitres({
           niveau1: t1.titre || "",
           niveau2: t2.titre || "",
           niveau3: t3.titre || "",
-        };
-        setTitres(newTitres);
-
+        });
         setEntiteeUn(Array.isArray(e1) ? e1 : []);
         setEntiteeDeux(Array.isArray(e2) ? e2 : []);
         setEntiteeTrois(Array.isArray(e3) ? e3 : []);
@@ -452,53 +556,39 @@ export default function Recherche() {
     loadTitresEtEntites();
   }, []);
 
-  // Options pour le premier dropdown (niveaux)
+  // Options pour le premier dropdown
   const niveauOptions = useMemo(() => {
-    const options = [];
-
+    const options: { label: string; value: string }[] = [];
     if (isUserAdmin(user)) {
-      if (titres.niveau1 && titres.niveau1.trim() !== "") {
-        options.push({ label: titres.niveau1, value: "un" });
-      }
-      if (titres.niveau2 && titres.niveau2.trim() !== "") {
+      if (titres.niveau1) options.push({ label: titres.niveau1, value: "un" });
+      if (titres.niveau2)
         options.push({ label: titres.niveau2, value: "deux" });
-      }
-      if (titres.niveau3 && titres.niveau3.trim() !== "") {
+      if (titres.niveau3)
         options.push({ label: titres.niveau3, value: "trois" });
-      }
       return options;
     }
-
     const ids = getUserAccessibleEntityIds(user);
-
-    if (ids.un.size > 0 && titres.niveau1 && titres.niveau1.trim() !== "") {
+    if (ids.un.size > 0 && titres.niveau1)
       options.push({ label: titres.niveau1, value: "un" });
-    }
-    if (ids.deux.size > 0 && titres.niveau2 && titres.niveau2.trim() !== "") {
+    if (ids.deux.size > 0 && titres.niveau2)
       options.push({ label: titres.niveau2, value: "deux" });
-    }
-    if (ids.trois.size > 0 && titres.niveau3 && titres.niveau3.trim() !== "") {
+    if (ids.trois.size > 0 && titres.niveau3)
       options.push({ label: titres.niveau3, value: "trois" });
-    }
-
     return options;
   }, [titres, user]);
 
   // Options pour le deuxième dropdown
   const entiteeOptions = useMemo(() => {
     if (!selectedNiveau) return [];
-
     let entites: any[] = [];
     if (selectedNiveau === "un") entites = entiteeUn;
     if (selectedNiveau === "deux") entites = entiteeDeux;
     if (selectedNiveau === "trois") entites = entiteeTrois;
-
     if (!isUserAdmin(user)) {
       const ids = getUserAccessibleEntityIds(user);
       const targetSet = ids[selectedNiveau as keyof typeof ids];
       entites = entites.filter((e) => targetSet.has(e.id));
     }
-
     return entites.map((e) => ({
       label: e.libelle,
       value: e.id,
@@ -506,13 +596,12 @@ export default function Recherche() {
     }));
   }, [selectedNiveau, entiteeUn, entiteeDeux, entiteeTrois, user]);
 
-  // Filtrer les types de documents
+  // Filtrer les types
   useEffect(() => {
     if (!selectedEntitee || !selectedNiveau) {
       setFilteredTypesByEntitee([]);
       return;
     }
-
     const filtered = types.filter((typeDoc) => {
       if (selectedNiveau === "un")
         return typeDoc.entitee_un_id === selectedEntitee;
@@ -522,7 +611,6 @@ export default function Recherche() {
         return typeDoc.entitee_trois_id === selectedEntitee;
       return false;
     });
-
     setFilteredTypesByEntitee(filtered);
   }, [selectedEntitee, selectedNiveau, types]);
 
@@ -539,7 +627,7 @@ export default function Recherche() {
     loadData();
   }, []);
 
-  // Chargement des métadonnées
+  // Métadonnées
   useEffect(() => {
     if (documentType_id) {
       getMetaById(String(documentType_id)).then((res) => {
@@ -558,13 +646,11 @@ export default function Recherche() {
     );
   };
 
-  // Logique de filtrage
   const filtered = docs.filter((d) => {
     const matchType = documentType_id
       ? d.typeDocument?.id === documentType_id
       : true;
     if (!matchType) return false;
-
     return selectedFields.every((fieldId) => {
       const searchValue = searchValues[fieldId]?.toLowerCase() || "";
       if (!searchValue) return true;
@@ -579,37 +665,9 @@ export default function Recherche() {
     currentPage * itemsPerPage,
   );
 
-  // Composant badge d'emplacement compact
-  const LocationBadge = ({ doc }: { doc: any }) => {
-    if (!doc.box_id) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-400 rounded-lg text-xs">
-          <Archive size={12} />
-          Non archivé
-        </span>
-      );
-    }
-
-    return (
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setSelectedForLocation(doc);
-          setLocationModalVisible(true);
-        }}
-        className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-medium hover:bg-emerald-200 transition-all"
-        title="Voir l'emplacement détaillé"
-      >
-        <MapPin size={12} />
-        {doc.box?.trave?.rayon?.salle?.site?.nom} → {doc.box?.libelle}
-      </button>
-    );
-  };
-
   const getSearchInterface = () => {
     if (!hasAdditionalAccess(user) && !isUserAdmin(user)) {
       const fonctionTypes = getUserFonctionTypes(user, types);
-
       return (
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-emerald-100 shadow-sm">
@@ -630,7 +688,6 @@ export default function Recherche() {
         </div>
       );
     }
-
     return (
       <div className="bg-white p-6 rounded-2xl border border-emerald-100 shadow-sm mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -650,7 +707,6 @@ export default function Recherche() {
               className="w-full border-none shadow-none bg-emerald-50/50 rounded-xl"
             />
           </div>
-
           <div>
             <label className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-2 block">
               {selectedNiveau
@@ -678,7 +734,6 @@ export default function Recherche() {
               filter
             />
           </div>
-
           <div>
             <label className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-2 block">
               Type de document
@@ -745,7 +800,7 @@ export default function Recherche() {
       )}
 
       {selectedFields.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 animate-in fade-in duration-300">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           {metaFields
             .filter((m) => selectedFields.includes(m.id))
             .map((m) => (
@@ -767,7 +822,6 @@ export default function Recherche() {
         </div>
       )}
 
-      {/* Résultats - Tableau compact */}
       <div className="bg-white rounded-[2rem] border border-emerald-100 shadow-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -817,12 +871,21 @@ export default function Recherche() {
                           key={m.id}
                           className="p-5 text-sm text-emerald-900 font-medium"
                         >
-                          {value || <span className="text-emerald-200">---</span>}
+                          {value || (
+                            <span className="text-emerald-200">---</span>
+                          )}
                         </td>
                       );
                     })}
                     <td className="p-5">
-                      <LocationBadge doc={d} />
+                      {/* ✅ Utiliser le nouveau LocationBadge */}
+                      <LocationBadge
+                        doc={d}
+                        onClick={() => {
+                          setSelectedForLocation(d);
+                          setLocationModalVisible(true);
+                        }}
+                      />
                     </td>
                     <td
                       className="px-6 py-4"
@@ -857,7 +920,6 @@ export default function Recherche() {
             </tbody>
           </table>
         </div>
-
         {!documentType_id && (
           <div className="p-20 text-center">
             <div className="inline-flex p-6 bg-emerald-50 rounded-full mb-4 text-emerald-200">
@@ -887,7 +949,6 @@ export default function Recherche() {
           getDocuments().then(setDocs);
         }}
       />
-
       <RechercheUploadPieces
         visible={ajoutVisible}
         onHide={() => setAjoutVisible(false)}
@@ -896,7 +957,6 @@ export default function Recherche() {
           getDocuments().then(setDocs);
         }}
       />
-
       <LocationModal
         visible={locationModalVisible}
         onHide={() => {

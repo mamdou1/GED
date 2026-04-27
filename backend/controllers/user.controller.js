@@ -207,7 +207,18 @@ exports.getUsers = async (req, res) => {
     const users = await Agent.findAll({
       attributes: { exclude: ["password"] },
       include: [
-        { model: Droit, as: "droit", attributes: ["libelle"] },
+        {
+          model: Droit,
+          as: "droit",
+          //attributes: ["id", "libelle", "createdAt", "updatedAt"],
+          include: [
+            {
+              model: Permission,
+              as: "Permissions",
+              attributes: ["id", "resource", "action"],
+            },
+          ],
+        },
         fonctionInclude,
         agentAccessInclude,
       ],
@@ -271,7 +282,18 @@ exports.getUsersById = async (req, res) => {
       attributes: { exclude: ["password"] },
       include: [
         { model: Agent, as: "createur", attributes: ["nom", "prenom"] },
-        { model: Droit, as: "droit", attributes: ["id", "libelle"] },
+        {
+          model: Droit,
+          as: "droit",
+          //attributes: ["id", "libelle", "createdAt", "updatedAt"],
+          include: [
+            {
+              model: Permission,
+              as: "Permissions",
+              attributes: ["id", "resource", "action"],
+            },
+          ],
+        },
         fonctionInclude,
         agentAccessInclude,
       ],
@@ -566,7 +588,7 @@ exports.getMe = async (req, res) => {
         {
           model: Droit,
           as: "droit",
-          attributes: ["id", "libelle", "createdAt", "updatedAt"],
+          //attributes: ["id", "libelle", "createdAt", "updatedAt"],
           include: [
             {
               model: Permission,
@@ -582,6 +604,10 @@ exports.getMe = async (req, res) => {
       logger.warn("⚠️ Agent non trouvé", { userId: decoded.id });
       return res.status(404).json({ message: "Agent non trouvé" });
     }
+
+    logger.info("✅ Profil complète de l'agent", {
+      droit: agent,
+    });
 
     logger.info("✅ Profil utilisateur récupéré", {
       userId: agent.id,

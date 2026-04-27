@@ -5,7 +5,7 @@ module.exports = (sequelize, DataTypes) => {
       libelle: DataTypes.STRING,
     },
     {
-      tableName: "Droit",
+      tableName: "droit",
       timestamps: true,
       underscored: true,
     },
@@ -15,6 +15,7 @@ module.exports = (sequelize, DataTypes) => {
       through: "droit_permission",
       foreignKey: "droit_id",
       otherKey: "permission_id",
+      as: "Permissions",
       timestamps: false,
     });
 

@@ -49,7 +49,13 @@ const authorizePermission = (resource, action) => {
           {
             model: Droit,
             as: "droit",
-            include: [Permission],
+            include: [
+              {
+                model: Permission,
+                as: "Permissions", // ← AJOUTEZ L'ALIAS !
+                through: { attributes: [] }, // Optionnel : cache la table de liaison
+              },
+            ],
           },
         ],
       });

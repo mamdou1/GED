@@ -207,7 +207,7 @@ class CourrierService {
         if (row.date_limite_traitement && row.statut === "ATTRIBUÉ") {
           heures_restantes = Math.floor(
             (new Date(row.date_limite_traitement) - new Date()) /
-              (1000 * 60 * 60)
+              (1000 * 60 * 60),
           );
           if (heures_restantes < 0) statut_delai = "EN_RETARD";
           else if (heures_restantes < 24) statut_delai = "URGENT";
@@ -219,6 +219,7 @@ class CourrierService {
       throw error;
     }
   }
+  // backend/services/CourrierService.js
 
   // ===================== GET BY ID =====================
   static async getById(idcourrier, reqUser) {
@@ -235,22 +236,62 @@ class CourrierService {
           { model: Agent, as: "modifie_par" },
           { model: Expediteur, as: "expediteur_details" },
           { model: DestinataireExterne, as: "destinataire_externe" },
-          { model: PieceJointe, as: "pieces_jointes" },
+          {
+            model: PieceJointe,
+            as: "pieces_jointes",
+            attributes: ["idpiece_jointe", "nom_fichier", "fichier_url"],
+          },
           {
             model: AttributionCourrier,
             as: "attributions",
-            include: [{ model: Agent, as: "attribue_par" }],
+            include: [
+              {
+                model: Agent,
+                as: "attribue_par",
+                attributes: ["id", "nom", "prenom"],
+              },
+              {
+                model: Agent,
+                as: "attribue_a",
+                attributes: ["id", "nom", "prenom"],
+              },
+            ],
           },
           {
             model: TraitementCourrier,
             as: "historique_traitements",
-            include: [{ model: Agent, as: "agent" }],
+            include: [
+              {
+                model: Agent,
+                as: "agent",
+                attributes: ["id", "nom", "prenom"],
+              },
+            ],
           },
           {
             model: AuditCourrier,
             as: "audit",
-            include: [{ model: Agent, as: "agent" }],
+            include: [
+              {
+                model: Agent,
+                as: "agent",
+                attributes: ["id", "nom", "prenom"],
+              },
+            ],
           },
+        ],
+        order: [
+          [{ model: AuditCourrier, as: "audit" }, "createdAt", "DESC"],
+          [
+            { model: AttributionCourrier, as: "attributions" },
+            "createdAt",
+            "DESC",
+          ],
+          [
+            { model: TraitementCourrier, as: "historique_traitements" },
+            "createdAt",
+            "DESC",
+          ],
         ],
       });
 
@@ -265,6 +306,7 @@ class CourrierService {
       if (!peutVoirDirection && !estCreateur && !estDestinataire) {
         throw new Error("Accès refusé : ce courrier ne vous est pas attribué");
       }
+
       return courrier;
     } catch (error) {
       logger.error("Erreur getById:", error);
@@ -277,7 +319,7 @@ class CourrierService {
     const entitee_id = reqUser.entitee_un_id;
     if (!entitee_id) {
       throw new Error(
-        "Impossible de créer un courrier : utilisateur sans direction"
+        "Impossible de créer un courrier : utilisateur sans direction",
       );
     }
 
@@ -300,7 +342,7 @@ class CourrierService {
       const sequence = count + 1;
       const reference = `${prefix}-${annee}-${String(sequence).padStart(
         4,
-        "0"
+        "0",
       )}`;
 
       const courrier = await Courrier.create(
@@ -314,7 +356,7 @@ class CourrierService {
           date_creation: new Date(),
           date_reception: new Date(),
         },
-        { transaction }
+        { transaction },
       );
 
       await AuditCourrier.create(
@@ -324,7 +366,7 @@ class CourrierService {
           action: "CREATION",
           details: `Création du courrier ${reference}`,
         },
-        { transaction }
+        { transaction },
       );
 
       await transaction.commit();
@@ -366,7 +408,7 @@ class CourrierService {
     try {
       const [affected] = await Courrier.update(
         { statut: "VALIDÉ", modifie_par_agent_id: agentId },
-        { where: { idcourrier, statut: "EN_ATTENTE" }, transaction }
+        { where: { idcourrier, statut: "EN_ATTENTE" }, transaction },
       );
 
       if (affected > 0) {
@@ -377,7 +419,7 @@ class CourrierService {
             action: "VALIDATION",
             details: "Courrier validé",
           },
-          { transaction }
+          { transaction },
         );
       }
 
@@ -392,8 +434,7 @@ class CourrierService {
 
   // ===================== REJETER =====================
   static async rejeter(idcourrier, agentId, motif) {
-    if (!motif || !motif.trim())
-      throw new Error("Motif de rejet obligatoire");
+    if (!motif || !motif.trim()) throw new Error("Motif de rejet obligatoire");
 
     const transaction = await sequelize.transaction();
     try {
@@ -403,7 +444,7 @@ class CourrierService {
           modifie_par_agent_id: agentId,
           motif_traitement: motif,
         },
-        { where: { idcourrier, statut: "EN_ATTENTE" }, transaction }
+        { where: { idcourrier, statut: "EN_ATTENTE" }, transaction },
       );
 
       if (affected > 0) {
@@ -414,7 +455,7 @@ class CourrierService {
             action: "REJET",
             details: `Rejeté avec motif: ${motif}`,
           },
-          { transaction }
+          { transaction },
         );
       }
 
@@ -433,7 +474,7 @@ class CourrierService {
     destinataire_idagent,
     commentaire,
     instructions,
-    dateLimiteTraitement
+    dateLimiteTraitement,
   ) {
     const transaction = await sequelize.transaction();
     try {
@@ -442,7 +483,7 @@ class CourrierService {
 
       if (courrier.statut !== "VALIDÉ" && courrier.statut !== "ATTRIBUÉ") {
         throw new Error(
-          "Seul un courrier validé ou déjà attribué peut recevoir une attribution"
+          "Seul un courrier validé ou déjà attribué peut recevoir une attribution",
         );
       }
 
@@ -452,7 +493,7 @@ class CourrierService {
       }
 
       const delaiHeures = Math.round(
-        (dateLimite - new Date()) / (1000 * 60 * 60)
+        (dateLimite - new Date()) / (1000 * 60 * 60),
       );
 
       await AttributionCourrier.create(
@@ -465,7 +506,7 @@ class CourrierService {
           instructions_copiees: instructions || "Instructions par défaut",
           commentaire: commentaire || null,
         },
-        { transaction }
+        { transaction },
       );
 
       if (courrier.statut !== "ATTRIBUÉ") {
@@ -479,7 +520,7 @@ class CourrierService {
             attribue_par_agent_id: courrier.modifie_par_agent_id,
             modifie_par_agent_id: destinataire_idagent,
           },
-          { where: { idcourrier }, transaction }
+          { where: { idcourrier }, transaction },
         );
       }
 
@@ -490,7 +531,7 @@ class CourrierService {
           action: "ATTRIBUTION",
           details: `Attribué à l'agent ${destinataire_idagent} avec délai de ${delaiHeures}h`,
         },
-        { transaction }
+        { transaction },
       );
 
       await transaction.commit();
@@ -508,7 +549,7 @@ class CourrierService {
     entiteeId,
     entiteeType,
     reqUser,
-    motif = null
+    motif = null,
   ) {
     const transaction = await sequelize.transaction();
     try {
@@ -517,7 +558,7 @@ class CourrierService {
 
       if (courrier.statut !== "VALIDÉ" && courrier.statut !== "ATTRIBUÉ") {
         throw new Error(
-          "Seul un courrier validé ou déjà attribué peut être attribué à une entité"
+          "Seul un courrier validé ou déjà attribué peut être attribué à une entité",
         );
       }
 
@@ -526,7 +567,7 @@ class CourrierService {
         throw new Error(
           `Aucun chef trouvé pour cette ${
             entiteeType === "EntiteeDeux" ? "division" : "section"
-          }`
+          }`,
         );
       }
 
@@ -546,7 +587,7 @@ class CourrierService {
             attribue_par_agent_id: reqUser.id,
             modifie_par_agent_id: chef.id,
           },
-          { where: { idcourrier }, transaction }
+          { where: { idcourrier }, transaction },
         );
       }
 
@@ -561,7 +602,7 @@ class CourrierService {
               entiteeType === "EntiteeDeux" ? "la division" : "la section"
             }`,
         },
-        { transaction }
+        { transaction },
       );
 
       await AuditCourrier.create(
@@ -573,7 +614,7 @@ class CourrierService {
             entiteeType === "EntiteeDeux" ? "la division" : "la section"
           } (ID: ${entiteeId}), chef: ${chef.nom} ${chef.prenom}`,
         },
-        { transaction }
+        { transaction },
       );
 
       await transaction.commit();
@@ -608,12 +649,12 @@ class CourrierService {
           const dateLimite = new Date(attribution.date_limite_traitement);
           if (isNaN(dateLimite.getTime()) || dateLimite <= new Date()) {
             throw new Error(
-              `Date limite invalide pour l'agent ${attribution.id}`
+              `Date limite invalide pour l'agent ${attribution.id}`,
             );
           }
 
           const delaiHeures = Math.round(
-            (dateLimite - new Date()) / (1000 * 60 * 60)
+            (dateLimite - new Date()) / (1000 * 60 * 60),
           );
 
           await AttributionCourrier.create(
@@ -623,10 +664,11 @@ class CourrierService {
               attribue_par_agent_id: reqUser.id,
               delai_heures_applique: delaiHeures,
               date_limite_traitement: dateLimite,
-              instructions_copiees: attribution.instructions || "Instructions par défaut",
+              instructions_copiees:
+                attribution.instructions || "Instructions par défaut",
               commentaire: attribution.commentaire || null,
             },
-            { transaction }
+            { transaction },
           );
 
           await AuditCourrier.create(
@@ -636,7 +678,7 @@ class CourrierService {
               action: "ATTRIBUTION",
               details: `Attribué à l'agent ${attribution.id} avec délai de ${delaiHeures}h`,
             },
-            { transaction }
+            { transaction },
           );
 
           if (!premierDestinataire) {
@@ -647,7 +689,7 @@ class CourrierService {
           const chef = await this.getChefEntitee(attribution.id, "EntiteeDeux");
           if (!chef) {
             throw new Error(
-              `Aucun chef trouvé pour le service ${attribution.id}`
+              `Aucun chef trouvé pour le service ${attribution.id}`,
             );
           }
 
@@ -657,9 +699,10 @@ class CourrierService {
               attribue_a_agent_id: chef.id,
               attribue_par_agent_id: reqUser.id,
               commentaire:
-                attribution.commentaire || `Attribué au service ${attribution.id}`,
+                attribution.commentaire ||
+                `Attribué au service ${attribution.id}`,
             },
-            { transaction }
+            { transaction },
           );
 
           await AuditCourrier.create(
@@ -669,7 +712,7 @@ class CourrierService {
               action: "ATTRIBUTION_ENTITE",
               details: `Courrier attribué au service ${attribution.id}, chef: ${chef.nom} ${chef.prenom}`,
             },
-            { transaction }
+            { transaction },
           );
 
           if (!premierDestinataire) {
@@ -682,10 +725,13 @@ class CourrierService {
             success: true,
           });
         } else if (attribution.type === "entiteeTrois") {
-          const chef = await this.getChefEntitee(attribution.id, "EntiteeTrois");
+          const chef = await this.getChefEntitee(
+            attribution.id,
+            "EntiteeTrois",
+          );
           if (!chef) {
             throw new Error(
-              `Aucun chef trouvé pour le bureau ${attribution.id}`
+              `Aucun chef trouvé pour le bureau ${attribution.id}`,
             );
           }
 
@@ -695,9 +741,10 @@ class CourrierService {
               attribue_a_agent_id: chef.id,
               attribue_par_agent_id: reqUser.id,
               commentaire:
-                attribution.commentaire || `Attribué au bureau ${attribution.id}`,
+                attribution.commentaire ||
+                `Attribué au bureau ${attribution.id}`,
             },
-            { transaction }
+            { transaction },
           );
 
           await AuditCourrier.create(
@@ -707,7 +754,7 @@ class CourrierService {
               action: "ATTRIBUTION_ENTITE",
               details: `Courrier attribué au bureau ${attribution.id}, chef: ${chef.nom} ${chef.prenom}`,
             },
-            { transaction }
+            { transaction },
           );
 
           if (!premierDestinataire) {
@@ -731,7 +778,7 @@ class CourrierService {
             attribue_par_agent_id: reqUser.id,
             modifie_par_agent_id: premierDestinataire,
           },
-          { where: { idcourrier }, transaction }
+          { where: { idcourrier }, transaction },
         );
       }
 
@@ -750,7 +797,7 @@ class CourrierService {
     agentId,
     action,
     nouveauStatut = null,
-    motif = null
+    motif = null,
   ) {
     const transaction = await sequelize.transaction();
     try {
@@ -769,7 +816,7 @@ class CourrierService {
           nouveau_statut: nouveauStatut,
           motif: motif || `Action: ${action}`,
         },
-        { transaction }
+        { transaction },
       );
 
       if (nouveauStatut) {
@@ -792,10 +839,12 @@ class CourrierService {
             agent_id: agentId,
             action: "TRAITEMENT",
             details: `Courrier ${
-              nouveauStatut === "TRAITE" ? "traité" : `passé en statut ${nouveauStatut}`
+              nouveauStatut === "TRAITE"
+                ? "traité"
+                : `passé en statut ${nouveauStatut}`
             }`,
           },
-          { transaction }
+          { transaction },
         );
       }
 
@@ -924,11 +973,11 @@ class CourrierService {
       const isChef = await this.isChefOfEntitee(
         reqUser.id,
         entiteeId,
-        entiteeType
+        entiteeType,
       );
       if (!isChef && !reqUser.peutVoirDirection) {
         throw new Error(
-          "Accès refusé : vous n'êtes pas le chef de cette entité"
+          "Accès refusé : vous n'êtes pas le chef de cette entité",
         );
       }
 

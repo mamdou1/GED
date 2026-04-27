@@ -47,7 +47,7 @@ async function createAdminUser() {
     const adminExistant = await db.Agent.findOne({
       where: {
         [db.Sequelize.Op.or]: [
-          { username: 'admin1234' },
+          { username: 'admin55' },
           { email: 'admin@systeme.local' }
         ]
       },
@@ -66,16 +66,16 @@ async function createAdminUser() {
       console.log(`   Prénom: ${adminExistant.prenom || 'Non défini'}`);
     } else {
       const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash('admin123', salt);
+      const hashedPassword = await bcrypt.hash('admin6565', salt);
 
       const nouvelAdmin = await db.Agent.create({
         nom: 'Administrateur',
         prenom: 'Système',
         num_matricule: 'ADMIN001',
         email: 'admin@systeme.local',
-        username: 'admin1234',
+        username: 'admin55',
         password: hashedPassword,
-        telephone: '0000000000',
+        telephone: '6666666666',
         droit_id: droitAdmin.id,
         is_on_line: false,
         is_verified_for_reset: true,
@@ -85,7 +85,7 @@ async function createAdminUser() {
       console.log('✅ Utilisateur administrateur créé avec succès !');
       console.log('\n📝 Informations de connexion :');
       console.log(`   Username: ${nouvelAdmin.username}`);
-      console.log(`   Password: admin123`);
+      console.log(`   Password: admin6565`);
       console.log(`   Email: ${nouvelAdmin.email}`);
       console.log(`   Nom complet: ${nouvelAdmin.prenom} ${nouvelAdmin.nom}`);
     }

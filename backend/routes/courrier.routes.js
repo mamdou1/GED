@@ -1,150 +1,15 @@
-//// backend/routes/courrier.routes.js
-//const router = require("express").Router();
-//const ctrl = require("../controllers/courrier.controller");
-//const { verifyToken } = require("../middlewares/auth.middleware");
-//const {
-//  authorizePermission,
-//} = require("../middlewares/authorizePermission.middleware");
-//const upload = require("../middlewares/upload");
-//
-//// Toutes les routes nécessitent un token valide
-//router.use(verifyToken);
-//
-//// ===================== ROUTES DE CONSULTATION =====================
-//
-//// Liste principale des courriers
-//router.get(
-//  "/",
-//  authorizePermission("courrier", "read"),
-//  ctrl.getAll
-//);
-//
-//// Détail d'un courrier
-//router.get(
-//  "/:idcourrier",
-//  authorizePermission("courrier", "read"),
-//  ctrl.getById
-//);
-//
-//// Recherche
-//router.get(
-//  "/search",
-//  authorizePermission("courrier", "read"),
-//  ctrl.search
-//);
-//
-//// Statistiques globales
-//router.get(
-//  "/statistiques",
-//  authorizePermission("courrier", "read"),
-//  ctrl.getStatistiques
-//);
-//
-//// Courriers en retard
-//router.get(
-//  "/en-retard",
-//  authorizePermission("courrier", "read"),
-//  ctrl.getCourriersEnRetard
-//);
-//
-//// Audit d'un courrier
-//router.get(
-//  "/:idcourrier/audit",
-//  authorizePermission("courrier", "read"),
-//  ctrl.getAudit
-//);
-//
-//// Mes courriers attribués
-//router.get(
-//  "/mes-attribues",
-//  authorizePermission("courrier", "read"),
-//  ctrl.getMesAttribues
-//);
-//
-//// ===================== ROUTES DE GESTION =====================
-//
-//// Créer un courrier (avec upload de fichiers)
-//router.post(
-//  "/",
-//  authorizePermission("courrier", "create"),
-//  upload.array("files", 10),
-//  ctrl.create
-//);
-//
-//// Valider un courrier
-//router.patch(
-//  "/:idcourrier/valider",
-//  authorizePermission("courrier", "update"),
-//  ctrl.valider
-//);
-//
-//// Rejeter un courrier
-//router.patch(
-//  "/:idcourrier/rejeter",
-//  authorizePermission("courrier", "update"),
-//  ctrl.rejeter
-//);
-//
-//// Attribuer un courrier
-//router.post(
-//  "/:idcourrier/attribuer",
-//  authorizePermission("courrier", "update"),
-//  ctrl.attribuer
-//);
-//
-//// Traiter un courrier
-//router.post(
-//  "/:idcourrier/traiter",
-//  authorizePermission("courrier", "update"),
-//  ctrl.traiter
-//);
-//
-//// ===================== ROUTES POUR PIÈCES JOINTES =====================
-//
-//// Récupérer les pièces jointes
-//router.get(
-//  "/:idcourrier/pieces-jointes",
-//  authorizePermission("courrier", "read"),
-//  async (req, res) => {
-//    // Tu peux déplacer cette logique dans le controller si tu préfères
-//    try {
-//      const pieces = await CourrierService.getPiecesJointes(req.params.idcourrier);
-//      res.json({ success: true, data: pieces });
-//    } catch (error) {
-//      res.status(500).json({ success: false, message: error.message });
-//    }
-//  }
-//);
-//
-//// Ajouter des pièces jointes
-//router.post(
-//  "/:idcourrier/pieces-jointes",
-//  authorizePermission("courrier", "update"),
-//  upload.array("files", 10),
-//  async (req, res) => {
-//    try {
-//      const files = req.files || [];
-//      if (files.length === 0) {
-//        return res.status(400).json({ success: false, message: "Aucun fichier fourni" });
-//      }
-//      await CourrierService.addPiecesJointes(req.params.idcourrier, files);
-//      res.json({ success: true, message: `${files.length} pièce(s) ajoutée(s)` });
-//    } catch (error) {
-//      res.status(500).json({ success: false, message: error.message });
-//    }
-//  }
-//);
-//
-//module.exports = router;
 // backend/routes/courrier.routes.js
-const router = require("express").Router();
-const ctrl = require("../controllers/courrier.controller");
+const express = require("express");
+const router = express.Router();
+const upload = require("../middlewares/upload");
+
+const CourrierController = require("../controllers/courrier.controller");
 const { verifyToken } = require("../middlewares/auth.middleware");
 const {
   authorizePermission,
 } = require("../middlewares/authorizePermission.middleware");
-const upload = require("../middlewares/upload");
 
+// Toutes les routes nécessitent un token valide
 router.use(verifyToken);
 
 /**
@@ -190,32 +55,7 @@ router.use(verifyToken);
  *           format: date
  *         description: Date de fin (YYYY-MM-DD)
  */
-router.get("/", authorizePermission("courrier", "read"), ctrl.getAll);
-
-/**
- * @swagger
- * /api/courrier/{id}:
- *   get:
- *     summary: Détail d'un courrier
- *     tags: [Courrier]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: ID du courrier
- *     responses:
- *       200:
- *         description: Courrier trouvé
- *       403:
- *         description: Accès refusé
- *       404:
- *         description: Courrier non trouvé
- */
-router.get("/:id", authorizePermission("courrier", "read"), ctrl.getById);
+router.get("/", authorizePermission("courrier", "read"), CourrierController.getAll);
 
 /**
  * @swagger
@@ -233,7 +73,7 @@ router.get("/:id", authorizePermission("courrier", "read"), ctrl.getById);
  *           type: string
  *         description: Terme de recherche
  */
-router.get("/search", authorizePermission("courrier", "read"), ctrl.search);
+router.get("/search", authorizePermission("courrier", "read"), CourrierController.search);
 
 /**
  * @swagger
@@ -244,7 +84,7 @@ router.get("/search", authorizePermission("courrier", "read"), ctrl.search);
  *     security:
  *       - bearerAuth: []
  */
-router.get("/statistiques", authorizePermission("courrier", "read"), ctrl.getStatistiques);
+router.get("/statistiques", authorizePermission("courrier", "read"), CourrierController.getStatistiques);
 
 /**
  * @swagger
@@ -255,7 +95,18 @@ router.get("/statistiques", authorizePermission("courrier", "read"), ctrl.getSta
  *     security:
  *       - bearerAuth: []
  */
-router.get("/en-retard", authorizePermission("courrier", "read"), ctrl.getCourriersEnRetard);
+router.get("/en-retard", authorizePermission("courrier", "read"), CourrierController.getCourriersEnRetard);
+
+/**
+ * @swagger
+ * /api/courrier/mes-attribues:
+ *   get:
+ *     summary: Mes courriers attribués
+ *     tags: [Courrier]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get("/mes-attribues", authorizePermission("courrier", "read"), CourrierController.getMesAttribues);
 
 /**
  * @swagger
@@ -273,18 +124,25 @@ router.get("/en-retard", authorizePermission("courrier", "read"), ctrl.getCourri
  *           type: integer
  *         description: ID du courrier
  */
-router.get("/:id/audit", authorizePermission("courrier", "read"), ctrl.getAudit);
+router.get("/:id/audit", authorizePermission("courrier", "read"), CourrierController.getAudit);
 
 /**
  * @swagger
- * /api/courrier/mes-attribues:
+ * /api/courrier/{id}:
  *   get:
- *     summary: Mes courriers attribués
+ *     summary: Détail d'un courrier
  *     tags: [Courrier]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID du courrier
  */
-router.get("/mes-attribues", authorizePermission("courrier", "read"), ctrl.getMesAttribues);
+router.get("/:id", authorizePermission("courrier", "read"), CourrierController.getById);
 
 // ===================== ROUTES DE GESTION =====================
 
@@ -301,7 +159,7 @@ router.post(
   "/",
   authorizePermission("courrier", "create"),
   upload.array("files", 10),
-  ctrl.create
+  CourrierController.create
 );
 
 /**
@@ -320,7 +178,7 @@ router.post(
  *           type: integer
  *         description: ID du courrier
  */
-router.patch("/:id/valider", authorizePermission("courrier", "update"), ctrl.valider);
+router.patch("/:id/valider", authorizePermission("courrier", "update"), CourrierController.valider);
 
 /**
  * @swagger
@@ -348,49 +206,13 @@ router.patch("/:id/valider", authorizePermission("courrier", "update"), ctrl.val
  *                 type: string
  *                 description: Raison du rejet
  */
-router.patch("/:id/rejeter", authorizePermission("courrier", "update"), ctrl.rejeter);
+router.patch("/:id/rejeter", authorizePermission("courrier", "update"), CourrierController.rejeter);
 
 /**
  * @swagger
  * /api/courrier/{id}/attribuer:
  *   post:
  *     summary: Attribuer un courrier à un agent
- *     tags: [Courrier]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: ID du courrier
- */
-router.post("/:id/attribuer", authorizePermission("courrier", "update"), ctrl.attribuer);
-
-/**
- * @swagger
- * /api/courrier/{id}/traiter:
- *   post:
- *     summary: Traiter un courrier
- *     tags: [Courrier]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: ID du courrier
- */
-router.post("/:id/traiter", authorizePermission("courrier", "update"), ctrl.traiter);
-
-/**
- * @swagger
- * /api/courrier/{id}/transferer:
- *   post:
- *     summary: Transférer un courrier vers une autre direction
  *     tags: [Courrier]
  *     security:
  *       - bearerAuth: []
@@ -408,14 +230,171 @@ router.post("/:id/traiter", authorizePermission("courrier", "update"), ctrl.trai
  *           schema:
  *             type: object
  *             properties:
- *               nouvelleDirectionId:
+ *               destinataire_idagent:
  *                 type: integer
- *                 description: ID de la nouvelle direction
+ *                 description: ID de l'agent destinataire
+ *               date_limite_traitement:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Date limite de traitement
+ *               instructions:
+ *                 type: string
+ *                 description: Instructions
+ *               commentaire:
+ *                 type: string
+ *                 description: Commentaire
+ */
+// router.post("/:id/attribuer", authorizePermission("courrier", "update"), CourrierController.attribuer);
+
+/**
+ * @swagger
+ * /api/courrier/{id}/attribuer-entite:
+ *   post:
+ *     summary: Attribuer un courrier à une entité (Division/Bureau)
+ *     tags: [Courrier]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID du courrier
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               entiteeId:
+ *                 type: integer
+ *                 description: ID de l'entité
+ *               entiteeType:
+ *                 type: string
+ *                 enum: [EntiteeDeux, EntiteeTrois]
+ *                 description: Type d'entité
+ *               motif:
+ *                 type: string
+ *                 description: Motif de l'attribution
+ */
+// router.post(
+//   "/:id/attribuer-entite",
+//   authorizePermission("courrier", "update"),
+//   CourrierController.attribuerAEntite
+// );
+
+/**
+ * @swagger
+ * /api/courrier/{id}/attribuer-multiple:
+ *   post:
+ *     summary: Attribuer un courrier à plusieurs destinataires (agents + entités)
+ *     tags: [Courrier]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID du courrier
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               attributions:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     type:
+ *                       type: string
+ *                       enum: [agent, entiteeDeux, entiteeTrois]
+ *                     id:
+ *                       type: integer
+ *                     date_limite_traitement:
+ *                       type: string
+ *                       format: date-time
+ *                     instructions:
+ *                       type: string
+ *                     commentaire:
+ *                       type: string
+ */
+router.post(
+  "/:id/attribuer-multiple",
+  authorizePermission("courrier", "update"),
+  CourrierController.attribuerMultiple
+);
+
+/**
+ * @swagger
+ * /api/courrier/{id}/traiter:
+ *   post:
+ *     summary: Traiter un courrier
+ *     tags: [Courrier]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID du courrier
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 description: Action effectuée
+ *               nouveau_statut:
+ *                 type: string
+ *                 description: Nouveau statut
+ *               motif:
+ *                 type: string
+ *                 description: Motif du traitement
+ */
+router.post("/:id/traiter", authorizePermission("courrier", "update"), CourrierController.traiter);
+
+/**
+ * @swagger
+ * /api/courrier/{id}/transferer-interne:
+ *   post:
+ *     summary: Réattribuer un courrier à un autre agent de la même direction (Transfert interne)
+ *     tags: [Courrier]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID du courrier
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nouveauDestinataireId:
+ *                 type: integer
+ *                 description: ID de l'agent destinataire
  *               motif:
  *                 type: string
  *                 description: Motif du transfert (optionnel)
  */
-router.post("/:id/transferer", authorizePermission("courrier", "update"), ctrl.transferer);
+router.post("/:id/transferer-interne", authorizePermission("courrier", "update"), CourrierController.transfererInterne);
 
 // ===================== PIÈCES JOINTES =====================
 
@@ -423,7 +402,7 @@ router.post("/:id/transferer", authorizePermission("courrier", "update"), ctrl.t
  * @swagger
  * /api/courrier/{id}/pieces-jointes:
  *   get:
- *     summary: Récupérer les pièces jointes
+ *     summary: Récupérer les pièces jointes d'un courrier
  *     tags: [Courrier]
  *     security:
  *       - bearerAuth: []
@@ -435,13 +414,13 @@ router.post("/:id/transferer", authorizePermission("courrier", "update"), ctrl.t
  *           type: integer
  *         description: ID du courrier
  */
-router.get("/:id/pieces-jointes", authorizePermission("courrier", "read"), ctrl.getPiecesJointes);
+router.get("/:id/pieces-jointes", authorizePermission("courrier", "read"), CourrierController.getPiecesJointes);
 
 /**
  * @swagger
  * /api/courrier/{id}/pieces-jointes:
  *   post:
- *     summary: Ajouter des pièces jointes
+ *     summary: Ajouter des pièces jointes à un courrier
  *     tags: [Courrier]
  *     security:
  *       - bearerAuth: []
@@ -470,21 +449,7 @@ router.post(
   "/:id/pieces-jointes",
   authorizePermission("courrier", "update"),
   upload.array("files", 10),
-  async (req, res) => {
-    try {
-      const files = req.files || [];
-      if (files.length === 0) {
-        return res.status(400).json({ success: false, message: "Aucun fichier fourni" });
-      }
-      await CourrierService.addPiecesJointes(req.params.id, files);
-      res.json({ 
-        success: true, 
-        message: `${files.length} pièce(s) jointe(s) ajoutée(s)` 
-      });
-    } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
-    }
-  }
+  CourrierController.addPiecesJointes
 );
 
 module.exports = router;

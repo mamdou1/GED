@@ -10,21 +10,28 @@ class CourrierController {
     const startTime = Date.now();
     try {
       logger.debug("🔍 Récupération de tous les courriers", {
-        userId: req.user?.id,
+        userId: req.user?.id || null,
         filters: req.query,
       });
 
       const filters = { ...req.query };
+
       if (filters.statut) {
-        filters.statut = filters.statut.split(",").map(s => s.trim()).filter(s => s);
+        filters.statut = filters.statut
+          .split(",")
+          .map(s => s.trim())
+          .filter(Boolean);
       }
-      if (filters.type) filters.type = filters.type.toUpperCase();
+
+      if (filters.type) {
+        filters.type = filters.type.toUpperCase().trim();
+      }
 
       const courriers = await CourrierService.getAll(filters, req.user);
 
       logger.info("✅ Courriers récupérés", {
-        count: courriers.length,
-        userId: req.user?.id,
+        count: courriers?.length || 0,
+        userId: req.user?.id || null,
         duration: Date.now() - startTime,
       });
 
@@ -41,23 +48,31 @@ class CourrierController {
           status: 200,
           ip: req.ip,
           user_agent: req.headers["user-agent"],
-          data: { count: courriers.length, duration: Date.now() - startTime },
+          data: {
+            count: courriers?.length || 0,
+            duration: Date.now() - startTime
+          },
         });
       }
 
       return res.json({
         success: true,
-        data: courriers,
-        count: courriers.length,
+        data: courriers || [],
+        count: courriers?.length || 0,
       });
+
     } catch (err) {
       logger.error("❌ Erreur getAll courriers:", {
-        error: err.message,
-        stack: err.stack,
-        userId: req.user?.id,
+        error: err?.message || err,
+        stack: err?.stack,
+        userId: req.user?.id || null,
         duration: Date.now() - startTime,
       });
-      return res.status(500).json({ success: false, message: err.message || "Erreur serveur" });
+
+      return res.status(500).json({
+        success: false,
+        message: err?.message || "Erreur serveur"
+      });
     }
   }
 
@@ -67,14 +82,21 @@ class CourrierController {
     const id = req.params.id || req.params.idcourrier;
 
     try {
-      logger.debug("🔍 Récupération courrier par ID", { courrierId: id, userId: req.user?.id });
+      if (!id) {
+        return res.status(400).json({ success: false, message: "ID requis" });
+      }
+
+      logger.debug("🔍 Récupération courrier par ID", {
+        courrierId: id,
+        userId: req.user?.id || null
+      });
 
       const courrier = await CourrierService.getById(id, req.user);
 
       logger.info("✅ Courrier trouvé", {
         courrierId: id,
-        reference: courrier.reference,
-        userId: req.user?.id,
+        reference: courrier?.reference,
+        userId: req.user?.id || null,
         duration: Date.now() - startTime,
       });
 
@@ -83,8 +105,8 @@ class CourrierController {
         action: "read",
         resource: "courrier",
         resource_id: id,
-        resource_identifier: courrier.reference,
-        description: `Consultation du courrier ${courrier.reference}`,
+        resource_identifier: courrier?.reference,
+        description: `Consultation du courrier ${courrier?.reference}`,
         method: req.method,
         path: req.originalUrl,
         status: 200,
@@ -93,9 +115,23 @@ class CourrierController {
       });
 
       return res.json({ success: true, data: courrier });
+
     } catch (err) {
-      logger.error("❌ Erreur getById courrier:", { error: err.message, userId: req.user?.id });
-      return res.status(403).json({ success: false, message: err.message });
+      logger.error("❌ Erreur getById courrier:", {
+        error: err?.message || err,
+        userId: req.user?.id || null
+      });
+
+      const status =
+        err?.message?.includes("refusé") ||
+        err?.message?.includes("non trouvé")
+          ? 403
+          : 500;
+
+      return res.status(status).json({
+        success: false,
+        message: err?.message || "Erreur serveur"
+      });
     }
   }
 
@@ -103,36 +139,55 @@ class CourrierController {
   static async create(req, res) {
     const startTime = Date.now();
     try {
-      const agentId = req.user?.id;
-      const data = req.body;
+      const agentId = req.user?.id || null;
+      const data = req.body || {};
 
-      logger.info("📝 Tentative création courrier", { userId: agentId, type: data.type });
+      logger.info("📝 Tentative création courrier", {
+        userId: agentId,
+        type: data?.type
+      });
 
-      const courrierId = await CourrierService.create(data, agentId, req.user);
+      const courrier = await CourrierService.create(data, agentId, req.user);
 
-      const newCourrier = await CourrierService.getById(courrierId, req.user);
-
-      if (req.files && req.files.length > 0) {
-        await CourrierService.addPiecesJointes(courrierId, req.files);
+      if (req.files?.length > 0) {
+        await CourrierService.addPiecesJointes(courrier.idcourrier, req.files);
       }
 
+      const newCourrier = await CourrierService.getById(
+        courrier.idcourrier,
+        req.user
+      );
+
       logger.info("✅ Courrier créé", {
-        courrierId,
-        reference: newCourrier.reference,
+        courrierId: newCourrier?.idcourrier,
+        reference: newCourrier?.reference,
         userId: agentId,
         duration: Date.now() - startTime,
       });
 
-      await HistoriqueService.logCreate(req, "courrier", newCourrier, "reference");
+      await HistoriqueService.logCreate(
+        req,
+        "courrier",
+        newCourrier,
+        "reference"
+      );
 
       return res.status(201).json({
         success: true,
         message: "Courrier créé avec succès",
         data: newCourrier,
       });
+
     } catch (err) {
-      logger.error("❌ Erreur création courrier:", { error: err.message, userId: req.user?.id });
-      return res.status(500).json({ success: false, message: err.message || "Erreur serveur" });
+      logger.error("❌ Erreur création courrier:", {
+        error: err?.message || err,
+        userId: req.user?.id || null
+      });
+
+      return res.status(500).json({
+        success: false,
+        message: err?.message || "Erreur serveur"
+      });
     }
   }
 
@@ -142,18 +197,52 @@ class CourrierController {
     const id = req.params.id || req.params.idcourrier;
 
     try {
+      if (!id) {
+        return res.status(400).json({ success: false, message: "ID requis" });
+      }
+
       const success = await CourrierService.valider(id, req.user?.id);
+
       if (!success) {
-        return res.status(400).json({ success: false, message: "Impossible de valider ce courrier" });
+        return res.status(400).json({
+          success: false,
+          message: "Impossible de valider ce courrier"
+        });
       }
 
       const courrier = await CourrierService.getById(id, req.user);
-      await HistoriqueService.logUpdate(req, "courrier", null, courrier, "reference");
 
-      return res.json({ success: true, message: "Courrier validé avec succès", data: courrier });
+      await HistoriqueService.logUpdate(
+        req,
+        "courrier",
+        null,
+        courrier,
+        "reference"
+      );
+
+      logger.info("✅ Courrier validé", {
+        courrierId: id,
+        reference: courrier?.reference,
+        userId: req.user?.id || null,
+        duration: Date.now() - startTime,
+      });
+
+      return res.json({
+        success: true,
+        message: "Courrier validé avec succès",
+        data: courrier
+      });
+
     } catch (err) {
-      logger.error("❌ Erreur validation:", { error: err.message });
-      return res.status(400).json({ success: false, message: err.message });
+      logger.error("❌ Erreur validation:", {
+        error: err?.message || err,
+        userId: req.user?.id || null
+      });
+
+      return res.status(400).json({
+        success: false,
+        message: err?.message || "Erreur serveur"
+      });
     }
   }
 
@@ -164,35 +253,142 @@ class CourrierController {
     const { motif } = req.body;
 
     try {
-      const success = await CourrierService.rejeter(id, req.user?.id, motif);
+      if (!id) {
+        return res.status(400).json({ success: false, message: "ID requis" });
+      }
+
+      if (!motif?.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Le motif de rejet est obligatoire"
+        });
+      }
+
+      const success = await CourrierService.rejeter(
+        id,
+        req.user?.id,
+        motif.trim()
+      );
+
       if (!success) {
-        return res.status(400).json({ success: false, message: "Impossible de rejeter ce courrier" });
+        return res.status(400).json({
+          success: false,
+          message: "Impossible de rejeter ce courrier"
+        });
       }
 
       const courrier = await CourrierService.getById(id, req.user);
-      await HistoriqueService.logUpdate(req, "courrier", null, courrier, "reference");
 
-      return res.json({ success: true, message: "Courrier rejeté avec succès", data: courrier });
+      await HistoriqueService.logUpdate(
+        req,
+        "courrier",
+        null,
+        courrier,
+        "reference"
+      );
+
+      logger.info("❌ Courrier rejeté", {
+        courrierId: id,
+        reference: courrier?.reference,
+        motif,
+        userId: req.user?.id || null,
+        duration: Date.now() - startTime,
+      });
+
+      return res.json({
+        success: true,
+        message: "Courrier rejeté avec succès",
+        data: courrier
+      });
+
     } catch (err) {
-      return res.status(400).json({ success: false, message: err.message });
+      logger.error("❌ Erreur rejet:", {
+        error: err?.message || err,
+        userId: req.user?.id || null
+      });
+
+      return res.status(400).json({
+        success: false,
+        message: err?.message || "Erreur serveur"
+      });
     }
   }
 
-  // ===================== ATTRIBUER =====================
+    // ===================== ATTRIBUER À UN AGENT =====================
   static async attribuer(req, res) {
     const startTime = Date.now();
     const id = req.params.id || req.params.idcourrier;
     const { destinataire_idagent, commentaire, instructions, date_limite_traitement } = req.body;
 
     try {
-      await CourrierService.attribuer(id, destinataire_idagent, commentaire, instructions, date_limite_traitement);
+      if (!id) {
+        return res.status(400).json({ success: false, message: "ID requis" });
+      }
+      if (!destinataire_idagent) {
+        return res.status(400).json({ success: false, message: "L'agent destinataire est obligatoire" });
+      }
+      if (!date_limite_traitement) {
+        return res.status(400).json({ success: false, message: "La date limite de traitement est obligatoire" });
+      }
+
+      await CourrierService.attribuer(id, destinataire_idagent, commentaire || "", instructions || "", date_limite_traitement);
 
       const courrier = await CourrierService.getById(id, req.user);
       await HistoriqueService.logUpdate(req, "courrier", null, courrier, "reference");
 
+      logger.info("✅ Courrier attribué à un agent", {
+        courrierId: id,
+        reference: courrier?.reference,
+        destinataire_idagent,
+        userId: req.user?.id,
+        duration: Date.now() - startTime,
+      });
+
       return res.json({ success: true, message: "Courrier attribué avec succès", data: courrier });
     } catch (err) {
-      logger.error("❌ Erreur attribution:", { error: err.message });
+      logger.error("❌ Erreur attribution:", { error: err.message, userId: req.user?.id });
+      return res.status(400).json({ success: false, message: err.message });
+    }
+  }
+
+  // ===================== ATTRIBUER À UNE ENTITÉ =====================
+  static async attribuerAEntite(req, res) {
+    const startTime = Date.now();
+    const id = req.params.id || req.params.idcourrier;
+    const { entiteeId, entiteeType, motif } = req.body;
+
+    try {
+      if (!id) {
+        return res.status(400).json({ success: false, message: "ID requis" });
+      }
+      if (!entiteeId) {
+        return res.status(400).json({ success: false, message: "L'ID de l'entité est obligatoire" });
+      }
+      if (!entiteeType) {
+        return res.status(400).json({ success: false, message: "Le type d'entité est obligatoire" });
+      }
+
+      const result = await CourrierService.attribuerAEntite(id, entiteeId, entiteeType, req.user, motif);
+
+      const courrier = await CourrierService.getById(id, req.user);
+      await HistoriqueService.logUpdate(req, "courrier", null, courrier, "reference");
+
+      logger.info("✅ Courrier attribué à une entité", {
+        courrierId: id,
+        reference: courrier?.reference,
+        entiteeId,
+        entiteeType,
+        userId: req.user?.id,
+        duration: Date.now() - startTime,
+      });
+
+      return res.json({ 
+        success: true, 
+        message: result?.message || `Courrier attribué avec succès à l'entité`, 
+        data: courrier 
+      });
+    } catch (err) {
+      logger.error("❌ Erreur attribution à entité:", { error: err.message, userId: req.user?.id });
       return res.status(400).json({ success: false, message: err.message });
     }
   }
@@ -204,14 +400,161 @@ class CourrierController {
     const { action, nouveau_statut, motif } = req.body;
 
     try {
+      if (!id) {
+        return res.status(400).json({ success: false, message: "ID requis" });
+      }
+      if (!action) {
+        return res.status(400).json({ success: false, message: "L'action est obligatoire" });
+      }
+
       await CourrierService.traiter(id, req.user?.id, action, nouveau_statut, motif);
 
       const courrier = await CourrierService.getById(id, req.user);
       await HistoriqueService.logUpdate(req, "courrier", null, courrier, "reference");
 
-      return res.json({ success: true, message: `Action ${action} effectuée`, data: courrier });
+      logger.info("✅ Courrier traité", {
+        courrierId: id,
+        reference: courrier?.reference,
+        action,
+        nouveau_statut,
+        userId: req.user?.id,
+        duration: Date.now() - startTime,
+      });
+
+      return res.json({ success: true, message: `Action "${action}" effectuée avec succès`, data: courrier });
     } catch (err) {
+      logger.error("❌ Erreur traitement:", { error: err.message, userId: req.user?.id });
       return res.status(400).json({ success: false, message: err.message });
+    }
+  }
+
+  // ===================== TRANSFERT INTERNE =====================
+  static async transfererInterne(req, res) {
+    const startTime = Date.now();
+    const id = req.params.id || req.params.idcourrier;
+    const { nouveauDestinataireId, motif } = req.body;
+
+    try {
+      if (!id) {
+        return res.status(400).json({ success: false, message: "ID requis" });
+      }
+      if (!nouveauDestinataireId) {
+        return res.status(400).json({ success: false, message: "Le nouveau destinataire est obligatoire" });
+      }
+
+      await CourrierService.transfererInterne(id, nouveauDestinataireId, req.user, motif);
+
+      const courrier = await CourrierService.getById(id, req.user);
+      await HistoriqueService.logUpdate(req, "courrier", null, courrier, "reference");
+
+      logger.info("✅ Transfert interne effectué", {
+        courrierId: id,
+        reference: courrier?.reference,
+        nouveauDestinataireId,
+        userId: req.user?.id,
+        duration: Date.now() - startTime,
+      });
+
+      return res.json({ 
+        success: true, 
+        message: "Courrier réattribué avec succès à un autre agent de la même direction", 
+        data: courrier 
+      });
+    } catch (err) {
+      logger.error("❌ Erreur transfert interne:", { error: err.message, userId: req.user?.id });
+      return res.status(400).json({ success: false, message: err.message });
+    }
+  }
+
+  // ===================== ATTRIBUER MULTIPLE =====================
+  static async attribuerMultiple(req, res) {
+    const startTime = Date.now();
+    const id = req.params.id || req.params.idcourrier;
+    const { attributions } = req.body;
+
+    try {
+      if (!id) {
+        return res.status(400).json({ success: false, message: "ID requis" });
+      }
+
+      if (!Array.isArray(attributions) || attributions.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "La liste des attributions est obligatoire"
+        });
+      }
+
+      const result = await CourrierService.attribuerMultiple(
+        id,
+        attributions,
+        req.user
+      );
+
+      const courrier = await CourrierService.getById(id, req.user);
+
+      await HistoriqueService.logUpdate(
+        req,
+        "courrier",
+        null,
+        courrier,
+        "reference"
+      );
+
+      logger.info("✅ Attributions multiples effectuées", {
+        courrierId: id,
+        count: attributions.length,
+        userId: req.user?.id || null,
+        duration: Date.now() - startTime,
+      });
+
+      return res.json({
+        success: true,
+        message: `${attributions.length} attribution(s) effectuée(s) avec succès`,
+        data: courrier,
+        results: result?.results || []
+      });
+
+    } catch (err) {
+      logger.error("❌ Erreur attributions multiples:", {
+        error: err?.message || err,
+        userId: req.user?.id || null
+      });
+
+      return res.status(400).json({
+        success: false,
+        message: err?.message || "Erreur serveur"
+      });
+    }
+  }
+
+  // ===================== GET STATISTIQUES =====================
+  static async getStatistiques(req, res) {
+    const startTime = Date.now();
+    try {
+      logger.debug("📊 Récupération des statistiques", {
+        userId: req.user?.id || null
+      });
+
+      const statistiques = await CourrierService.getStatistiques(req.user);
+
+      logger.info("✅ Statistiques récupérées", {
+        userId: req.user?.id || null,
+        duration: Date.now() - startTime,
+      });
+
+      return res.json({ success: true, data: statistiques });
+
+    } catch (err) {
+      logger.error("❌ Erreur getStatistiques:", {
+        error: err?.message || err,
+        stack: err?.stack,
+        userId: req.user?.id || null
+      });
+
+      return res.status(500).json({
+        success: false,
+        message: err?.message || "Erreur serveur"
+      });
     }
   }
 
@@ -219,18 +562,33 @@ class CourrierController {
   static async getMesAttribues(req, res) {
     const startTime = Date.now();
     try {
-      const courriers = await CourrierService.getMesAttribues(req.user?.id);
+      const courriers = await CourrierService.getMesAttribues(
+        req.user?.id,
+        req.user
+      );
 
       logger.info("✅ Mes courriers attribués récupérés", {
-        count: courriers.length,
-        userId: req.user?.id,
+        count: courriers?.length || 0,
+        userId: req.user?.id || null,
         duration: Date.now() - startTime,
       });
 
-      return res.json({ success: true, data: courriers, count: courriers.length });
+      return res.json({
+        success: true,
+        data: courriers || [],
+        count: courriers?.length || 0
+      });
+
     } catch (err) {
-      logger.error("❌ Erreur getMesAttribues:", { error: err.message });
-      return res.status(500).json({ success: false, message: "Erreur serveur" });
+      logger.error("❌ Erreur getMesAttribues:", {
+        error: err?.message || err,
+        userId: req.user?.id || null
+      });
+
+      return res.status(500).json({
+        success: false,
+        message: err?.message || "Erreur serveur"
+      });
     }
   }
 
@@ -240,53 +598,80 @@ class CourrierController {
     const { q, ...filters } = req.query;
 
     try {
-      if (!q) {
-        return res.status(400).json({ success: false, message: "Terme de recherche requis" });
+      if (!q?.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Terme de recherche requis"
+        });
       }
 
-      const results = await CourrierService.search(q, filters, req.user);
+      const results = await CourrierService.search(
+        q.trim(),
+        filters,
+        req.user
+      );
 
       logger.info("✅ Recherche courriers effectuée", {
         term: q,
-        count: results.length,
-        userId: req.user?.id,
+        count: results?.length || 0,
+        userId: req.user?.id || null,
         duration: Date.now() - startTime,
       });
 
-      return res.json({ success: true, data: results, count: results.length });
-    } catch (err) {
-      logger.error("❌ Erreur search courriers:", { error: err.message });
-      return res.status(500).json({ success: false, message: "Erreur serveur" });
-    }
-  }
-
-  // ===================== STATISTIQUES =====================
-  static async getStatistiques(req, res) {
-    const startTime = Date.now();
-    try {
-      const stats = await CourrierService.getStatistiques(req.query);
-      logger.info("✅ Statistiques courriers récupérées", {
-        userId: req.user?.id,
-        duration: Date.now() - startTime,
+      return res.json({
+        success: true,
+        data: results || [],
+        count: results?.length || 0
       });
-      return res.json({ success: true, data: stats });
+
     } catch (err) {
-      logger.error("❌ Erreur getStatistiques:", { error: err.message });
-      return res.status(500).json({ success: false, message: "Erreur serveur" });
+      logger.error("❌ Erreur search courriers:", {
+        error: err?.message || err,
+        userId: req.user?.id || null
+      });
+
+      return res.status(500).json({
+        success: false,
+        message: err?.message || "Erreur serveur"
+      });
     }
   }
 
-  // ===================== AUDIT =====================
+  // ===================== GET AUDIT =====================
   static async getAudit(req, res) {
     const startTime = Date.now();
     const id = req.params.id || req.params.idcourrier;
 
     try {
+      if (!id) {
+        return res.status(400).json({ success: false, message: "ID requis" });
+      }
+
       const audit = await CourrierService.getAudit(id, req.user);
-      return res.json({ success: true, data: audit, count: audit.length });
+
+      logger.info("✅ Audit récupéré", {
+        courrierId: id,
+        count: audit?.length || 0,
+        userId: req.user?.id || null,
+        duration: Date.now() - startTime,
+      });
+
+      return res.json({
+        success: true,
+        data: audit || [],
+        count: audit?.length || 0
+      });
+
     } catch (err) {
-      logger.error("❌ Erreur getAudit:", { error: err.message });
-      return res.status(403).json({ success: false, message: err.message });
+      logger.error("❌ Erreur getAudit:", {
+        error: err?.message || err,
+        userId: req.user?.id || null
+      });
+
+      return res.status(403).json({
+        success: false,
+        message: err?.message || "Erreur serveur"
+      });
     }
   }
 
@@ -297,15 +682,73 @@ class CourrierController {
       const courriers = await CourrierService.getCourriersEnRetard(req.user);
 
       logger.info("✅ Courriers en retard récupérés", {
-        count: courriers.length,
-        userId: req.user?.id,
+        count: courriers?.length || 0,
+        userId: req.user?.id || null,
         duration: Date.now() - startTime,
       });
 
-      return res.json({ success: true, data: courriers, count: courriers.length });
+      return res.json({
+        success: true,
+        data: courriers || [],
+        count: courriers?.length || 0
+      });
+
     } catch (err) {
-      logger.error("❌ Erreur getCourriersEnRetard:", { error: err.message });
-      return res.status(500).json({ success: false, message: "Erreur serveur" });
+      logger.error("❌ Erreur getCourriersEnRetard:", {
+        error: err?.message || err,
+        userId: req.user?.id || null
+      });
+
+      return res.status(500).json({
+        success: false,
+        message: err?.message || "Erreur serveur"
+      });
+    }
+  }
+
+  // ===================== ADD PIECES JOINTES =====================
+  static async addPiecesJointes(req, res) {
+    const startTime = Date.now();
+    const id = req.params.id || req.params.idcourrier;
+
+    try {
+      const files = req.files || [];
+
+      if (!id) {
+        return res.status(400).json({ success: false, message: "ID requis" });
+      }
+
+      if (files.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Aucun fichier fourni"
+        });
+      }
+
+      await CourrierService.addPiecesJointes(id, files);
+
+      logger.info("✅ Pièces jointes ajoutées", {
+        courrierId: id,
+        count: files.length,
+        userId: req.user?.id || null,
+        duration: Date.now() - startTime,
+      });
+
+      return res.json({
+        success: true,
+        message: `${files.length} pièce(s) jointe(s) ajoutée(s)`
+      });
+
+    } catch (err) {
+      logger.error("❌ Erreur addPiecesJointes:", {
+        error: err?.message || err,
+        userId: req.user?.id || null
+      });
+
+      return res.status(500).json({
+        success: false,
+        message: err?.message || "Erreur serveur"
+      });
     }
   }
 
@@ -313,31 +756,36 @@ class CourrierController {
   static async getPiecesJointes(req, res) {
     const startTime = Date.now();
     const id = req.params.id || req.params.idcourrier;
+
     try {
+      if (!id) {
+        return res.status(400).json({ success: false, message: "ID requis" });
+      }
+
       const pieces = await CourrierService.getPiecesJointes(id);
-      return res.json({ success: true, data: pieces });
+
+      logger.info("✅ Pièces jointes récupérées", {
+        courrierId: id,
+        count: pieces?.length || 0,
+        userId: req.user?.id || null,
+        duration: Date.now() - startTime,
+      });
+
+      return res.json({
+        success: true,
+        data: pieces || []
+      });
+
     } catch (err) {
-      logger.error("❌ Erreur getPiecesJointes:", { error: err.message });
-      return res.status(500).json({ success: false, message: "Erreur serveur" });
-    }
-  }
+      logger.error("❌ Erreur getPiecesJointes:", {
+        error: err?.message || err,
+        userId: req.user?.id || null
+      });
 
-  // ===================== TRANSFERT INTER-DIRECTION =====================
-  static async transferer(req, res) {
-    const startTime = Date.now();
-    const id = req.params.id || req.params.idcourrier;
-    const { nouvelleDirectionId, motif } = req.body;
-
-    try {
-      await CourrierService.transfererVersAutreDirection(id, nouvelleDirectionId, req.user, motif);
-
-      const courrier = await CourrierService.getById(id, req.user);
-      await HistoriqueService.logUpdate(req, "courrier", null, courrier, "reference");
-
-      return res.json({ success: true, message: "Courrier transféré avec succès", data: courrier });
-    } catch (err) {
-      logger.error("❌ Erreur transfert:", { error: err.message });
-      return res.status(400).json({ success: false, message: err.message });
+      return res.status(500).json({
+        success: false,
+        message: err?.message || "Erreur serveur"
+      });
     }
   }
 }

@@ -1,7 +1,9 @@
+import { Expediteur } from "./expediteur";
+
 export interface Courrier {
   idcourrier: number;
   reference: string;
-  type: 'ARRIVE' | 'DEPART';
+  type: "ARRIVE" | "DEPART";
   nature?: string;
   type_support?: string;
   objet: string;
@@ -12,7 +14,15 @@ export interface Courrier {
   destinataire_idagent?: number;
   destinataire_externe_id?: number;
   entitee_id: number;
-  statut: 'EN_ATTENTE' | 'VALIDÉ' | 'REJETÉ' | 'ATTRIBUÉ' | 'EN_COURS' | 'TRAITE' | 'ARCHIVE' | 'RENVOYE';
+  statut:
+    | "EN_ATTENTE"
+    | "VALIDÉ"
+    | "REJETÉ"
+    | "ATTRIBUÉ"
+    | "EN_COURS"
+    | "TRAITE"
+    | "ARCHIVE"
+    | "RENVOYE";
   date_reception: string;
   date_limite_traitement?: string;
   date_attribution?: string;
@@ -28,16 +38,20 @@ export interface Courrier {
   destinataire_agent?: { id: number; nom: string; prenom: string };
   expediteur_details?: any;
   destinataire_externe?: any;
-  pieces_jointes?: Array<{ idpiece_jointe: number; nom_fichier: string; fichier_url: string }>;
+  pieces_jointes?: Array<{
+    idpiece_jointe: number;
+    nom_fichier: string;
+    fichier_url: string;
+  }>;
   attributions?: any[];
   historique_traitements?: any[];
   audit?: any[];
-  statut_delai?: 'NORMAL' | 'URGENT' | 'EN_RETARD';
+  statut_delai?: "NORMAL" | "URGENT" | "EN_RETARD";
   heures_restantes?: number | null;
 }
 
 export type CourrierCreatePayload = {
-  type: 'ARRIVE' | 'DEPART';
+  type: "ARRIVE" | "DEPART";
   objet: string;
   nature?: string;
   corps?: string;

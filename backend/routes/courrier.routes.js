@@ -55,7 +55,11 @@ router.use(verifyToken);
  *           format: date
  *         description: Date de fin (YYYY-MM-DD)
  */
-router.get("/", authorizePermission("courrier", "read"), CourrierController.getAll);
+router.get(
+  "/",
+  authorizePermission("courrier", "read"),
+  CourrierController.getAll,
+);
 
 /**
  * @swagger
@@ -73,7 +77,11 @@ router.get("/", authorizePermission("courrier", "read"), CourrierController.getA
  *           type: string
  *         description: Terme de recherche
  */
-router.get("/search", authorizePermission("courrier", "read"), CourrierController.search);
+router.get(
+  "/search",
+  authorizePermission("courrier", "read"),
+  CourrierController.search,
+);
 
 /**
  * @swagger
@@ -84,7 +92,11 @@ router.get("/search", authorizePermission("courrier", "read"), CourrierControlle
  *     security:
  *       - bearerAuth: []
  */
-router.get("/statistiques", authorizePermission("courrier", "read"), CourrierController.getStatistiques);
+router.get(
+  "/statistiques",
+  authorizePermission("courrier", "read"),
+  CourrierController.getStatistiques,
+);
 
 /**
  * @swagger
@@ -95,7 +107,11 @@ router.get("/statistiques", authorizePermission("courrier", "read"), CourrierCon
  *     security:
  *       - bearerAuth: []
  */
-router.get("/en-retard", authorizePermission("courrier", "read"), CourrierController.getCourriersEnRetard);
+router.get(
+  "/en-retard",
+  authorizePermission("courrier", "read"),
+  CourrierController.getCourriersEnRetard,
+);
 
 /**
  * @swagger
@@ -106,7 +122,11 @@ router.get("/en-retard", authorizePermission("courrier", "read"), CourrierContro
  *     security:
  *       - bearerAuth: []
  */
-router.get("/mes-attribues", authorizePermission("courrier", "read"), CourrierController.getMesAttribues);
+router.get(
+  "/mes-attribues",
+  authorizePermission("courrier", "read"),
+  CourrierController.getMesAttribues,
+);
 
 /**
  * @swagger
@@ -124,7 +144,11 @@ router.get("/mes-attribues", authorizePermission("courrier", "read"), CourrierCo
  *           type: integer
  *         description: ID du courrier
  */
-router.get("/:id/audit", authorizePermission("courrier", "read"), CourrierController.getAudit);
+router.get(
+  "/:id/audit",
+  authorizePermission("courrier", "read"),
+  CourrierController.getAudit,
+);
 
 /**
  * @swagger
@@ -142,7 +166,11 @@ router.get("/:id/audit", authorizePermission("courrier", "read"), CourrierContro
  *           type: integer
  *         description: ID du courrier
  */
-router.get("/:id", authorizePermission("courrier", "read"), CourrierController.getById);
+router.get(
+  "/:id",
+  authorizePermission("courrier", "read"),
+  CourrierController.getById,
+);
 
 // ===================== ROUTES DE GESTION =====================
 
@@ -159,7 +187,7 @@ router.post(
   "/",
   authorizePermission("courrier", "create"),
   upload.array("files", 10),
-  CourrierController.create
+  CourrierController.create,
 );
 
 /**
@@ -178,7 +206,11 @@ router.post(
  *           type: integer
  *         description: ID du courrier
  */
-router.patch("/:id/valider", authorizePermission("courrier", "update"), CourrierController.valider);
+router.patch(
+  "/:id/valider",
+  authorizePermission("courrier", "update"),
+  CourrierController.valider,
+);
 
 /**
  * @swagger
@@ -206,7 +238,11 @@ router.patch("/:id/valider", authorizePermission("courrier", "update"), Courrier
  *                 type: string
  *                 description: Raison du rejet
  */
-router.patch("/:id/rejeter", authorizePermission("courrier", "update"), CourrierController.rejeter);
+router.patch(
+  "/:id/rejeter",
+  authorizePermission("courrier", "update"),
+  CourrierController.rejeter,
+);
 
 /**
  * @swagger
@@ -279,6 +315,7 @@ router.patch("/:id/rejeter", authorizePermission("courrier", "update"), Courrier
  *                 type: string
  *                 description: Motif de l'attribution
  */
+
 // router.post(
 //   "/:id/attribuer-entite",
 //   authorizePermission("courrier", "update"),
@@ -328,7 +365,7 @@ router.patch("/:id/rejeter", authorizePermission("courrier", "update"), Courrier
 router.post(
   "/:id/attribuer-multiple",
   authorizePermission("courrier", "update"),
-  CourrierController.attribuerMultiple
+  CourrierController.attribuerMultiple,
 );
 
 /**
@@ -363,7 +400,11 @@ router.post(
  *                 type: string
  *                 description: Motif du traitement
  */
-router.post("/:id/traiter", authorizePermission("courrier", "update"), CourrierController.traiter);
+router.post(
+  "/:id/traiter",
+  authorizePermission("courrier", "update"),
+  CourrierController.traiter,
+);
 
 /**
  * @swagger
@@ -394,7 +435,11 @@ router.post("/:id/traiter", authorizePermission("courrier", "update"), CourrierC
  *                 type: string
  *                 description: Motif du transfert (optionnel)
  */
-router.post("/:id/transferer-interne", authorizePermission("courrier", "update"), CourrierController.transfererInterne);
+router.post(
+  "/:id/transferer-interne",
+  authorizePermission("courrier", "update"),
+  CourrierController.transfererInterne,
+);
 
 // ===================== PIÈCES JOINTES =====================
 
@@ -414,7 +459,11 @@ router.post("/:id/transferer-interne", authorizePermission("courrier", "update")
  *           type: integer
  *         description: ID du courrier
  */
-router.get("/:id/pieces-jointes", authorizePermission("courrier", "read"), CourrierController.getPiecesJointes);
+router.get(
+  "/:id/pieces-jointes",
+  authorizePermission("courrier", "read"),
+  CourrierController.getPiecesJointes,
+);
 
 /**
  * @swagger
@@ -449,7 +498,7 @@ router.post(
   "/:id/pieces-jointes",
   authorizePermission("courrier", "update"),
   upload.array("files", 10),
-  CourrierController.addPiecesJointes
+  CourrierController.addPiecesJointes,
 );
 
 module.exports = router;

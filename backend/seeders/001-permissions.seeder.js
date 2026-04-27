@@ -99,6 +99,34 @@ module.exports = async () => {
     { resource: "site", action: "read" },
     { resource: "site", action: "update" },
     { resource: "site", action: "delete" },
+
+    { resource: "courrier", action: "access" },
+    { resource: "courrier", action: "create" },
+    { resource: "courrier", action: "read" },
+    { resource: "courrier", action: "update" },
+    { resource: "courrier", action: "delete" },
+
+    { resource: "destinataire_externe", action: "access" },
+    { resource: "destinataire_externe", action: "create" },
+    { resource: "destinataire_externe", action: "read" },
+    { resource: "destinataire_externe", action: "update" },
+    { resource: "destinataire_externe", action: "delete" },
+
+    { resource: "destinataire_externe", action: "access" },
+    { resource: "destinataire_externe", action: "create" },
+    { resource: "destinataire_externe", action: "read" },
+    { resource: "destinataire_externe", action: "update" },
+    { resource: "destinataire_externe", action: "delete" },
+
+    { resource: "expediteur", action: "access" },
+    { resource: "expediteur", action: "create" },
+    { resource: "expediteur", action: "read" },
+    { resource: "expediteur", action: "update" },
+    { resource: "expediteur", action: "delete" },
+
+    { resource: "peutVoirCourrierEntiteeUn", action: "read" },
+    { resource: "peutVoirCourrierEntiteeDeux", action: "read" },
+    { resource: "peutVoirCourrierEntiteeTrois", action: "read" },
   ];
 
   console.log("⏳ Seeding permissions...");

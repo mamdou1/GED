@@ -84,14 +84,14 @@ exports.verifyToken = async (req, res, next) => {
 
       // Vérifier les permissions de visualisation
       // Dans auth.middleware.js, remplacer les noms des permissions
-      const peutVoirDirection = permissions.some(
-        (p) => p.resource === "courrier" && p.action === "read_direction",
+      const peutVoirCourrierEntiteeUn = permissions.some(
+        (p) => p.resource === "courrier" && p.action === "read",
       );
-      const peutVoirService = permissions.some(
-        (p) => p.resource === "courrier" && p.action === "read_service",
+      const peutVoirCourrierEntiteeDeux = permissions.some(
+        (p) => p.resource === "courrier" && p.action === "read",
       );
-      const peutVoirBureau = permissions.some(
-        (p) => p.resource === "courrier" && p.action === "read_bureau",
+      const peutVoirCourrierEntiteeTrois = permissions.some(
+        (p) => p.resource === "courrier" && p.action === "read",
       );
 
       req.user = {
@@ -106,9 +106,9 @@ exports.verifyToken = async (req, res, next) => {
         fonction: fonction,
         droit: agent.droit,
         permissions: permissions,
-        peutVoirDirection: peutVoirDirection,
-        peutVoirService: peutVoirService,
-        peutVoirBureau: peutVoirBureau,
+        peutVoirCourrierEntiteeUn: peutVoirCourrierEntiteeUn,
+        peutVoirCourrierEntiteeDeux: peutVoirCourrierEntiteeDeux,
+        peutVoirCourrierEntiteeTrois: peutVoirCourrierEntiteeTrois,
       };
 
       next();

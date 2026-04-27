@@ -12,7 +12,7 @@ module.exports = (sequelize, DataTypes) => {
     {
       tableName: "metafields",
       underscored: true,
-      timestamps: true,
+      timestamps: false,
     },
   );
 

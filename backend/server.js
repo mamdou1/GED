@@ -90,6 +90,7 @@ app.use(
   "/api/destinataire-externe",
   require("./routes/destinataireExterne.routes"),
 );
+app.use("/api/courrier-files", require("./routes/courrierFile.routes"));
 
 app.use("/api/sync", require("./routes/sync.routes"));
 
@@ -105,8 +106,9 @@ sequelize
   .then(async () => {
     console.log("✅ Connexion MySQL réussie");
 
-    //await sequelize.sync({ alter: true });
-    await sequelize.sync();
+    // await sequelize.sync({ alter: true });
+    await sequelize.sync(); // ❌ PAS force / alter ici
+
     // Vérifier que les tables existent
     // const tables = await sequelize.query("SHOW TABLES");
     // console.log(

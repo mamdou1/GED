@@ -11,6 +11,9 @@ import {
   attribuerCourrierAEntite,
   traiterCourrier,
   addPiecesJointes,
+  getPiecesJointes,
+  deletePieceJointe,
+  downloadPieceJointe,
   deleteCourrier
 } from '../api/courrier';
 import api from '../api/axios';
@@ -39,6 +42,15 @@ export const useCourrierById = (id: number) => {
     queryKey: ['courrier', id],
     queryFn: () => getCourrierById(id),
     enabled: !!id,
+  });
+};
+
+// ⭐ NOUVEAU: Hook pour récupérer les pièces jointes
+export const usePiecesJointes = (courrierId: number) => {
+  return useQuery({
+    queryKey: ['piecesJointes', courrierId],
+    queryFn: () => getPiecesJointes(courrierId),
+    enabled: !!courrierId,
   });
 };
 
@@ -120,7 +132,29 @@ export const useAddPiecesJointes = () => {
     mutationFn: ({ id, files }: { id: number; files: File[] }) => addPiecesJointes(id, files),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['courrier', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['piecesJointes', variables.id] });
     },
+  });
+};
+
+// ⭐ NOUVEAU: Suppression d'une pièce jointe
+export const useDeletePieceJointe = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ courrierId, fileId }: { courrierId: number; fileId: number }) => 
+      deletePieceJointe(courrierId, fileId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['piecesJointes', variables.courrierId] });
+      queryClient.invalidateQueries({ queryKey: ['courrier', variables.courrierId] });
+    },
+  });
+};
+
+// ⭐ NOUVEAU: Téléchargement d'une pièce jointe
+export const useDownloadPieceJointe = () => {
+  return useMutation({
+    mutationFn: ({ fileId, fileName }: { fileId: number; fileName?: string }) => 
+      downloadPieceJointe(fileId, fileName),
   });
 };
 
@@ -136,11 +170,7 @@ export const useDeleteCourrier = () => {
   });
 };
 
-
-// src/hooks/useCourriers.ts
-// Ajoute ce hook
-
-// Attributions multiples
+// ⭐ NOUVEAU: Attribution multiple (vous aviez déjà commencé à l'écrire)
 export const useAttribuerMultiple = () => {
   const queryClient = useQueryClient();
   return useMutation({

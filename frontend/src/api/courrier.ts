@@ -37,7 +37,7 @@ export const attribuerCourrier = async (id: number, payload: any) => {
   return data;
 };
 
-// ⭐ NOUVEAU: Attribution à une entité
+// Attribution à une entité
 export const attribuerCourrierAEntite = async (id: number, payload: { entiteeId: number; entiteeType: string; motif?: string }) => {
   const { data } = await api.post(`/courrier/${id}/attribuer-entite`, payload);
   return data;
@@ -53,14 +53,53 @@ export const transfererCourrier = async (id: number, payload: any) => {
   return data;
 };
 
+// ⭐ MODIFIER cette fonction existante (utiliser la nouvelle route)
 export const addPiecesJointes = async (id: number, files: File[]) => {
   const formData = new FormData();
   files.forEach(file => formData.append("files", file));
   
-  const { data } = await api.post(`/courrier/${id}/pieces-jointes`, formData, {
+  const { data } = await api.post(`/courrier-files/courrier/${id}/files`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
   return data;
+};
+
+// ⭐ NOUVELLES FONCTIONS pour la gestion des pièces jointes
+
+// Récupérer toutes les pièces jointes d'un courrier
+export const getPiecesJointes = async (courrierId: number) => {
+  const { data } = await api.get(`/courrier-files/courrier/${courrierId}/files`);
+  return data;
+};
+
+// Supprimer une pièce jointe
+export const deletePieceJointe = async (courrierId: number, fileId: number) => {
+  const { data } = await api.delete(`/courrier-files/courrier/${courrierId}/file/${fileId}`);
+  return data;
+};
+
+// Télécharger une pièce jointe
+export const downloadPieceJointe = async (fileId: number, fileName?: string) => {
+  const response = await api.get(`/courrier-files/courrier/file/${fileId}/download`, {
+    responseType: "blob",
+  });
+  
+  // Créer un lien de téléchargement
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", fileName || `fichier_${fileId}`);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+  
+  return response;
+};
+
+// Obtenir l'URL pour aperçu
+export const getPieceJointeUrl = (fileId: number): string => {
+  return `/courrier-files/courrier/file/${fileId}/download`;
 };
 
 export const deleteCourrier = async (id: number) => {

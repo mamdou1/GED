@@ -250,6 +250,7 @@ class CourrierService {
       throw error;
     }
   }
+  // backend/services/CourrierService.js
 
   // ===================== GET BY ID =====================
   static async getById(idcourrier, reqUser) {
@@ -266,22 +267,62 @@ class CourrierService {
           { model: Agent, as: "modifie_par" },
           { model: Expediteur, as: "expediteur_details" },
           { model: DestinataireExterne, as: "destinataire_externe" },
-          { model: PieceJointe, as: "pieces_jointes" },
+          {
+            model: PieceJointe,
+            as: "pieces_jointes",
+            attributes: ["idpiece_jointe", "nom_fichier", "fichier_url"],
+          },
           {
             model: AttributionCourrier,
             as: "attributions",
-            include: [{ model: Agent, as: "attribue_par" }],
+            include: [
+              {
+                model: Agent,
+                as: "attribue_par",
+                attributes: ["id", "nom", "prenom"],
+              },
+              {
+                model: Agent,
+                as: "attribue_a",
+                attributes: ["id", "nom", "prenom"],
+              },
+            ],
           },
           {
             model: TraitementCourrier,
             as: "historique_traitements",
-            include: [{ model: Agent, as: "agent" }],
+            include: [
+              {
+                model: Agent,
+                as: "agent",
+                attributes: ["id", "nom", "prenom"],
+              },
+            ],
           },
           {
             model: AuditCourrier,
             as: "audit",
-            include: [{ model: Agent, as: "agent" }],
+            include: [
+              {
+                model: Agent,
+                as: "agent",
+                attributes: ["id", "nom", "prenom"],
+              },
+            ],
           },
+        ],
+        order: [
+          [{ model: AuditCourrier, as: "audit" }, "createdAt", "DESC"],
+          [
+            { model: AttributionCourrier, as: "attributions" },
+            "createdAt",
+            "DESC",
+          ],
+          [
+            { model: TraitementCourrier, as: "historique_traitements" },
+            "createdAt",
+            "DESC",
+          ],
         ],
       });
 
@@ -296,6 +337,7 @@ class CourrierService {
       if (!peutVoirCourrierEntiteeUn && !estCreateur && !estDestinataire) {
         throw new Error("Accès refusé : ce courrier ne vous est pas attribué");
       }
+
       return courrier;
     } catch (error) {
       logger.error("Erreur getById:", error);

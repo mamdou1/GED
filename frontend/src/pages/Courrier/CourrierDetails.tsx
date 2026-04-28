@@ -60,7 +60,7 @@ const CourrierDetails: React.FC<CourrierDetailsProps> = ({
     data: piecesJointes = [],
     refetch: refetchPieces,
     isLoading: loadingFiles,
-  } = usePiecesJointes(courrier?.id);
+  } = usePiecesJointes(courrier?.idcourrier);
   const addPiecesMutation = useAddPiecesJointes();
   const deletePieceMutation = useDeletePieceJointe();
   const downloadPieceMutation = useDownloadPieceJointe();

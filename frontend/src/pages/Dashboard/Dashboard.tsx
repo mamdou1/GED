@@ -449,7 +449,7 @@ export default function Dashboard() {
       </div>
 
       {/* OPTIONNEL : Bouton d'export */}
-      <div className="mt-10 bg-emerald-700 rounded-[2.5rem] p-10 relative overflow-hidden shadow-2xl shadow-emerald-200">
+      {/* <div className="mt-10 bg-emerald-700 rounded-[2.5rem] p-10 relative overflow-hidden shadow-2xl shadow-emerald-200">
         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-white">
             <h3 className="text-2xl font-bold">Prêt pour l'export ?</h3>
@@ -462,11 +462,11 @@ export default function Dashboard() {
             icon="pi pi-file-pdf"
             className="bg-white text-emerald-700 border-none px-8 py-4 rounded-2xl font-black text-sm hover:bg-emerald-50 transition-all"
           />
-        </div>
-        {/* Cercles de décoration en arrière-plan */}
-        <div className="absolute top-[-10%] right-[-5%] w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+        </div>*/}
+      {/* Cercles de décoration en arrière-plan */}
+      {/* <div className="absolute top-[-10%] right-[-5%] w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-[-20%] left-[10%] w-48 h-48 bg-emerald-400/20 rounded-full blur-2xl"></div>
-      </div>
+      </div>  */}
     </Layout>
   );
 }

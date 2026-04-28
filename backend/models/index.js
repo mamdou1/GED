@@ -68,6 +68,21 @@ db.PiecesFile = require("./PicesFile.model")(sequelize, DataTypes);
 db.PieceValue = require("./PieceValue.model")(sequelize, DataTypes);
 db.PieceMetaField = require("./PieceMetaField.model")(sequelize, DataTypes);
 db.PiecesFichier = require("./PiecesFichier.model")(sequelize, DataTypes);
+
+
+
+
+//Models pour les courriers
+
+db.Courrier = require("./Courrier.model")(sequelize, DataTypes);
+db.PieceJointe = require("./PieceJointe.model")(sequelize, DataTypes);
+db.AttributionCourrier = require("./AttributionCourrier.model")(sequelize, DataTypes);
+db.TraitementCourrier = require("./TraitementCourrier.model")(sequelize, DataTypes);
+db.AuditCourrier = require("./AuditCourrier.model")(sequelize, DataTypes);
+db.Expediteur = require("./Expediteur.model")(sequelize, DataTypes);
+db.DestinataireExterne = require("./DestinataireExterne.model")(sequelize, DataTypes);
+
+
 // 🔹 Appel des associations
 Object.keys(db).forEach((modelName) => {
   if (db[modelName].associate) {

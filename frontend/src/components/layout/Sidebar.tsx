@@ -663,9 +663,13 @@ export default function Sidebar({ children }: SidebarProps) {
                 </SidebarTree>
               )}
               {/* ================= COURRIERS ================= */}
-              {can("courrier", "access") && (
+              {(can("Expediteur", "read") ||
+                can("mesCourrier", "update") ||
+                can("courrier", "create") ||
+                can("destinataire_externe", "access") ||
+                can("courrier", "access")) && (
                 <SidebarTree label="Courriers" icon={Send}>
-                  {can("courrier", "read") && (
+                  {can("courrier", "access") && (
                     <SidebarLink
                       icon={FileText}
                       text="Tous les courriers"
@@ -674,7 +678,7 @@ export default function Sidebar({ children }: SidebarProps) {
                     />
                   )}
 
-                  {can("courrier", "create") && (
+                  {can("mesCourrier", "update") && (
                     <SidebarLink
                       icon={Users}
                       text="Mes courriers attribués"
@@ -683,7 +687,7 @@ export default function Sidebar({ children }: SidebarProps) {
                     />
                   )}
 
-                  {can("courrier", "access") && (
+                  {can("courrier", "create") && (
                     <SidebarLink
                       icon={Plus}
                       text="Nouveau courrier"

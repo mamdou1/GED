@@ -16,6 +16,7 @@ exports.getLibellePermission = async (req, res) => {
     const droit = await Droit.findByPk(id, {
       include: {
         model: Permission,
+        as: "Permissions",
         through: { attributes: [] },
       },
     });
@@ -95,6 +96,7 @@ exports.updateLibellePermission = async (req, res) => {
     const oldDroit = await Droit.findByPk(id, {
       include: {
         model: Permission,
+        as: "Permissions",
         through: { attributes: [] },
       },
     });
@@ -115,6 +117,7 @@ exports.updateLibellePermission = async (req, res) => {
     const updatedDroit = await Droit.findByPk(id, {
       include: {
         model: Permission,
+        as: "Permissions",
         through: { attributes: [] },
       },
     });

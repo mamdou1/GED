@@ -144,6 +144,8 @@ module.exports = async () => {
     { resource: "peutVoirCourrierEntiteeUn", action: "read" },
     { resource: "peutVoirCourrierEntiteeDeux", action: "read" },
     { resource: "peutVoirCourrierEntiteeTrois", action: "read" },
+
+    { resource: "mesCourrier", action: "update" },
   ];
 
   console.log("⏳ Seeding permissions...");

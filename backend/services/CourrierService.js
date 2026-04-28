@@ -202,24 +202,26 @@ class CourrierService {
         {
           model: AttributionCourrier,
           as: "attributions",
-          separate: true, // ✅ Évite les problèmes de colonnes ambiguës
+          separate: true,
         },
         {
           model: TraitementCourrier,
           as: "historique_traitements",
-          separate: true, // ✅ Évite les problèmes de colonnes ambiguës
+          separate: true,
         },
         {
           model: AuditCourrier,
           as: "audit",
-          separate: true, // ✅ Évite les problèmes de colonnes ambiguës
+          separate: true,
         },
       ];
 
       const courriers = await Courrier.findAll({
         where,
+        attributes: {
+          include: ["motif_traitement"], // ✅ AJOUTÉ : pour avoir le motif de rejet
+        },
         include,
-        // ✅ CORRECTION : Préfixer avec le nom de la table `Courrier`
         order: [
           [
             sequelize.literal(
@@ -243,7 +245,14 @@ class CourrierService {
           if (heures_restantes < 0) statut_delai = "EN_RETARD";
           else if (heures_restantes < 24) statut_delai = "URGENT";
         }
-        return { ...row, statut_delai, heures_restantes };
+
+        // ✅ Renommer motif_traitement en motif_rejet pour le frontend
+        return {
+          ...row,
+          statut_delai,
+          heures_restantes,
+          motif_rejet: row.motif_traitement, // ← Transformation pour le frontend
+        };
       });
     } catch (error) {
       logger.error("Erreur getAll:", error);

@@ -48,9 +48,9 @@ export const retireDocumentFromBox = async (
 export const moveDocumentToBox = async (
   documentId: string,
   sourceBoxId: string,
-  destinationBoxId: string
+  destinationBoxId: string,
 ) => {
-  const response = await api.post(`/boxes/${sourceBoxId}/move/${documentId}`, {
+  const response = await api.post(`/box/${sourceBoxId}/move/${documentId}`, {
     destinationBoxId,
   });
   return response.data;

@@ -55,4 +55,11 @@ router.post(
   ctrl.retireDocumentToBox,
 );
 
+router.post(
+  "/:sourceBoxId/move/:documentId",
+  verifyToken,
+  authorizePermission("box", "create"),
+  ctrl.moveDocumentToBox,
+);
+
 module.exports = router;

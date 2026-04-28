@@ -7,6 +7,7 @@ const {
   EntiteeUn,
   EntiteeDeux,
   EntiteeTrois,
+  sequelize,
 } = require("../models");
 const logger = require("../config/logger.config");
 const HistoriqueService = require("../services/historique.service");
@@ -454,6 +455,123 @@ exports.retireDocumentToBox = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: "Erreur lors du retrait du document",
+      error: error.message,
+    });
+  }
+};
+
+exports.moveDocumentToBox = async (req, res) => {
+  const { sourceBoxId, documentId } = req.params;
+  const { destinationBoxId } = req.body;
+
+  const t = await sequelize.transaction();
+
+  try {
+    logger.info("🔄 Déplacement de document initié", {
+      documentId,
+      sourceBoxId,
+      destinationBoxId,
+    });
+
+    // 1. Récupération du document
+    const doc = await Document.findByPk(documentId, { transaction: t });
+    if (!doc) {
+      await t.rollback();
+      return res.status(404).json({ message: "Document introuvable" });
+    }
+
+    // 2. Mise à jour du Box Source
+    const sourceBox = await Box.findByPk(sourceBoxId, { transaction: t });
+    if (sourceBox) {
+      sourceBox.current_count = Math.max(0, sourceBox.current_count - 1);
+      if (sourceBox.current_count === 0) {
+        sourceBox.type_document_id = null;
+        sourceBox.status = "LIBRE";
+      } else {
+        sourceBox.status = "OCCUPE";
+      }
+      await sourceBox.save({ transaction: t });
+    }
+
+    // 3. Récupération et préparation du Box Destination
+    const destBox = await Box.findByPk(destinationBoxId, { transaction: t });
+    if (!destBox) {
+      await t.rollback();
+      return res
+        .status(404)
+        .json({ message: "Box de destination introuvable" });
+    }
+
+    // --- CAPTURE DE L'ANCIEN ÉTAT (pour le log) ---
+    const oldBoxData = destBox.toJSON();
+
+    // Vérifications de sécurité
+    if (destBox.current_count >= destBox.capacite_max) {
+      await t.rollback();
+      return res
+        .status(400)
+        .json({ message: "Le box de destination est plein" });
+    }
+
+    if (
+      destBox.type_document_id &&
+      destBox.type_document_id !== doc.type_document_id
+    ) {
+      await t.rollback();
+      return res
+        .status(400)
+        .json({ message: "Incompatibilité de type de document" });
+    }
+
+    // 4. Mise à jour effective du Box Destination
+    if (!destBox.type_document_id)
+      destBox.type_document_id = doc.type_document_id;
+    destBox.current_count += 1;
+    destBox.status =
+      destBox.current_count >= destBox.capacite_max ? "PLEIN" : "OCCUPE";
+
+    await destBox.save({ transaction: t });
+
+    // 5. Liaison du document
+    doc.box_id = destBox.id;
+    await doc.save({ transaction: t });
+
+    // Validation de la transaction
+    await t.commit();
+
+    // --- LOG HISTORIQUE (Après commit pour sécurité) ---
+    // On passe destBox.toJSON() pour éviter les références circulaires de Sequelize
+    try {
+      await HistoriqueService.logUpdate(
+        req,
+        "box",
+        oldBoxData,
+        destBox.toJSON(),
+      );
+    } catch (logError) {
+      logger.error(
+        "⚠️ Erreur lors de l'enregistrement de l'historique",
+        logError.message,
+      );
+      // On ne bloque pas la réponse si seul le log échoue
+    }
+
+    return res.json({
+      success: true,
+      message: "Transfert réussi",
+      data: {
+        documentId: doc.id,
+        sourceBoxStatus: sourceBox?.status,
+        destBoxStatus: destBox.status,
+      },
+    });
+  } catch (error) {
+    // Vérification si la transaction peut encore être annulée
+    if (t && !t.finished) await t.rollback();
+
+    logger.error("❌ Erreur transfert document", { error: error.message });
+    return res.status(500).json({
+      message: "Erreur lors du déplacement",
       error: error.message,
     });
   }

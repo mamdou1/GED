@@ -1,9 +1,23 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { Dialog } from "primereact/dialog";
-import { FileText, Tag, Box, ArrowLeft, Eye, Move, X, Check, AlertCircle } from "lucide-react";
+import {
+  FileText,
+  Tag,
+  Box,
+  ArrowLeft,
+  Eye,
+  Move,
+  X,
+  Check,
+  AlertCircle,
+} from "lucide-react";
 import { Button } from "primereact/button";
 import AddToBoxForm from "../Box/AddToBoxForm";
-import { retireDocumentFromBox, moveDocumentToBox, getBoxes } from "../../api/box";
+import {
+  retireDocumentFromBox,
+  moveDocumentToBox,
+  getBoxes,
+} from "../../api/box";
 import { Toast } from "primereact/toast";
 import { useAuth } from "../../context/AuthContext";
 import { Dropdown } from "primereact/dropdown";
@@ -33,7 +47,7 @@ export default function DocumentDetails({
       const response = await getBoxes();
       // Filtrer pour exclure le box actuel du document
       const availableBoxes = response.filter(
-        (box: any) => box.id !== doc?.box_id
+        (box: any) => box.id !== doc?.box_id,
       );
       setBoxes(availableBoxes);
     } catch (error) {
@@ -119,12 +133,13 @@ export default function DocumentDetails({
     setMoving(true);
     try {
       await moveDocumentToBox(doc.id, doc.box_id, selectedBox.id);
-      if (onRefresh) onRefresh();
+
       toast.current?.show({
         severity: "success",
         summary: "Succès",
         detail: `Document déplacé vers le box "${selectedBox.libelle}" avec succès`,
       });
+      if (onRefresh) onRefresh();
       setShowMoveForm(false);
       setSelectedBox(null);
       handleClose();
@@ -149,7 +164,8 @@ export default function DocumentDetails({
         <div className="flex flex-col">
           <span className="font-bold text-sm">{option.libelle}</span>
           <span className="text-xs text-slate-400">
-            {option.code_box} • {option.current_count}/{option.capacite_max} docs
+            {option.code_box} • {option.current_count}/{option.capacite_max}{" "}
+            docs
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -178,7 +194,8 @@ export default function DocumentDetails({
         <div className="flex flex-col">
           <span className="font-bold text-sm">{option.libelle}</span>
           <span className="text-xs text-slate-400">
-            {option.code_box} • {option.current_count}/{option.capacite_max} docs
+            {option.code_box} • {option.current_count}/{option.capacite_max}{" "}
+            docs
           </span>
         </div>
       </div>
@@ -274,7 +291,10 @@ export default function DocumentDetails({
                           <ArrowLeft size={12} /> Annuler le déplacement
                         </button>
                         <div className="text-xs text-slate-400">
-                          Box actuel : <span className="font-bold text-slate-600">{doc.box?.libelle || "N/A"}</span>
+                          Box actuel :{" "}
+                          <span className="font-bold text-slate-600">
+                            {doc.box?.libelle || "N/A"}
+                          </span>
                         </div>
                       </div>
 
@@ -292,22 +312,36 @@ export default function DocumentDetails({
                           loading={loadingBoxes}
                           itemTemplate={boxOptionTemplate}
                           valueTemplate={selectedBoxTemplate}
-                          panelClassName="w-full"
+                          //panelClassName="w-full"
                         />
                       </div>
 
-                      {selectedBox && selectedBox.current_count >= selectedBox.capacite_max && (
-                        <div className="flex items-center gap-2 p-3 bg-red-50 rounded-xl text-red-600 text-xs">
-                          <AlertCircle size={14} />
-                          <span>Ce box est plein, veuillez en choisir un autre</span>
-                        </div>
-                      )}
+                      {selectedBox &&
+                        selectedBox.current_count >=
+                          selectedBox.capacite_max && (
+                          <div className="flex items-center gap-2 p-3 bg-red-50 rounded-xl text-red-600 text-xs">
+                            <AlertCircle size={14} />
+                            <span>
+                              Ce box est plein, veuillez en choisir un autre
+                            </span>
+                          </div>
+                        )}
 
                       <button
                         onClick={handleMoveDocument}
-                        disabled={!selectedBox || moving || (selectedBox && selectedBox.current_count >= selectedBox.capacite_max)}
+                        disabled={
+                          !selectedBox ||
+                          moving ||
+                          (selectedBox &&
+                            selectedBox.current_count >=
+                              selectedBox.capacite_max)
+                        }
                         className={`w-full flex items-center justify-center gap-3 p-4 rounded-2xl font-black transition-all ${
-                          !selectedBox || moving || (selectedBox && selectedBox.current_count >= selectedBox.capacite_max)
+                          !selectedBox ||
+                          moving ||
+                          (selectedBox &&
+                            selectedBox.current_count >=
+                              selectedBox.capacite_max)
                             ? "bg-slate-100 text-slate-400 cursor-not-allowed"
                             : "bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-200"
                         }`}

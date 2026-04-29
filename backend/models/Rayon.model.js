@@ -3,7 +3,15 @@ module.exports = (sequelize, DataTypes) => {
     "Rayon",
     {
       code: { type: DataTypes.STRING, allowNull: false },
+      status: {
+        type: DataTypes.ENUM("OCCUPE", "LIBRE", "PLIEN", "RESERVER"),
+        allowNull: false,
+        defaultValue: "LIBRE",
+      },
+      capacite_max: { type: DataTypes.INTEGER, allowNull: false },
+      current_count: { type: DataTypes.INTEGER, defaultValue: 0 },
     },
+
     { tableName: "rayons", underscored: true },
   );
 

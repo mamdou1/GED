@@ -16,6 +16,7 @@ import {
   Tag,
   Database,
   GitBranch,
+  AlertCircle,
 } from "lucide-react";
 import type { Salle, Rayon, Trave, Box as BoxType } from "../../interfaces";
 import { getRayonsBySalle } from "../../api/salle";
@@ -31,20 +32,27 @@ type Props = {
 export default function SalleDetails({ visible, onHide, salle }: Props) {
   const [rayons, setRayons] = useState<Rayon[]>([]);
   const [loading, setLoading] = useState(false);
-  const [expandedRayons, setExpandedRayons] = useState<string[]>([]); // ✅ string[]
-  const [travees, setTravees] = useState<Record<string, Trave[]>>({}); // ✅ Record<string, Trave[]>
-  const [expandedTravees, setExpandedTravees] = useState<string[]>([]); // ✅ string[]
-  const [boxes, setBoxes] = useState<Record<string, BoxType[]>>({}); // ✅ Record<string, BoxType[]>
+  const [error, setError] = useState<string | null>(null);
+  const [expandedRayons, setExpandedRayons] = useState<string[]>([]);
+  const [travees, setTravees] = useState<Record<string, Trave[]>>({});
+  const [expandedTravees, setExpandedTravees] = useState<string[]>([]);
+  const [boxes, setBoxes] = useState<Record<string, BoxType[]>>({});
+  const [loadingTravees, setLoadingTravees] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [loadingBoxes, setLoadingBoxes] = useState<Record<string, boolean>>({});
 
   // Charger les rayons de la salle
   const loadRayons = async () => {
     if (!salle?.id) return;
     setLoading(true);
+    setError(null);
     try {
       const data = await getRayonsBySalle(salle.id);
       setRayons(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Erreur chargement rayons:", error);
+    } catch (error: any) {
+      console.error("❌ Erreur chargement rayons:", error);
+      setError("Impossible de charger les rayons");
     } finally {
       setLoading(false);
     }
@@ -53,41 +61,89 @@ export default function SalleDetails({ visible, onHide, salle }: Props) {
   useEffect(() => {
     if (visible && salle) {
       loadRayons();
+      // Réinitialiser les états
+      setTravees({});
+      setBoxes({});
+      setExpandedRayons([]);
+      setExpandedTravees([]);
     }
   }, [visible, salle]);
 
-  // Charger les travées d'un rayon
+  // ✅ Charger les travées d'un rayon (avec logs de debug)
   const loadTravees = async (rayonId: string) => {
-    // ✅ string
     if (travees[rayonId]) return; // Déjà chargé
+
+    setLoadingTravees((prev) => ({ ...prev, [rayonId]: true }));
     try {
+      console.log(`🔍 Chargement des travées pour le rayon #${rayonId}`);
       const data = await getTraveByRayon(rayonId);
+      console.log(`✅ Travées reçues pour rayon #${rayonId}:`, data);
+
+      // ✅ Vérifier le format de la réponse
+      const traveesArray = Array.isArray(data)
+        ? data
+        : data?.trave || data?.traves || data?.data || [];
+
       setTravees((prev) => ({
         ...prev,
-        [rayonId]: Array.isArray(data) ? data : [],
+        [rayonId]: traveesArray,
       }));
-    } catch (error) {
-      console.error("Erreur chargement travées:", error);
+
+      if (traveesArray.length === 0) {
+        console.warn(`⚠️ Aucune travée trouvée pour le rayon #${rayonId}`);
+      }
+    } catch (error: any) {
+      console.error(
+        `❌ Erreur chargement travées pour rayon #${rayonId}:`,
+        error,
+      );
+      console.error("Détails:", error.response?.data || error.message);
+      setTravees((prev) => ({
+        ...prev,
+        [rayonId]: [],
+      }));
+    } finally {
+      setLoadingTravees((prev) => ({ ...prev, [rayonId]: false }));
     }
   };
 
   // Charger les boxes d'une travée
   const loadBoxes = async (traveId: string) => {
-    // ✅ string
     if (boxes[traveId]) return; // Déjà chargé
+
+    setLoadingBoxes((prev) => ({ ...prev, [traveId]: true }));
     try {
+      console.log(`🔍 Chargement des boxes pour la travée #${traveId}`);
       const data = await getBoxesByTrave(traveId);
+      console.log(`✅ Boxes reçus pour travée #${traveId}:`, data);
+
+      const boxesArray = Array.isArray(data)
+        ? data
+        : data?.box || data?.boxes || data?.data || [];
+
       setBoxes((prev) => ({
         ...prev,
-        [traveId]: Array.isArray(data) ? data : [],
+        [traveId]: boxesArray,
       }));
-    } catch (error) {
-      console.error("Erreur chargement boxes:", error);
+
+      if (boxesArray.length === 0) {
+        console.warn(`⚠️ Aucun box trouvé pour la travée #${traveId}`);
+      }
+    } catch (error: any) {
+      console.error(
+        `❌ Erreur chargement boxes pour travée #${traveId}:`,
+        error,
+      );
+      setBoxes((prev) => ({
+        ...prev,
+        [traveId]: [],
+      }));
+    } finally {
+      setLoadingBoxes((prev) => ({ ...prev, [traveId]: false }));
     }
   };
 
   const toggleRayon = async (rayonId: string) => {
-    // ✅ string
     if (expandedRayons.includes(rayonId)) {
       setExpandedRayons(expandedRayons.filter((id) => id !== rayonId));
     } else {
@@ -97,7 +153,6 @@ export default function SalleDetails({ visible, onHide, salle }: Props) {
   };
 
   const toggleTravee = async (traveId: string) => {
-    // ✅ string
     if (expandedTravees.includes(traveId)) {
       setExpandedTravees(expandedTravees.filter((id) => id !== traveId));
     } else {
@@ -141,6 +196,14 @@ export default function SalleDetails({ visible, onHide, salle }: Props) {
       }
     >
       <div className="pt-4 space-y-6">
+        {/* Message d'erreur */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+            <AlertCircle size={20} className="text-red-500" />
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
+
         {/* Statistiques */}
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
@@ -207,153 +270,192 @@ export default function SalleDetails({ visible, onHide, salle }: Props) {
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
-              <p className="text-xs text-slate-400 mt-2">Chargement...</p>
+              <p className="text-xs text-slate-400 mt-2">
+                Chargement des rayons...
+              </p>
             </div>
           ) : rayons.length > 0 ? (
             <Accordion
               activeIndex={rayons
                 .map((rayon, index) =>
-                  expandedRayons.includes(rayon.id as string) ? index : null,
+                  expandedRayons.includes(String(rayon.id)) ? index : null,
                 )
                 .filter((index): index is number => index !== null)}
-              //  Convertir en indices
-              onTabChange={(e) => {
+              onTabChange={async (e) => {
                 const indexes = Array.isArray(e.index) ? e.index : [e.index];
 
-                const ids = indexes.map((i) => rayons[i].id as string);
+                const ids = indexes.map((i) => String(rayons[i]?.id));
 
                 setExpandedRayons(ids);
+
+                // 🔥 IMPORTANT : charger les travées pour les nouveaux ouverts
+                for (const id of ids) {
+                  if (!travees[id]) {
+                    await loadTravees(id);
+                  }
+                }
               }}
               multiple
-              className="custom-accordion"
             >
-              {rayons.map((rayon) => (
-                <AccordionTab
-                  key={rayon.id}
-                  header={
-                    <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-emerald-100 text-emerald-600">
-                          <Layers size={16} />
-                        </div>
-                        <div className="text-left">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-800">
-                              {rayon.code}
-                            </span>
-                            <span className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                              {rayon.code}
-                            </span>
+              {rayons.map((rayon) => {
+                const rayonId = String(rayon.id);
+                const isLoadingTravees = loadingTravees[rayonId];
+
+                return (
+                  <AccordionTab
+                    key={rayon.id}
+                    header={
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-emerald-100 text-emerald-600">
+                            <Layers size={16} />
                           </div>
-                          <p className="text-[10px] text-slate-500 font-medium">
-                            {travees[rayon.id as string]?.length || 0} travée(s)
+                          <div className="text-left">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-800">
+                                {rayon.code || `Rayon #${rayon.id}`}
+                              </span>
+                              <span className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                                {rayon.code}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 font-medium">
+                              {travees[rayonId]?.length || 0} travée(s)
+                            </p>
+                          </div>
+                        </div>
+                        {isLoadingTravees && (
+                          <div className="animate-spin w-3 h-3 border-2 border-purple-500 border-t-transparent rounded-full"></div>
+                        )}
+                      </div>
+                    }
+                  >
+                    {/* Liste des travées du rayon */}
+                    <div className="space-y-2 p-2">
+                      {isLoadingTravees ? (
+                        <div className="text-center py-4">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500 mx-auto"></div>
+                          <p className="text-xs text-slate-400 mt-1">
+                            Chargement des travées...
                           </p>
                         </div>
-                      </div>
-                    </div>
-                  }
-                >
-                  {/* Liste des travées du rayon */}
-                  <div className="space-y-2 p-2">
-                    {travees[rayon.id as string]?.length > 0 ? (
-                      travees[rayon.id as string].map((trave) => (
-                        <div
-                          key={trave.id}
-                          className="border border-slate-100 rounded-xl overflow-hidden bg-white ml-4"
-                        >
-                          {/* HEADER TRAVEE */}
-                          <div
-                            onClick={() => toggleTravee(trave.id as string)}
-                            className={`w-full flex items-center justify-between p-3 cursor-pointer transition-all ${
-                              expandedTravees.includes(trave.id as string)
-                                ? "bg-purple-50/50"
-                                : "hover:bg-slate-50"
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
+                      ) : travees[rayonId]?.length > 0 ? (
+                        travees[rayonId].map((trave) => {
+                          const traveId = String(trave.id);
+                          const isLoadingBoxesForTrave = loadingBoxes[traveId];
+
+                          return (
+                            <div
+                              key={trave.id}
+                              className="border border-slate-100 rounded-xl overflow-hidden bg-white ml-4"
+                            >
+                              {/* HEADER TRAVEE */}
                               <div
-                                className={`p-1.5 rounded-lg ${
-                                  expandedTravees.includes(trave.id as string)
-                                    ? "bg-purple-500 text-white"
-                                    : "bg-purple-100 text-purple-600"
+                                onClick={() => toggleTravee(traveId)}
+                                className={`w-full flex items-center justify-between p-3 cursor-pointer transition-all ${
+                                  expandedTravees.includes(traveId)
+                                    ? "bg-purple-50/50"
+                                    : "hover:bg-slate-50"
                                 }`}
                               >
-                                <Grid3X3 size={14} />
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className={`text-sm font-bold ${
-                                    expandedTravees.includes(trave.id as string)
-                                      ? "text-purple-700"
-                                      : "text-slate-700"
-                                  }`}
-                                >
-                                  {trave.code}
-                                </span>
-                                <span className="bg-purple-100 text-purple-700 text-[9px] px-1.5 py-0.5 rounded-full">
-                                  {trave.code}
-                                </span>
-                              </div>
-                            </div>
-                            {expandedTravees.includes(trave.id as string) ? (
-                              <ChevronDown
-                                size={14}
-                                className="text-purple-500"
-                              />
-                            ) : (
-                              <ChevronRight
-                                size={14}
-                                className="text-slate-400"
-                              />
-                            )}
-                          </div>
-
-                          {/* BOXES DE LA TRAVEE */}
-                          {expandedTravees.includes(trave.id as string) && (
-                            <div className="p-3 bg-slate-50/30 border-t border-slate-50">
-                              {boxes[trave.id as string]?.length > 0 ? (
-                                <div className="grid grid-cols-4 gap-2">
-                                  {boxes[trave.id as string].map((box) => (
-                                    <div
-                                      key={box.id}
-                                      className="bg-white border border-slate-100 rounded-lg p-2 text-center hover:border-amber-300 transition-all group"
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className={`p-1.5 rounded-lg ${
+                                      expandedTravees.includes(traveId)
+                                        ? "bg-purple-500 text-white"
+                                        : "bg-purple-100 text-purple-600"
+                                    }`}
+                                  >
+                                    <Grid3X3 size={14} />
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className={`text-sm font-bold ${
+                                        expandedTravees.includes(traveId)
+                                          ? "text-purple-700"
+                                          : "text-slate-700"
+                                      }`}
                                     >
-                                      <Package
-                                        size={16}
-                                        className="mx-auto text-amber-500 mb-1"
-                                      />
-                                      <p className="text-xs font-bold text-slate-700 truncate">
-                                        {box.libelle}
-                                      </p>
-                                      <div className="flex items-center justify-center gap-1 mt-1">
-                                        <Tag
-                                          size={8}
-                                          className="text-slate-400"
-                                        />
-                                        <span className="text-[8px] font-mono bg-slate-100 px-1 py-0.5 rounded">
-                                          {box.code_box}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  ))}
+                                      {trave.code || `Travée #${trave.id}`}
+                                    </span>
+                                    <span className="bg-purple-100 text-purple-700 text-[9px] px-1.5 py-0.5 rounded-full">
+                                      {trave.code}
+                                    </span>
+                                  </div>
                                 </div>
-                              ) : (
-                                <p className="text-[10px] text-slate-400 italic text-center py-2">
-                                  Aucun box dans cette travée
-                                </p>
+                                <div className="flex items-center gap-2">
+                                  {isLoadingBoxesForTrave && (
+                                    <div className="animate-spin w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full"></div>
+                                  )}
+                                  {expandedTravees.includes(traveId) ? (
+                                    <ChevronDown
+                                      size={14}
+                                      className="text-purple-500"
+                                    />
+                                  ) : (
+                                    <ChevronRight
+                                      size={14}
+                                      className="text-slate-400"
+                                    />
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* BOXES DE LA TRAVEE */}
+                              {expandedTravees.includes(traveId) && (
+                                <div className="p-3 bg-slate-50/30 border-t border-slate-50">
+                                  {isLoadingBoxesForTrave ? (
+                                    <div className="text-center py-4">
+                                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-500 mx-auto"></div>
+                                      <p className="text-xs text-slate-400 mt-1">
+                                        Chargement des boxes...
+                                      </p>
+                                    </div>
+                                  ) : boxes[traveId]?.length > 0 ? (
+                                    <div className="grid grid-cols-4 gap-2">
+                                      {boxes[traveId].map((box) => (
+                                        <div
+                                          key={box.id}
+                                          className="bg-white border border-slate-100 rounded-lg p-2 text-center hover:border-amber-300 transition-all group"
+                                        >
+                                          <Package
+                                            size={16}
+                                            className="mx-auto text-amber-500 mb-1"
+                                          />
+                                          <p className="text-xs font-bold text-slate-700 truncate">
+                                            {box.libelle}
+                                          </p>
+                                          <div className="flex items-center justify-center gap-1 mt-1">
+                                            <Tag
+                                              size={8}
+                                              className="text-slate-400"
+                                            />
+                                            <span className="text-[8px] font-mono bg-slate-100 px-1 py-0.5 rounded">
+                                              {box.code_box}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-[10px] text-slate-400 italic text-center py-2">
+                                      Aucun box dans cette travée
+                                    </p>
+                                  )}
+                                </div>
                               )}
                             </div>
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-xs text-slate-400 italic py-2 text-center">
-                        Aucune travée dans ce rayon
-                      </p>
-                    )}
-                  </div>
-                </AccordionTab>
-              ))}
+                          );
+                        })
+                      ) : (
+                        <p className="text-xs text-slate-400 italic py-2 text-center">
+                          Aucune travée dans ce rayon
+                        </p>
+                      )}
+                    </div>
+                  </AccordionTab>
+                );
+              })}
             </Accordion>
           ) : (
             <div className="text-center py-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
@@ -372,11 +474,11 @@ export default function SalleDetails({ visible, onHide, salle }: Props) {
             <span className="text-xs text-slate-500">
               <span className="font-bold">Capacité totale:</span>{" "}
               {rayons.reduce<number>((acc, rayon) => {
-                const rayonId = rayon.id as string;
+                const rayonId = String(rayon.id);
                 const traveCount = travees[rayonId]?.length || 0;
                 const boxCount =
                   travees[rayonId]?.reduce<number>((sum, trave) => {
-                    const traveId = trave.id as string;
+                    const traveId = String(trave.id);
                     return sum + (boxes[traveId]?.length || 0);
                   }, 0) || 0;
                 return acc + boxCount;

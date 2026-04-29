@@ -11,13 +11,10 @@ import {
   MapPin,
   Layers,
   Grid3X3,
-  Box as BoxIcon,
-  Tag,
 } from "lucide-react";
 import { Dropdown } from "primereact/dropdown";
 import { Site } from "../../interfaces";
 import { getSites } from "../../api/site";
-import { getTraveByRayon } from "../../api/rayon";
 
 export default function SalleForm({ visible, onHide, onSubmit, initial }: any) {
   const [formData, setFormData] = useState({
@@ -25,6 +22,8 @@ export default function SalleForm({ visible, onHide, onSubmit, initial }: any) {
     libelle: "",
     site_id: "",
     mb_rayons: 1,
+    mb_trave_rayon: 1,
+    mb_Box_trave: 1,
     mb_traves_par_rayon: 1,
     nb_box: 1, // Nouveau champ
     sigle_rayon: "R", // Nouveau champ
@@ -44,6 +43,8 @@ export default function SalleForm({ visible, onHide, onSubmit, initial }: any) {
         mb_rayons: 0,
         mb_traves_par_rayon: 0,
         nb_box: 0,
+        mb_trave_rayon: 0,
+        mb_Box_trave: 0,
         sigle_rayon: "",
         sigle_trave: "",
         sigle_box: "",
@@ -56,6 +57,8 @@ export default function SalleForm({ visible, onHide, onSubmit, initial }: any) {
         mb_rayons: 1,
         mb_traves_par_rayon: 1,
         nb_box: 1,
+        mb_trave_rayon: 1,
+        mb_Box_trave: 1,
         sigle_rayon: "R",
         sigle_trave: "T",
         sigle_box: "B",
@@ -160,7 +163,7 @@ export default function SalleForm({ visible, onHide, onSubmit, initial }: any) {
 
             <div className="grid grid-cols-3 gap-4">
               {/* Rayons */}
-              <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-400">
                 <label className="text-[10px] font-black text-emerald-800 flex items-center gap-1 uppercase">
                   <Layers size={12} /> Rayons
                 </label>
@@ -170,10 +173,21 @@ export default function SalleForm({ visible, onHide, onSubmit, initial }: any) {
                     setFormData({ ...formData, mb_rayons: e.value || 1 })
                   }
                   min={1}
-                  className="w-full"
+                  className="w-full border"
                   inputClassName="p-2 w-full text-center font-bold"
                   showButtons
                 />
+                {/* <InputNumber
+                  value={formData.mb_trave_rayon}
+                  onValueChange={(e) =>
+                    setFormData({ ...formData, mb_trave_rayon: e.value || 1 })
+                  }
+                  min={1}
+                  className="w-full"
+                  inputClassName="p-2 w-full text-center font-bold"
+                  placeholder="nombre de travé par rayon"
+                  showButtons
+                /> */}
                 <div className="flex flex-col gap-1">
                   <span className="text-[9px] text-slate-400 font-bold uppercase">
                     Sigle
@@ -183,14 +197,14 @@ export default function SalleForm({ visible, onHide, onSubmit, initial }: any) {
                     onChange={(e) =>
                       setFormData({ ...formData, sigle_rayon: e.target.value })
                     }
-                    className="p-2 text-xs text-center uppercase"
+                    className="p-2 text-xs text-center uppercase border"
                     placeholder="Ex: R"
                   />
                 </div>
               </div>
 
               {/* Travées */}
-              <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-400">
                 <label className="text-[10px] font-black text-emerald-800 flex items-center gap-1 uppercase">
                   <Grid3X3 size={12} /> Travées / R
                 </label>
@@ -203,8 +217,22 @@ export default function SalleForm({ visible, onHide, onSubmit, initial }: any) {
                     })
                   }
                   min={1}
-                  className="w-full"
+                  className="w-full border"
                   inputClassName="p-2 w-full text-center font-bold"
+                  showButtons
+                />
+                <InputNumber
+                  value={formData.mb_Box_trave}
+                  onValueChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      mb_Box_trave: e.value || 1,
+                    })
+                  }
+                  min={1}
+                  className="w-full border"
+                  inputClassName="p-2 w-full text-center font-bold"
+                  placeholder="nombre de travé par rayon"
                   showButtons
                 />
                 <div className="flex flex-col gap-1">
@@ -216,7 +244,7 @@ export default function SalleForm({ visible, onHide, onSubmit, initial }: any) {
                     onChange={(e) =>
                       setFormData({ ...formData, sigle_trave: e.target.value })
                     }
-                    className="p-2 text-xs text-center uppercase"
+                    className="p-2 text-xs text-center uppercase border"
                     placeholder="Ex: T"
                   />
                 </div>

@@ -20,6 +20,7 @@ import {
   Archive,
   WavesLadder,
   XCircle,
+  CheckCircle,
 } from "lucide-react";
 
 // ✅ IMPORTER LES NOUVEAUX HOOKS
@@ -29,6 +30,7 @@ import {
   useUpdateRayon,
   useDeleteRayon,
 } from "../../hooks/useRayons";
+import { isModifierLike } from "typescript";
 
 export default function RayonPage() {
   const toast = useRef<Toast>(null);
@@ -113,6 +115,41 @@ export default function RayonPage() {
         }
       },
     });
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "LIBRE":
+        return (
+          <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">
+            🟢 Libre
+          </span>
+        );
+      case "OCCUPE":
+        return (
+          <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold">
+            🟠 Occupé
+          </span>
+        );
+      case "PLIEN":
+        return (
+          <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold">
+            🔴 Plein
+          </span>
+        );
+      case "RESERVER":
+        return (
+          <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">
+            🔵 Réservé
+          </span>
+        );
+      default:
+        return (
+          <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs">
+            Inconnu
+          </span>
+        );
+    }
   };
 
   // Filtrage et pagination (inchangés)
@@ -207,60 +244,100 @@ export default function RayonPage() {
             <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-widest">
               <th className="px-6 py-4">Code</th>
               <th className="px-6 py-4">Rayon / Emplacement</th>
+              <th className="px-6 py-4">Statut</th>
+              <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
+                Capacité
+              </th>
               <th className="px-6 py-4 text-center">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {paginated.map((e) => (
-              <tr
-                key={e.id}
-                className="cursor-pointer hover:bg-emerald-50/30 transition-all group"
-                onClick={() => {
-                  setSelected(e);
-                  setDetailsVisible(true);
-                }}
-              >
-                <td className="px-6 py-4">
-                  <span className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-lg font-bold text-xs border border-emerald-100 flex items-center gap-1 w-fit">
-                    <Hash size={12} /> {e.code}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <MapPin size={14} className="text-blue-500" />
-                    {e.salle?.libelle || "Non assignée"}
-                  </div>
-                </td>
-                <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-center gap-2">
-                    <button
-                      onClick={() => {
-                        setSelected(e);
-                        setDetailsVisible(true);
-                      }}
-                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                    >
-                      <Eye size={18} />
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEditing(e);
-                        setFormVisible(true);
-                      }}
-                      className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
-                    >
-                      <Pencil size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(String(e.id))}
-                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {paginated.map((e) => {
+              const ratio =
+                (Number(e.current_count) / Number(e.capacite_max)) * 100;
+              const isFull = ratio >= 100;
+
+              return (
+                <tr
+                  key={e.id}
+                  className="cursor-pointer hover:bg-emerald-50/30 transition-all group"
+                  onClick={() => {
+                    setSelected(e);
+                    setDetailsVisible(true);
+                  }}
+                >
+                  <td className="px-6 py-4">
+                    <span className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-lg font-bold text-xs border border-emerald-100 flex items-center gap-1 w-fit">
+                      <Hash size={12} /> {e.code}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2 text-sm text-slate-600">
+                      <MapPin size={14} className="text-blue-500" />
+                      {e.salle?.libelle || "Non assignée"}
+                    </div>
+                  </td>
+                  <td className="p-5">{getStatusBadge(e.status)}</td>
+                  <td className="p-5">
+                    <div className="space-y-2 min-w-[120px]">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-slate-700">
+                          {e.current_count || 0}/{e.capacite_max || 0}
+                        </span>
+                        {isFull ? (
+                          <XCircle size={14} className="text-red-500" />
+                        ) : (
+                          <CheckCircle size={14} className="text-emerald-500" />
+                        )}
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-1.5">
+                        <div
+                          className={`h-1.5 rounded-full transition-all duration-300 ${
+                            isFull
+                              ? "bg-red-500"
+                              : ratio > 80
+                                ? "bg-orange-400"
+                                : "bg-emerald-500"
+                          }`}
+                          style={{ width: `${Math.min(ratio, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </td>
+                  <td
+                    className="px-6 py-4"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => {
+                          setSelected(e);
+                          setDetailsVisible(true);
+                        }}
+                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                      >
+                        <Eye size={18} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditing(e);
+                          setFormVisible(true);
+                        }}
+                        className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                      >
+                        <Pencil size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(String(e.id))}
+                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

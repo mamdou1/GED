@@ -25,8 +25,14 @@ import {
 } from "../../interfaces";
 import { Dropdown } from "primereact/dropdown";
 import { getAllEntiteeUn } from "../../api/entiteeUn";
-import { getEntiteeDeuxByEntiteeUn } from "../../api/entiteeDeux";
-import { getEntiteeTroisByEntiteeDeux } from "../../api/entiteeTrois";
+import {
+  getAllEntiteeDeux,
+  getEntiteeDeuxByEntiteeUn,
+} from "../../api/entiteeDeux";
+import {
+  getAllEntiteeTrois,
+  getEntiteeTroisByEntiteeDeux,
+} from "../../api/entiteeTrois";
 import { getTypeDocuments } from "../../api/typeDocument";
 
 export default function BoxForm({
@@ -40,7 +46,7 @@ export default function BoxForm({
     code_box: "",
     libelle: "",
     capacite_max: 10,
-    trave_id: "",
+    trave_id: null,
     type_document_id: "",
     entitee_un_id: "",
     entitee_deux_id: "",
@@ -67,18 +73,38 @@ export default function BoxForm({
   const [trave, setTrave] = useState<Trave[]>([]);
   const [loadingTrave, setLoadingTrave] = useState(false);
 
+  const [titreEntiteeDeux, setTitreEntiteeDeux] = useState<EntiteeDeux[]>([]);
+  const [titreEntiteeTrois, setTitreEntiteeTrois] = useState<EntiteeTrois[]>(
+    [],
+  );
+
+  // ✅ Vérifier si les titres existent
+  const titreUnExiste = allEntiteeUn.length > 0 && allEntiteeUn[0]?.titre;
+  const titreDeuxExiste =
+    titreEntiteeDeux.length > 0 && titreEntiteeDeux[0]?.titre;
+  const titreTroisExiste =
+    titreEntiteeTrois.length > 0 && titreEntiteeTrois[0]?.titre;
+
+  // console.log("titre 1: ", titreUnExiste);
+  // console.log("titre 2: ", titreDeuxExiste);
+  // console.log("titre 3: ", titreTroisExiste);
+
   // Chargement initial des données
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [entitees, types] = await Promise.all([
+        const [entitees, types, ent2, ent3] = await Promise.all([
           getAllEntiteeUn(),
           getTypeDocuments(), // ✅ Correction : ajout des parenthèses
+          getAllEntiteeDeux(),
+          getAllEntiteeTrois(),
         ]);
         setAllEntiteeUn(Array.isArray(entitees) ? entitees : []);
         setAllTypeDocuments(
           Array.isArray(types?.typeDocument) ? types.typeDocument : [],
         );
+        setTitreEntiteeDeux(Array.isArray(ent2) ? ent2 : []);
+        setTitreEntiteeTrois(Array.isArray(ent3) ? ent3 : []);
       } catch (error) {
         console.error("❌ Erreur chargement données initiales:", error);
       }
@@ -108,7 +134,7 @@ export default function BoxForm({
         code_box: initial.code_box || "",
         libelle: initial.libelle || "",
         capacite_max: initial.capacite_max || 10,
-        trave_id: initial.trave_id || "",
+        trave_id: initial.trave_id || null,
         type_document_id: initial.type_document_id || "",
         entitee_un_id: initial.entitee_un_id || "",
         entitee_deux_id: initial.entitee_deux_id || "",
@@ -134,7 +160,7 @@ export default function BoxForm({
         code_box: "",
         libelle: "",
         capacite_max: 10,
-        trave_id: "",
+        trave_id: null,
         type_document_id: "",
         entitee_un_id: "",
         entitee_deux_id: "",
@@ -247,15 +273,15 @@ export default function BoxForm({
     }));
   };
 
-  const titreUn = allEntiteeUn[0]?.titre || "Niveau 1";
-  const titreDeux = allEntiteeDeux[0]?.titre || "Niveau 2";
-  const titreTrois = allEntiteeTrois[0]?.titre || "Niveau 3";
+  const titreUn = allEntiteeUn[0]?.titre || "Entité 1";
+  const titreDeux = titreEntiteeDeux[0]?.titre || "Entité 2";
+  const titreTrois = titreEntiteeTrois[0]?.titre || "Entité 3";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     // Vérifier que les champs requis sont remplis
-    if (!formData.code_box || !formData.libelle || !formData.trave_id) {
+    if (!formData.code_box || !formData.libelle) {
       alert("Veuillez remplir tous les champs obligatoires");
       return;
     }
@@ -264,7 +290,9 @@ export default function BoxForm({
     const payload = {
       ...formData,
       capacite_max: Number(formData.capacite_max),
-      // S'assurer que les IDs sont des nombres ou null
+
+      trave_id: formData.trave_id ? Number(formData.trave_id) : null, // ✅ IMPORTANT
+
       entitee_un_id: formData.entitee_un_id
         ? Number(formData.entitee_un_id)
         : null,
@@ -278,7 +306,6 @@ export default function BoxForm({
         ? Number(formData.type_document_id)
         : null,
     };
-
     onSubmit(payload);
   };
 
@@ -355,7 +382,7 @@ export default function BoxForm({
           </div>
 
           {/* Sélection de la Travée */}
-          <div className="flex flex-col gap-2">
+          {/* <div className="flex flex-col gap-2">
             <label className="text-sm font-semibold text-emerald-600 flex items-center gap-2">
               <MapPin size={14} /> Travée de destination
             </label>
@@ -372,7 +399,7 @@ export default function BoxForm({
               filter
               required
             />
-          </div>
+          </div> */}
         </div>
 
         {/* Colonne Droite: Affectation */}
@@ -382,57 +409,63 @@ export default function BoxForm({
           </h3>
 
           {/* Niveau 1 */}
-          <div>
-            <label className={labelClass}>
-              <Building2 size={14} className="text-emerald-500" /> {titreUn}
-            </label>
-            <Dropdown
-              value={entitee_un_id}
-              options={allEntiteeUn}
-              optionLabel="libelle"
-              optionValue="id"
-              onChange={(e) => handleEntiteeUnChange(Number(e.value))}
-              placeholder={`Sélectionner ${titreUn}`}
-              className="w-full rounded-xl"
-              filter
-            />
-          </div>
+          {titreUnExiste && (
+            <div>
+              <label className={labelClass}>
+                <Building2 size={14} className="text-emerald-500" /> {titreUn}
+              </label>
+              <Dropdown
+                value={entitee_un_id}
+                options={allEntiteeUn}
+                optionLabel="libelle"
+                optionValue="id"
+                onChange={(e) => handleEntiteeUnChange(Number(e.value))}
+                placeholder={`Sélectionner ${titreUn}`}
+                className="w-full rounded-xl"
+                filter
+              />
+            </div>
+          )}
 
           {/* Niveau 2 */}
-          <div>
-            <label className={labelClass}>
-              <Layers size={14} className="text-emerald-500" /> {titreDeux}
-            </label>
-            <Dropdown
-              value={entitee_deux_id}
-              options={allEntiteeDeux}
-              optionLabel="libelle"
-              optionValue="id"
-              onChange={(e) => handleEntiteeDeuxChange(Number(e.value))}
-              placeholder={`Sélectionner ${titreDeux}`}
-              className="w-full rounded-xl"
-              disabled={!entitee_un_id}
-              filter
-            />
-          </div>
+          {titreDeuxExiste && (
+            <div>
+              <label className={labelClass}>
+                <Layers size={14} className="text-emerald-500" /> {titreDeux}
+              </label>
+              <Dropdown
+                value={entitee_deux_id}
+                options={allEntiteeDeux}
+                optionLabel="libelle"
+                optionValue="id"
+                onChange={(e) => handleEntiteeDeuxChange(Number(e.value))}
+                placeholder={`Sélectionner ${titreDeux}`}
+                className="w-full rounded-xl"
+                disabled={!entitee_un_id}
+                filter
+              />
+            </div>
+          )}
 
           {/* Niveau 3 */}
-          <div>
-            <label className={labelClass}>
-              <GitMerge size={14} className="text-orange-500" /> {titreTrois}
-            </label>
-            <Dropdown
-              value={entitee_trois_id}
-              options={allEntiteeTrois}
-              optionLabel="libelle"
-              optionValue="id"
-              onChange={(e) => handleEntiteeTroisChange(Number(e.value))}
-              placeholder={`Sélectionner ${titreTrois}`}
-              className="w-full rounded-xl"
-              disabled={!entitee_deux_id}
-              filter
-            />
-          </div>
+          {titreTroisExiste && (
+            <div>
+              <label className={labelClass}>
+                <GitMerge size={14} className="text-orange-500" /> {titreTrois}
+              </label>
+              <Dropdown
+                value={entitee_trois_id}
+                options={allEntiteeTrois}
+                optionLabel="libelle"
+                optionValue="id"
+                onChange={(e) => handleEntiteeTroisChange(Number(e.value))}
+                placeholder={`Sélectionner ${titreTrois}`}
+                className="w-full rounded-xl"
+                disabled={!entitee_deux_id}
+                filter
+              />
+            </div>
+          )}
 
           {/* Type de document */}
           <div>

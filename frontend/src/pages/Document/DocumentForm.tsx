@@ -288,7 +288,7 @@ export default function DocumentForm({
               <Plus size={18} />
             </div>
             <span className="font-black tracking-tight">
-              {editingDoc ? "Modifier l'archive" : "Nouvelle Archive"}
+              {editingDoc ? "Modifier le document" : "Nouveau document"}
             </span>
           </div>
         }

@@ -28,6 +28,9 @@ import {
   FileStack,
   Briefcase,
   Settings2,
+  Send,
+  Users,
+  Plus,
 } from "lucide-react";
 
 import logo from "../../assets/digidoc1.png";
@@ -655,6 +658,67 @@ export default function Sidebar({ children }: SidebarProps) {
                             }
                           })()}
                         </>
+                      )}
+                    </SidebarTree>
+                  )}
+                </SidebarTree>
+              )}
+              {/* ================= COURRIERS ================= */}
+              {(can("Expediteur", "read") ||
+                can("mesCourrier", "update") ||
+                can("courrier", "create") ||
+                can("destinataire_externe", "access") ||
+                can("courrier", "access")) && (
+                <SidebarTree label="Courriers" icon={Send}>
+                  {can("courrier", "access") && (
+                    <SidebarLink
+                      icon={FileText}
+                      text="Tous les courriers"
+                      to="/courrier"
+                      active={location.pathname === "/courrier"}
+                    />
+                  )}
+
+                  {can("mesCourrier", "update") && (
+                    <SidebarLink
+                      icon={Users}
+                      text="Mes courriers attribués"
+                      to="/courrier/mes-attribues"
+                      active={location.pathname === "/courrier/mes-attribues"}
+                    />
+                  )}
+
+                  {can("courrier", "create") && (
+                    <SidebarLink
+                      icon={Plus}
+                      text="Nouveau courrier"
+                      to="/courrier/nouveau"
+                      active={location.pathname === "/courrier/nouveau"}
+                    />
+                  )}
+
+                  {/* ✅ Sous-menu PARAMÈTRES COURRIER */}
+                  {(can("expediteur", "access") ||
+                    can("destinataire_externe", "access")) && (
+                    <SidebarTree label="Paramètres courrier" icon={Settings2}>
+                      {can("expediteur", "access") && (
+                        <SidebarLink
+                          icon={Building2}
+                          text="Expéditeurs"
+                          to="/courrier/expediteur"
+                          active={location.pathname === "/courrier/expediteur"}
+                        />
+                      )}
+
+                      {can("destinataire_externe", "access") && (
+                        <SidebarLink
+                          icon={Send}
+                          text="Destinataires externes"
+                          to="/courrier/destinataire"
+                          active={
+                            location.pathname === "/courrier/destinataire"
+                          }
+                        />
                       )}
                     </SidebarTree>
                   )}

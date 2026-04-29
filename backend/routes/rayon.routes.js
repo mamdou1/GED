@@ -11,29 +11,12 @@ router.post(
   authorizePermission("rayon", "create"),
   ctrl.create,
 );
+
 router.get(
   "/",
   verifyToken,
   authorizePermission("rayon", "read"),
   ctrl.getRayons,
-);
-router.get(
-  "/:id",
-  verifyToken,
-  authorizePermission("rayon", "read"),
-  ctrl.getRayonById,
-);
-router.put(
-  "/:id",
-  verifyToken,
-  authorizePermission("rayon", "update"),
-  ctrl.update,
-);
-router.delete(
-  "/:id",
-  verifyToken,
-  authorizePermission("rayon", "delete"),
-  ctrl.delete,
 );
 
 router.get(
@@ -41,6 +24,27 @@ router.get(
   verifyToken,
   authorizePermission("rayon", "read"),
   ctrl.getAllTraveByRayon,
+);
+
+router.get(
+  "/:id",
+  verifyToken,
+  authorizePermission("rayon", "read"),
+  ctrl.getRayonById,
+);
+
+router.put(
+  "/:id",
+  verifyToken,
+  authorizePermission("rayon", "update"),
+  ctrl.update,
+);
+
+router.delete(
+  "/:id",
+  verifyToken,
+  authorizePermission("rayon", "delete"),
+  ctrl.delete,
 );
 
 module.exports = router;

@@ -385,6 +385,8 @@ export interface Salle {
   libelle: string;
 
   mb_rayons?: number;
+  mb_trave_rayon?: number;
+  mb_Box_trave?: number;
   mb_traves_par_rayon?: number;
   nb_box?: number;
   sigle_rayon: string;
@@ -404,6 +406,10 @@ export interface Rayon {
   salle: Salle;
   salle_id: number;
 
+  capacite_max: string;
+  current_count: string;
+  status: "OCCUPE" | "LIBRE" | "PLIEN" | "RESERVER";
+
   mb_traves_par_rayon?: number;
   nb_box?: number;
   sigle_trave: string;
@@ -421,6 +427,10 @@ export interface Trave {
   rayon: Rayon;
   rayon_id: number;
 
+  capacite_max: string;
+  current_count: string;
+  status: "OCCUPE" | "LIBRE" | "PLIEN" | "RESERVER";
+
   // box_id: string; // Foreign Key vers Salle
   // box?: Box[];
   createdAt?: string;
@@ -433,6 +443,7 @@ export interface Box {
   libelle: string;
   capacite_max: string;
   current_count: string;
+  status: "OCCUPE" | "LIBRE" | "PLIEN" | "RESERVER";
 
   trave_id: string; // Foreign Key vers Salle
   trave?: Trave;

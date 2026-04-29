@@ -18,6 +18,8 @@ exports.create = async (req, res) => {
       code_salle,
       libelle,
       mb_rayons,
+      mb_trave_rayon,
+      mb_Box_trave,
       mb_traves_par_rayon,
       sigle_rayon,
       sigle_trave,
@@ -33,6 +35,8 @@ exports.create = async (req, res) => {
       { transaction: t },
     );
 
+    const nb_box_rayon = mb_Box_trave * mb_traves_par_rayon;
+
     // 2. Générer les rayons
     for (let i = 1; i <= mb_rayons; i++) {
       const rayonsCode = `${sigle_rayon}${i}`;
@@ -40,6 +44,7 @@ exports.create = async (req, res) => {
         {
           code: rayonsCode,
           salle_id: salle.id,
+          capacite_max: nb_box_rayon,
         },
         { transaction: t },
       );
@@ -51,6 +56,7 @@ exports.create = async (req, res) => {
           {
             code: traveCode,
             rayon_id: rayon.id,
+            capacite_max: mb_Box_trave,
           },
           { transaction: t },
         );

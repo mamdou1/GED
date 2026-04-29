@@ -11,7 +11,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       code: DataTypes.STRING,
       cote: DataTypes.STRING,
-      nom: DataTypes.STRING,
+      nom: DataTypes.TEXT,
       entitee_un_id: { type: DataTypes.INTEGER, allowNull: true },
       entitee_deux_id: { type: DataTypes.INTEGER, allowNull: true },
       entitee_trois_id: { type: DataTypes.INTEGER, allowNull: true },

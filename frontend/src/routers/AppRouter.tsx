@@ -1,5 +1,5 @@
 import React, { ReactElement } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, Router } from "react-router-dom";
 import AuthSwitcher from "../pages/Auth/AuthSwitcher";
 import Pieces from "../pages/Pieces/PiecesPage";
 import Dashboard from "../pages/Dashboard/Dashboard";
@@ -9,7 +9,6 @@ import RecherchePage from "../pages/Recherche/Recherche";
 import DroitPage from "../pages/Droit/DroitPage";
 import { useAuth } from "../context/AuthContext";
 import HistoriquePage from "../pages/HistoriqueLog/HistoriquePage";
-//import DocumentTypePage from "../pages/DomentType/DocumentTypePage";
 import DocumentPage from "../pages/Document/DocumentPage";
 import ConfigurationStructure from "../pages/Organigrame/ConfigurationStructure";
 import EntiteeUnPage from "../pages/Organigrame/EntiteeUn/EntiteeUnPage";
@@ -28,13 +27,18 @@ import VerifyEmail from "../pages/Auth/VerifyEmail";
 import UpdatePassword from "../pages/Auth/UpdatePassword";
 import FonctionPage from "../pages/Fonction/FonctionPage";
 
-// 🔥FIX ICI🔥
+// 🔥 IMPORTATION COURRIER
+import CourrierPage from "../pages/Courrier/CourrierPage";
+import MesCourriers from "../pages/Courrier/MesCourriers";
+import NouveauCourrier from "../pages/Courrier/Enregitrement";
+import ExpediteursPage from "../pages/Courrier/ExpediteursPage";
+import DestinatairesExternesPage from "../pages/Courrier/DestinatairePage";
+
 const PrivateRoute: React.FC<{ children: ReactElement }> = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) return <div>Chargement...</div>;
 
-  // ❗ condition correcte
   if (!user) return <Navigate to="/connexion" replace />;
 
   return children;
@@ -43,6 +47,7 @@ const PrivateRoute: React.FC<{ children: ReactElement }> = ({ children }) => {
 export default function AppRouter() {
   const { can, loading } = useAuth();
   if (loading) return <div>Chargement...</div>;
+
   return (
     <Routes>
       <Route path="/connexion" element={<AuthSwitcher />} />
@@ -54,7 +59,6 @@ export default function AppRouter() {
         path="/"
         element={
           <PrivateRoute>
-            {/* 💡 On vérifie ici aussi la permission ! */}
             {can("statistique", "read") ? (
               <Dashboard />
             ) : (
@@ -63,6 +67,7 @@ export default function AppRouter() {
           </PrivateRoute>
         }
       />
+      {/* <Route path="/" element={<AuthSwitcher />} /> */}
       <Route
         path="/welcome"
         element={
@@ -128,14 +133,6 @@ export default function AppRouter() {
           </PrivateRoute>
         }
       />
-      {/* <Route
-        path="/dossierType"
-        element={
-          <PrivateRoute>
-            <DocumentTypePage />
-          </PrivateRoute>
-        }
-      /> */}
       <Route
         path="/dossierType"
         element={
@@ -152,6 +149,7 @@ export default function AppRouter() {
           </PrivateRoute>
         }
       />
+
       <Route
         path="/entiteeUn"
         element={
@@ -232,6 +230,53 @@ export default function AppRouter() {
           </PrivateRoute>
         }
       />
+
+      {/* ================= ROUTES COURRIER ================= */}
+      <Route
+        path="/courrier"
+        element={
+          <PrivateRoute>
+            <CourrierPage />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/courrier/mes-attribues"
+        element={
+          <PrivateRoute>
+            <MesCourriers />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/courrier/nouveau"
+        element={
+          <PrivateRoute>
+            <NouveauCourrier />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/courrier/expediteur"
+        element={
+          <PrivateRoute>
+            <ExpediteursPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/courrier/destinataire"
+        element={
+          <PrivateRoute>
+            <DestinatairesExternesPage />
+          </PrivateRoute>
+        }
+      />
+
+
+
     </Routes>
   );
 }

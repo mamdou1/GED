@@ -95,7 +95,7 @@ async function createAdminUser() {
       console.log("✅ Utilisateur administrateur créé avec succès !");
       console.log("\n📝 Informations de connexion :");
       console.log(`   Username: ${nouvelAdmin.username}`);
-      console.log(`   Password: admin123`);
+      console.log(`   Password: admin6565`);
       console.log(`   Email: ${nouvelAdmin.email}`);
       console.log(`   Nom complet: ${nouvelAdmin.prenom} ${nouvelAdmin.nom}`);
     }

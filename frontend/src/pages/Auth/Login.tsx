@@ -52,6 +52,7 @@ export default function LoginPage() {
         detail: "Identifiant ou mot de passe incorrect.",
         life: 4000,
       });
+      console.log("Erreur :", err);
     } finally {
       setIsLoading(false);
     }

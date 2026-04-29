@@ -171,7 +171,7 @@ export default function DocumentTypeDetails({ visible, onHide, type }: any) {
                   flex items-center cursor-pointer select-none px-5 py-3 border-b-2 font-bold text-sm transition-all duration-300 rounded-t-xl
                   ${
                     context.active
-                      ? "border-emerald-500 text-emerald-700 bg-emerald-50/40 shadow-[0_-4px_12px_-5px_rgba(16,185,129,0.1)]"
+                      ? "border-emerald-500 text-emerald-700 bg-emerald-100 shadow-[0_-4px_12px_-5px_rgba(16,185,129,0.1)]"
                       : "border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50"
                   }
                 `,
@@ -194,7 +194,7 @@ export default function DocumentTypeDetails({ visible, onHide, type }: any) {
                   flex items-center cursor-pointer select-none px-5 py-3 border-b-2 font-bold text-sm transition-all duration-300 rounded-t-xl
                   ${
                     context.active
-                      ? "border-emerald-500 text-emerald-700 bg-emerald-50/40 shadow-[0_-4px_12px_-5px_rgba(16,185,129,0.1)]"
+                      ? "border-emerald-500 text-emerald-700 bg-emerald-100 shadow-[0_-4px_12px_-5px_rgba(16,185,129,0.1)]"
                       : "border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50"
                   }
                 `,

@@ -4,7 +4,7 @@ import {
   getBoxById,
   getDocumentsByBox,
   retireDocumentFromBox,
-   // À ajouter dans ton API
+  // À ajouter dans ton API
 } from "../../api/box";
 import { updateDocument, deleteDocument } from "../../api/document"; // À créer
 import { Box } from "../../interfaces";
@@ -35,11 +35,11 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
   const [documents, setDocuments] = useState<any[]>([]);
   const toast = useRef<Toast>(null);
   const [loading, setLoading] = useState(false);
-  
+
   // États pour le modal de consultation du document
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
-  
+
   // États pour la modification du document
   const [editingDocument, setEditingDocument] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -92,6 +92,12 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
       message: "Retirer ce document du box ?",
       header: "Confirmation",
       icon: "pi pi-exclamation-triangle",
+      acceptLabel: "Retirer",
+      rejectLabel: "Annuler",
+      acceptClassName: "p-button-danger p-button-raised p-button-rounded p-2",
+      rejectClassName:
+        "p-button-secondary p-button-outlined p-button-rounded mr-4 p-2",
+      style: { width: "450px" },
       accept: async () => {
         try {
           await retireDocumentFromBox(boxId, docId);
@@ -218,7 +224,7 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
     <>
       <Toast ref={toast} />
       <ConfirmDialog />
-      
+
       {/* Modal des détails du box */}
       <Dialog
         visible={visible}
@@ -360,7 +366,10 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
-                              <Briefcase size={14} className="text-slate-400 flex-shrink-0" />
+                              <Briefcase
+                                size={14}
+                                className="text-slate-400 flex-shrink-0"
+                              />
                               <span className="text-sm text-slate-600">
                                 {doc.typeDocument?.nom || "Archive standard"}
                               </span>
@@ -396,7 +405,7 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
                                   </>
                                 )}
                             </div>
-                           </td>
+                          </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center justify-center gap-1">
                               {/* Bouton pour consulter le document */}
@@ -408,7 +417,7 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
                               >
                                 <Eye size={18} />
                               </button>
-                              
+
                               {/* Bouton pour modifier le document */}
                               <button
                                 onClick={() => handleEditDocument(doc)}
@@ -418,7 +427,7 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
                               >
                                 <Pencil size={18} />
                               </button>
-                              
+
                               {/* Bouton pour supprimer le document */}
                               <button
                                 onClick={() => handleDeleteDocument(doc)}
@@ -428,7 +437,7 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
                               >
                                 <Trash2 size={18} />
                               </button>
-                              
+
                               {/* Bouton pour retirer le document */}
                               <button
                                 onClick={() => handleRetire(doc.id)}
@@ -439,7 +448,7 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
                                 <MinusCircle size={18} />
                               </button>
                             </div>
-                           </td>
+                          </td>
                         </tr>
                       ))
                     ) : (
@@ -448,7 +457,10 @@ export default function BoxDetails({ visible, onHide, boxId, onUpdate }: any) {
                           colSpan={4}
                           className="px-6 py-12 text-center text-slate-400"
                         >
-                          <Inbox size={48} className="mx-auto mb-3 opacity-20" />
+                          <Inbox
+                            size={48}
+                            className="mx-auto mb-3 opacity-20"
+                          />
                           <p className="text-sm font-medium">
                             Ce box ne contient aucun document pour le moment.
                           </p>

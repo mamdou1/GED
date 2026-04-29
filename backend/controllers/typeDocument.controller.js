@@ -6,6 +6,9 @@ const {
   EntiteeUn,
   EntiteeDeux,
   EntiteeTrois,
+  DocumentPieces,
+  Document,
+  TypeDocumentPieces,
   sequelize,
 } = require("../models");
 const logger = require("../config/logger.config");
@@ -341,15 +344,25 @@ exports.remove = async (req, res) => {
       return res.status(404).json({ message: "Type de document non trouvé" });
     }
 
-    const typedoc_document = await Document.findAll();
+    const allDocument = await Document.findAll();
+    const allTypeDocumentPiece = await TypeDocumentPieces.findAll();
 
-    const hasDocuments = typeDoc.Documents?.length > 0;
+    for (const doc of allDocument) {
+      if (doc.type_document_id === typeDoc.id) {
+        return res.status(400).json({
+          message:
+            "Impossible de supprimer : ce type contient des documents ou des pièces associées.",
+        });
+      }
+    }
 
-    if (hasDocuments) {
-      return res.status(400).json({
-        message:
-          "Impossible de supprimer : ce type contient des documents ou des pièces associées.",
-      });
+    for (const piece of allTypeDocumentPiece) {
+      if (piece.type_document_id === typeDoc.id) {
+        return res.status(400).json({
+          message:
+            "Impossible de supprimer : ce type contient des documents ou des pièces associées.",
+        });
+      }
     }
 
     await TypeDocument.destroy({ where: { id } });

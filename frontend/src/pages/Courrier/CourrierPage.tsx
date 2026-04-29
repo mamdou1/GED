@@ -734,14 +734,14 @@ export default function CourrierPage() {
               label="Ajouter"
               icon={<UserPlus size={16} className="mr-2" />}
               onClick={addAttributionItem}
-              className="bg-blue-600 hover:bg-blue-700 text-white border-none px-6 py-2 rounded-xl shadow-lg shadow-blue-200 transition-all font-bold"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white border-none px-6 py-2 rounded-xl shadow-lg shadow-blue-200 transition-all font-bold"
             />
             <Button
               label={`Attribuer (${attributionItems.length})`}
               icon={<CheckCircle size={16} className="mr-2" />}
               onClick={submitMultipleAttributions}
               disabled={attributionItems.length === 0}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white border-none px-6 py-2 rounded-xl shadow-lg shadow-emerald-200 transition-all font-bold"
+              className="bg-emerald-700 hover:bg-emerald-800 text-white border-none px-6 py-2 rounded-xl shadow-lg shadow-emerald-200 transition-all font-bold"
             />
           </div>
         }

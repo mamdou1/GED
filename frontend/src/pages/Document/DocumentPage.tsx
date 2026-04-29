@@ -367,7 +367,7 @@ export default function DocumentPage() {
   const handleDelete = (id: string) => {
     confirmDialog({
       message:
-        "Voulez-vous supprimer ce type de document définitivement ? Cette action est irréversible.",
+        "Voulez-vous supprimer ce document définitivement ? Cette action est irréversible.",
       header: "Confirmation",
       icon: "pi pi-info-circle",
       acceptLabel: "Supprimer",
@@ -883,9 +883,10 @@ export default function DocumentPage() {
                                                       />
                                                     </button>
                                                     <button
-                                                      onClick={() =>
+                                                      onClick={(e) =>
                                                         handleDelete(
                                                           String(doc.id),
+                                                          e.stopPropagation(),
                                                         )
                                                       }
                                                       className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"

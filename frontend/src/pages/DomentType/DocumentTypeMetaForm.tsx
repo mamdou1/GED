@@ -136,6 +136,12 @@ export default function DocumentTypeMetaForm({
         message: "Voulez-vous vraiment supprimer ce champ ?",
         header: "Confirmation",
         icon: "pi pi-exclamation-triangle",
+        acceptLabel: "Supprimer",
+        rejectLabel: "Annuler",
+        acceptClassName: "p-button-danger p-button-raised p-button-rounded p-2",
+        rejectClassName:
+          "p-button-secondary p-button-outlined p-button-rounded mr-4 p-2",
+        style: { width: "450px" },
         accept: async () => {
           try {
             await deleteMetaField(id);

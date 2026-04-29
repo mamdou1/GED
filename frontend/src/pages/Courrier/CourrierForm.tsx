@@ -9,16 +9,13 @@ import { FileUpload } from "primereact/fileupload";
 import { Toast } from "primereact/toast";
 import { TabView, TabPanel } from "primereact/tabview";
 import { useAuth } from "../../context/AuthContext";
-import { useCreateCourrier, useAddPiecesJointes } from "../../hooks/useCourriers";
-import api from "../../api/axios"; // ✅ Utiliser l'instance configurée
-
 import {
-  FileText,
-  Save,
-  Info,
-  X,
-  Upload,
-} from "lucide-react";
+  useCreateCourrier,
+  useAddPiecesJointes,
+} from "../../hooks/useCourriers";
+import api from "../../api/axios";
+
+import { FileText, Save, Info, X, Upload, Inbox, Send } from "lucide-react";
 
 interface CourrierFormProps {
   visible: boolean;
@@ -57,7 +54,7 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
   const [activeTab, setActiveTab] = useState(0);
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
-  
+
   const [expediteurs, setExpediteurs] = useState<ExpediteurOption[]>([]);
   const [destinataires, setDestinataires] = useState<DestinataireOption[]>([]);
   const [loadingExpediteurs, setLoadingExpediteurs] = useState(false);
@@ -89,42 +86,42 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
     return dest.nom;
   };
 
-  // Charger les expéditeurs - ✅ CORRECTION ICI
   const fetchExpediteurs = async () => {
     setLoadingExpediteurs(true);
     try {
-      // ✅ Utiliser l'instance api, pas axios direct
       const response = await api.get("/expediteur");
       if (response.data.success) {
         setExpediteurs(response.data.data);
       }
     } catch (err: any) {
       console.error("Erreur chargement expéditeurs:", err);
-      toast.current?.show({ 
-        severity: "error", 
-        summary: "Erreur", 
-        detail: err.response?.data?.message || "Impossible de charger les expéditeurs" 
+      toast.current?.show({
+        severity: "error",
+        summary: "Erreur",
+        detail:
+          err.response?.data?.message ||
+          "Impossible de charger les expéditeurs",
       });
     } finally {
       setLoadingExpediteurs(false);
     }
   };
 
-  // Charger les destinataires - ✅ CORRECTION ICI
   const fetchDestinataires = async () => {
     setLoadingDestinataires(true);
     try {
-      // ✅ Utiliser l'instance api, pas axios direct
       const response = await api.get("/destinataire-externe");
       if (response.data.success) {
         setDestinataires(response.data.data);
       }
     } catch (err: any) {
       console.error("Erreur chargement destinataires:", err);
-      toast.current?.show({ 
-        severity: "error", 
-        summary: "Erreur", 
-        detail: err.response?.data?.message || "Impossible de charger les destinataires" 
+      toast.current?.show({
+        severity: "error",
+        summary: "Erreur",
+        detail:
+          err.response?.data?.message ||
+          "Impossible de charger les destinataires",
       });
     } finally {
       setLoadingDestinataires(false);
@@ -135,7 +132,7 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
     if (visible) {
       fetchExpediteurs();
       fetchDestinataires();
-      
+
       if (mode === "add") {
         setFormData({
           objet: "",
@@ -167,7 +164,11 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
 
   const handleSubmit = async () => {
     if (!formData.objet.trim()) {
-      toast.current?.show({ severity: "warn", summary: "Obligatoire", detail: "L'objet est requis" });
+      toast.current?.show({
+        severity: "warn",
+        summary: "Obligatoire",
+        detail: "L'objet est requis",
+      });
       return;
     }
 
@@ -198,31 +199,44 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
       const newCourrier = await createMutation.mutateAsync(payload);
 
       if (files.length > 0 && newCourrier.idcourrier) {
-        await addPiecesMutation.mutateAsync({ id: newCourrier.idcourrier, files });
+        await addPiecesMutation.mutateAsync({
+          id: newCourrier.idcourrier,
+          files,
+        });
       }
 
-      toast.current?.show({ severity: "success", summary: "Succès", detail: "Courrier enregistré avec succès" });
+      toast.current?.show({
+        severity: "success",
+        summary: "Succès",
+        detail: "Courrier enregistré avec succès",
+      });
       onSuccess();
       onHide();
     } catch (error: any) {
       console.error("Erreur détaillée:", error);
-      toast.current?.show({ severity: "error", summary: "Erreur", detail: error.response?.data?.message || error.message });
+      toast.current?.show({
+        severity: "error",
+        summary: "Erreur",
+        detail: error.response?.data?.message || error.message,
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const labelStyle = "text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-2";
-  const inputStyle = "w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20";
+  const labelStyle =
+    "text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-2";
+  const inputStyle =
+    "w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20";
 
-  const expediteurOptions = expediteurs.map(e => ({
+  const expediteurOptions = expediteurs.map((e) => ({
     label: getExpediteurNom(e),
-    value: e.idexpediteur
+    value: e.idexpediteur,
   }));
 
-  const destinataireOptions = destinataires.map(d => ({
+  const destinataireOptions = destinataires.map((d) => ({
     label: getDestinataireNom(d),
-    value: d.iddestinataire_externe
+    value: d.iddestinataire_externe,
   }));
 
   const footer = (
@@ -251,7 +265,9 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
           <div className="bg-emerald-100 p-2 rounded-lg">
             <FileText size={18} className="text-emerald-600" />
           </div>
-          <span>{mode === "add" ? "Nouveau Courrier" : "Modifier le courrier"}</span>
+          <span>
+            {mode === "add" ? "Nouveau Courrier" : "Modifier le courrier"}
+          </span>
         </div>
       }
       visible={visible}
@@ -263,22 +279,92 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
     >
       <Toast ref={toast} />
 
-      <TabView activeIndex={activeTab} onTabChange={(e) => setActiveTab(e.index)} className="pt-4">
-        
-        <TabPanel header="Courrier Arrivé">
-          <div className="space-y-6 pt-4">
+      {/* Sélecteur visuel personnalisé pour les panels */}
+      <div className="grid grid-cols-2 gap-3 mb-6 p-1 bg-slate-100 rounded-2xl">
+        <button
+          type="button"
+          onClick={() => setActiveTab(0)}
+          className={`
+            relative flex items-center justify-center gap-3 py-3 px-4 rounded-xl font-bold transition-all duration-300
+            ${
+              activeTab === 0
+                ? "bg-white text-emerald-700 shadow-lg shadow-emerald-200/50 scale-[1.02]"
+                : "text-slate-500 hover:text-emerald-600 hover:bg-white/50"
+            }
+          `}
+        >
+          <div
+            className={`
+            p-1.5 rounded-lg transition-all duration-300
+            ${activeTab === 0 ? "bg-emerald-100" : "bg-slate-200/50"}
+          `}
+          >
+            <Inbox
+              size={18}
+              className={
+                activeTab === 0 ? "text-emerald-600" : "text-slate-400"
+              }
+            />
+          </div>
+          <span className="text-sm"> Courrier Arrivé</span>
+          {activeTab === 0 && (
+            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-emerald-500 rounded-full"></div>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab(1)}
+          className={`
+            relative flex items-center justify-center gap-3 py-3 px-4 rounded-xl font-bold transition-all duration-300
+            ${
+              activeTab === 1
+                ? "bg-white text-emerald-700 shadow-lg shadow-emerald-200/50 scale-[1.02]"
+                : "text-slate-500 hover:text-emerald-600 hover:bg-white/50"
+            }
+          `}
+        >
+          <div
+            className={`
+            p-1.5 rounded-lg transition-all duration-300
+            ${activeTab === 1 ? "bg-emerald-100" : "bg-slate-200/50"}
+          `}
+          >
+            <Send
+              size={18}
+              className={
+                activeTab === 1 ? "text-emerald-600" : "text-slate-400"
+              }
+            />
+          </div>
+          <span className="text-sm"> Courrier Départ</span>
+          {activeTab === 1 && (
+            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-emerald-500 rounded-full"></div>
+          )}
+        </button>
+      </div>
+
+      {/* Contenu du panel actif */}
+      <div className="transition-all duration-300 ease-in-out">
+        {activeTab === 0 ? (
+          <div className="space-y-6 pt-2 animate-fadeIn">
             <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
               <Info size={18} className="text-amber-600 mt-0.5" />
-              <div className="text-xs text-amber-800">Enregistrement d'un courrier reçu</div>
+              <div className="text-xs text-amber-800">
+                Enregistrement d'un courrier reçu
+              </div>
             </div>
 
             <div className="space-y-2">
               <label className={labelStyle}>
-                <FileText size={14} className="text-emerald-500" /> Objet <span className="text-red-500">*</span>
+                <FileText size={14} className="text-emerald-500" /> Objet{" "}
+                <span className="text-red-500">*</span>
               </label>
               <InputText
                 value={formData.objet}
-                onChange={(e) => setFormData({ ...formData, objet: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, objet: e.target.value })
+                }
                 placeholder="Objet du courrier"
                 className={inputStyle}
               />
@@ -289,8 +375,15 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
                 <label className={labelStyle}>Nature</label>
                 <Dropdown
                   value={formData.nature}
-                  options={["Ordinaire", "Urgent", "Confidentiel", "Recommandé"]}
-                  onChange={(e) => setFormData({ ...formData, nature: e.value })}
+                  options={[
+                    "Ordinaire",
+                    "Urgent",
+                    "Confidentiel",
+                    "Recommandé",
+                  ]}
+                  onChange={(e) =>
+                    setFormData({ ...formData, nature: e.value })
+                  }
                   placeholder="Sélectionner"
                   className="w-full border border-slate-200 rounded-xl p-3"
                 />
@@ -301,18 +394,36 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
                 <Dropdown
                   value={formData.expediteur_id}
                   options={expediteurOptions}
-                  onChange={(e) => setFormData({ ...formData, expediteur_id: e.value, expediteur_nom: "" })}
-                  placeholder={loadingExpediteurs ? "Chargement..." : "Sélectionner un expéditeur"}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      expediteur_id: e.value,
+                      expediteur_nom: "",
+                    })
+                  }
+                  placeholder={
+                    loadingExpediteurs
+                      ? "Chargement..."
+                      : "Sélectionner un expéditeur"
+                  }
                   className="w-full border border-slate-200 rounded-xl p-3"
                   filter
                   showClear
                   disabled={loadingExpediteurs}
                 />
                 <div className="relative mt-2">
-                  <div className="absolute inset-0 flex items-center px-3 text-slate-400">ou</div>
+                  <div className="absolute inset-0 flex items-center px-3 text-slate-400">
+                    ou
+                  </div>
                   <InputText
                     value={formData.expediteur_nom}
-                    onChange={(e) => setFormData({ ...formData, expediteur_nom: e.target.value, expediteur_id: null })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        expediteur_nom: e.target.value,
+                        expediteur_id: null,
+                      })
+                    }
                     placeholder="Nouvel expéditeur (nom)"
                     className={`${inputStyle} pl-12`}
                   />
@@ -331,7 +442,9 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
                 maxFileSize={20000000}
                 chooseLabel="Choisir fichiers"
                 mode="basic"
-                onSelect={(e) => setFiles((prev) => [...prev, ...Array.from(e.files || [])])}
+                onSelect={(e) =>
+                  setFiles((prev) => [...prev, ...Array.from(e.files || [])])
+                }
                 className="w-full border border-slate-200 rounded-xl p-3"
               />
               {files.length > 0 && (
@@ -341,22 +454,25 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
               )}
             </div>
           </div>
-        </TabPanel>
-
-        <TabPanel header="Courrier Départ">
-          <div className="space-y-6 pt-4">
+        ) : (
+          <div className="space-y-6 pt-2 animate-fadeIn">
             <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl">
               <Info size={18} className="text-blue-600 mt-0.5" />
-              <div className="text-xs text-blue-800">Enregistrement d'un courrier à envoyer</div>
+              <div className="text-xs text-blue-800">
+                Enregistrement d'un courrier à envoyer
+              </div>
             </div>
 
             <div className="space-y-2">
               <label className={labelStyle}>
-                <FileText size={14} className="text-emerald-500" /> Objet <span className="text-red-500">*</span>
+                <FileText size={14} className="text-emerald-500" /> Objet{" "}
+                <span className="text-red-500">*</span>
               </label>
               <InputText
                 value={formData.objet}
-                onChange={(e) => setFormData({ ...formData, objet: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, objet: e.target.value })
+                }
                 placeholder="Objet du courrier départ"
                 className={inputStyle}
               />
@@ -367,18 +483,36 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
               <Dropdown
                 value={formData.destinataire_externe_id}
                 options={destinataireOptions}
-                onChange={(e) => setFormData({ ...formData, destinataire_externe_id: e.value, destinataire_nom: "" })}
-                placeholder={loadingDestinataires ? "Chargement..." : "Sélectionner un destinataire"}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    destinataire_externe_id: e.value,
+                    destinataire_nom: "",
+                  })
+                }
+                placeholder={
+                  loadingDestinataires
+                    ? "Chargement..."
+                    : "Sélectionner un destinataire"
+                }
                 className="w-full border border-slate-200 rounded-xl p-3"
                 filter
                 showClear
                 disabled={loadingDestinataires}
               />
               <div className="relative mt-2">
-                <div className="absolute inset-0 flex items-center px-3 text-slate-400">ou</div>
+                <div className="absolute inset-0 flex items-center px-3 text-slate-400">
+                  ou
+                </div>
                 <InputText
                   value={formData.destinataire_nom}
-                  onChange={(e) => setFormData({ ...formData, destinataire_nom: e.target.value, destinataire_externe_id: null })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      destinataire_nom: e.target.value,
+                      destinataire_externe_id: null,
+                    })
+                  }
                   placeholder="Nouveau destinataire (nom)"
                   className={`${inputStyle} pl-12`}
                 />
@@ -389,7 +523,9 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
               <label className={labelStyle}>Corps / Contenu</label>
               <InputTextarea
                 value={formData.corps}
-                onChange={(e) => setFormData({ ...formData, corps: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, corps: e.target.value })
+                }
                 rows={8}
                 placeholder="Contenu du courrier à envoyer..."
                 className={inputStyle}
@@ -407,7 +543,9 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
                 maxFileSize={20000000}
                 chooseLabel="Choisir fichiers"
                 mode="basic"
-                onSelect={(e) => setFiles((prev) => [...prev, ...Array.from(e.files || [])])}
+                onSelect={(e) =>
+                  setFiles((prev) => [...prev, ...Array.from(e.files || [])])
+                }
                 className="w-full border border-slate-200 rounded-xl p-3"
               />
               {files.length > 0 && (
@@ -417,8 +555,24 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
               )}
             </div>
           </div>
-        </TabPanel>
-      </TabView>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+      `}</style>
     </Dialog>
   );
 };

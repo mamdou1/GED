@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { BACKEND_URL } from "../../api/axios";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { Tag } from "primereact/tag";
@@ -305,7 +306,7 @@ const CourrierDetails: React.FC<CourrierDetailsProps> = ({
     if (isImage || isPDF) {
       const url = pj.fichier_url?.startsWith("http")
         ? pj.fichier_url
-        : `http://localhost:5001${pj.fichier_url}`;
+        : `${BACKEND_URL}${pj.fichier_url}`;
       setPreviewFile({
         url,
         name: pj.nom_fichier,

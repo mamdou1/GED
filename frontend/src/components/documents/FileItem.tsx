@@ -2,7 +2,7 @@
 import { useState, useRef } from "react";
 import { Button } from "primereact/button";
 import { Eye, Trash2, FileText, Image, File } from "lucide-react";
-import api from "../../api/axios";
+import api, { BACKEND_URL } from "../../api/axios";
 import { confirmDialog } from "primereact/confirmdialog";
 import { Toast } from "primereact/toast";
 
@@ -110,7 +110,7 @@ const FileItem = ({
   };
 
   const handleView = () => {
-    const fileUrl = `http://localhost:5001/${file.fichier}`;
+    const fileUrl = `${BACKEND_URL}/${file.fichier}`;
     if (onView) {
       onView(fileUrl);
     } else {

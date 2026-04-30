@@ -66,3 +66,5 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 });
 
 export default api;
+
+export const BACKEND_URL = (process.env.REACT_APP_API_URL || "http://localhost:5001/api").replace("/api", "");

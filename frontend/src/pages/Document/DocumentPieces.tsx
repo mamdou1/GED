@@ -3,7 +3,7 @@ import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { Toast } from "primereact/toast";
 import { Eye, FileText, FileSearch } from "lucide-react";
-import api from "../../api/axios";
+import api, { BACKEND_URL } from "../../api/axios";
 
 type Props = {
   visible: boolean;
@@ -62,7 +62,7 @@ export default function DocumentPiece({ visible, onHide, document }: Props) {
                   <Button
                     icon={<Eye size={16} />}
                     onClick={() =>
-                      setViewerUrl(`http://localhost:5001/${f.path}`)
+                      setViewerUrl(`${BACKEND_URL}/${f.path}`)
                     }
                     className="p-button-text p-button-rounded"
                   />

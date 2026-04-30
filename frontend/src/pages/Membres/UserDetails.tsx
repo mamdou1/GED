@@ -28,6 +28,7 @@ import {
 } from "../../interfaces";
 import person from "../../assets/person-96.png";
 import { revokeAccess } from "../../api/agentEntiteeAccess";
+import { BACKEND_URL } from "../../api/axios";
 import { confirmDialog } from "primereact/confirmdialog";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Toast } from "primereact/toast";
@@ -277,7 +278,7 @@ export default function UserDetails({
               <img
                 src={
                   user.photo_profil
-                    ? `http://localhost:5001/uploads/profiles/${user.photo_profil}`
+                    ? `${BACKEND_URL}/uploads/profiles/${user.photo_profil}`
                     : person
                 }
                 className="w-24 h-24 rounded-2xl border-4 border-white shadow-md object-cover"

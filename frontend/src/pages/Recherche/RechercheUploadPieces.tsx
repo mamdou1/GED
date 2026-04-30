@@ -35,7 +35,7 @@ import type {
   ModeChargement,
   PieceRecord,
 } from "../../interfaces";
-import api from "../../api/axios";
+import api, { BACKEND_URL } from "../../api/axios";
 import { getPieceMetaFields } from "../../api/pieceMetaField";
 import {
   getPieceValuesByDocument,
@@ -953,7 +953,7 @@ export default function RechercheUploadPieces({
                           onClick={() =>
                             setViewer({
                               visible: true,
-                              url: `http://localhost:5001/${f.fichier}`,
+                              url: `${BACKEND_URL}/${f.fichier}`,
                               isPreview: false,
                             })
                           }
@@ -1111,7 +1111,7 @@ export default function RechercheUploadPieces({
                                                             ) {
                                                               setViewer({
                                                                 visible: true,
-                                                                url: `http://localhost:5001/${record.files[0].fichier}`,
+                                                                url: `${BACKEND_URL}/${record.files[0].fichier}`,
                                                                 isPreview: false,
                                                               });
                                                             }
@@ -1141,7 +1141,7 @@ export default function RechercheUploadPieces({
                                                                         setViewer(
                                                                           {
                                                                             visible: true,
-                                                                            url: `http://localhost:5001/${record.files[0].fichier}`,
+                                                                            url: `${BACKEND_URL}/${record.files[0].fichier}`,
                                                                             isPreview: false,
                                                                           },
                                                                         );
@@ -1387,7 +1387,7 @@ export default function RechercheUploadPieces({
                                                         e.stopPropagation();
                                                         setViewer({
                                                           visible: true,
-                                                          url: `http://localhost:5001/${f.fichier}`,
+                                                          url: `${BACKEND_URL}/${f.fichier}`,
                                                           isPreview: false,
                                                         });
                                                       }}

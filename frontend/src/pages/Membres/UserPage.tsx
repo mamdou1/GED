@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { BACKEND_URL } from "../../api/axios";
 import Layout from "../../components/layout/Layoutt";
 import UserForm from "./UsersForm";
 import type { User } from "../../interfaces";
@@ -399,7 +400,7 @@ export default function UserPage() {
                     )}
                     {u.photo_profil ? (
                       <img
-                        src={`http://localhost:5001/uploads/profiles/${u.photo_profil}`}
+                        src={`${BACKEND_URL}/uploads/profiles/${u.photo_profil}`}
                         alt=""
                         className="w-12 h-12 rounded-xl object-cover ring-2 ring-white shadow-sm"
                       />

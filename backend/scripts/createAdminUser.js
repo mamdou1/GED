@@ -105,6 +105,7 @@ async function createAdminUser() {
       include: [
         {
           model: db.Permission,
+          as: "Permissions",
           through: { attributes: [] },
           // Pas de 'as' car on utilise l'alias par défaut 'Permissions'
         },

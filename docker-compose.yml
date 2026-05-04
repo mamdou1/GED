@@ -31,7 +31,7 @@ services:
     environment:
       - NODE_ENV=docker
     ports:
-      - "7001:5000"
+      - "7000:5000"
     depends_on:
       mysql:
         condition: service_healthy
@@ -52,7 +52,7 @@ services:
     depends_on:
       - backend
     environment:
-      - REACT_APP_API_URL=http://localhost:7001/api
+      - REACT_APP_API_URL=http://localhost:7000/api
     command: npm start
     networks:
       - liquidation_network

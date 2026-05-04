@@ -27,7 +27,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!permissions.length) return false;
 
     if (action) {
-      console.log("if action", permissions.includes(`${resource}.${action}`));
+      //console.log("if action", permissions.includes(`${resource}.${action}`));
       return permissions.includes(`${resource}.${action}`);
     }
 

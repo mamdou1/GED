@@ -21,7 +21,7 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react";
-import { getMetaById } from "../../api/metaField";
+import { getAllFieldsForEntity, getMetaById } from "../../api/metaField";
 import { getDocuments } from "../../api/document";
 import { getTypeDocuments } from "../../api/typeDocument";
 import Pagination from "../../components/layout/Pagination";
@@ -33,11 +33,20 @@ import {
   EntiteeTrois,
   User,
 } from "../../interfaces";
-import { getAllEntiteeUn, getEntiteeUnTitre } from "../../api/entiteeUn";
-import { getAllEntiteeDeux, getEntiteeDeuxTitre } from "../../api/entiteeDeux";
+import {
+  getAllEntiteeUn,
+  getEntiteeUnTitre,
+  getTypesOfEntiteeUn, // ✅ NOUVEAU — API Many-to-Many
+} from "../../api/entiteeUn";
+import {
+  getAllEntiteeDeux,
+  getEntiteeDeuxTitre,
+  getTypesOfEntiteeDeux, // ✅ NOUVEAU — API Many-to-Many
+} from "../../api/entiteeDeux";
 import {
   getAllEntiteeTrois,
   getEntiteeTroisTitre,
+  getTypesOfEntiteeTrois, // ✅ NOUVEAU — API Many-to-Many
 } from "../../api/entiteeTrois";
 import DocumentDetails from "../Document/DocumentDetails";
 import RechercheUploadPieces from "./RechercheUploadPieces";
@@ -51,6 +60,20 @@ import {
 } from "../../hooks/useArchivageQueries";
 
 // =============================================
+// ✅ Types
+// =============================================
+type NiveauType = "un" | "deux" | "trois";
+
+const normalizeNiveau = (niveau: NiveauType): string => {
+  const mapping: Record<NiveauType, string> = {
+    un: "UN",
+    deux: "DEUX",
+    trois: "TROIS",
+  };
+  return mapping[niveau];
+};
+
+// =============================================
 // ✅ LocationModal - UNIQUEMENT avec les hooks
 // =============================================
 function LocationModal({ visible, onHide, doc }: any) {
@@ -62,7 +85,6 @@ function LocationModal({ visible, onHide, doc }: any) {
 
   if (!doc) return null;
 
-  // ✅ Reconstruire le chemin UNIQUEMENT avec les hooks
   const getDocumentLocation = () => {
     const boxId = doc.box_id;
     if (!boxId) return null;
@@ -80,13 +102,11 @@ function LocationModal({ visible, onHide, doc }: any) {
     };
 
     if (!box.trave_id) return result;
-
     const trave = allTraves.find((t) => Number(t.id) === Number(box.trave_id));
     if (!trave) return result;
     result.trave = trave.code;
 
     if (!trave.rayon_id) return result;
-
     const rayon = allRayons.find(
       (r) => Number(r.id) === Number(trave.rayon_id),
     );
@@ -94,7 +114,6 @@ function LocationModal({ visible, onHide, doc }: any) {
     result.rayon = rayon.code;
 
     if (!rayon.salle_id) return result;
-
     const salle = allSalles.find(
       (s) => Number(s.id) === Number(rayon.salle_id),
     );
@@ -102,7 +121,6 @@ function LocationModal({ visible, onHide, doc }: any) {
     result.salle = salle.libelle;
 
     if (!salle.site_id) return result;
-
     const site = allSites.find((s) => Number(s.id) === Number(salle.site_id));
     if (!site) return result;
     result.site = site.nom;
@@ -112,7 +130,6 @@ function LocationModal({ visible, onHide, doc }: any) {
 
   const location = getDocumentLocation();
   const isArchived = location !== null;
-
   const ratio = location?.capaciteMax
     ? (location.currentCount / location.capaciteMax) * 100
     : 0;
@@ -190,7 +207,6 @@ function LocationModal({ visible, onHide, doc }: any) {
             <p className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">
               📍 Localisation physique
             </p>
-
             {location.site && (
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
                 <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
@@ -202,7 +218,6 @@ function LocationModal({ visible, onHide, doc }: any) {
                 </div>
               </div>
             )}
-
             {location.salle && (
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
                 <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
@@ -214,7 +229,6 @@ function LocationModal({ visible, onHide, doc }: any) {
                 </div>
               </div>
             )}
-
             {location.rayon && (
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
                 <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
@@ -226,7 +240,6 @@ function LocationModal({ visible, onHide, doc }: any) {
                 </div>
               </div>
             )}
-
             {location.trave && (
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
                 <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
@@ -238,7 +251,6 @@ function LocationModal({ visible, onHide, doc }: any) {
                 </div>
               </div>
             )}
-
             <div className="border-t border-emerald-100 pt-3">
               <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl">
                 <div className="p-2 bg-emerald-200 rounded-lg text-emerald-700">
@@ -300,7 +312,7 @@ function LocationModal({ visible, onHide, doc }: any) {
 }
 
 // =============================================
-// ✅ LocationBadge - UNIQUEMENT avec les hooks
+// ✅ LocationBadge
 // =============================================
 function LocationBadge({ doc, onClick }: { doc: any; onClick: () => void }) {
   const { data: allBoxes = [] } = useBoxes();
@@ -318,41 +330,34 @@ function LocationBadge({ doc, onClick }: { doc: any; onClick: () => void }) {
     );
   }
 
-  // ✅ Reconstruire le chemin pour l'affichage compact
   const getCompactPath = () => {
     const box = allBoxes.find((b) => Number(b.id) === Number(doc.box_id));
     if (!box) return `Box #${doc.box_id}`;
-
     let path = box.libelle;
-
     if (box.trave_id) {
       const trave = allTraves.find(
         (t) => Number(t.id) === Number(box.trave_id),
       );
       if (trave) {
         path = `${trave.code} → ${path}`;
-
         if (trave.rayon_id) {
           const rayon = allRayons.find(
             (r) => Number(r.id) === Number(trave.rayon_id),
           );
-          if (rayon && rayon.salle_id) {
+          if (rayon?.salle_id) {
             const salle = allSalles.find(
               (s) => Number(s.id) === Number(rayon.salle_id),
             );
-            if (salle && salle.site_id) {
+            if (salle?.site_id) {
               const site = allSites.find(
                 (s) => Number(s.id) === Number(salle.site_id),
               );
-              if (site) {
-                path = `${site.nom} → ${path}`;
-              }
+              if (site) path = `${site.nom} → ${path}`;
             }
           }
         }
       }
     }
-
     return path;
   };
 
@@ -372,7 +377,7 @@ function LocationBadge({ doc, onClick }: { doc: any; onClick: () => void }) {
 }
 
 // =============================================
-// Composant principal Recherche
+// ✅ Composant principal Recherche
 // =============================================
 export default function Recherche() {
   const { user } = useAuth();
@@ -385,7 +390,7 @@ export default function Recherche() {
   const [entiteeDeux, setEntiteeDeux] = useState<EntiteeDeux[]>([]);
   const [entiteeTrois, setEntiteeTrois] = useState<EntiteeTrois[]>([]);
 
-  const [selectedNiveau, setSelectedNiveau] = useState<string | null>(null);
+  const [selectedNiveau, setSelectedNiveau] = useState<NiveauType | null>(null);
   const [selectedEntitee, setSelectedEntitee] = useState<number | null>(null);
   const [filteredTypesByEntitee, setFilteredTypesByEntitee] = useState<
     TypeDocument[]
@@ -411,11 +416,15 @@ export default function Recherche() {
   const [searchValues, setSearchValues] = useState<{ [key: number]: string }>(
     {},
   );
+  const [loading, setLoading] = useState(false); // ✅ NOUVEAU
+  const [loadingTypes, setLoadingTypes] = useState(false); // ✅ NOUVEAU
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
   const toast = useRef<Toast>(null);
 
-  // ... (garder toutes les fonctions utilitaires isUserAdmin, getUserAccessibleEntityIds, etc. inchangées)
+  // =============================================
+  // FONCTIONS UTILITAIRES (inchangées)
+  // =============================================
 
   const isUserAdmin = (user: User | null): boolean => {
     if (!user) return false;
@@ -460,9 +469,7 @@ export default function Recherche() {
   const hasAdditionalAccess = (user: User | null): boolean =>
     (user?.agent_access?.length ?? 0) > 0;
 
-  const getUserFonctionEntityType = (
-    user: User | null,
-  ): "un" | "deux" | "trois" | null => {
+  const getUserFonctionEntityType = (user: User | null): NiveauType | null => {
     if (user?.fonction_details?.entitee_trois) return "trois";
     if (user?.fonction_details?.entitee_deux) return "deux";
     if (user?.fonction_details?.entitee_un) return "un";
@@ -478,56 +485,89 @@ export default function Recherche() {
     );
   };
 
-  const getUserFonctionTypes = (
-    user: User | null,
-    allTypes: TypeDocument[],
-  ) => {
-    const entityType = getUserFonctionEntityType(user);
-    const entityId = getUserFonctionEntityId(user);
-    if (!entityType || !entityId) return [];
-    return allTypes.filter((typeDoc) => {
-      if (entityType === "un") return typeDoc.entitee_un_id === entityId;
-      if (entityType === "deux") return typeDoc.entitee_deux_id === entityId;
-      if (entityType === "trois") return typeDoc.entitee_trois_id === entityId;
-      return false;
-    });
+  // =============================================
+  // ✅ CHARGEMENT DES META-CHAMPS — Many-to-Many
+  // =============================================
+  const loadMetaFieldsForEntity = async () => {
+    if (!documentType_id || !selectedNiveau || !selectedEntitee) {
+      // Cas sans accès supplémentaire : charger les champs via getMetaById classique
+      if (documentType_id && !selectedNiveau && !selectedEntitee) {
+        try {
+          const res = await getMetaById(String(documentType_id));
+          setMetaFields(res);
+          setSelectedFields([]);
+          setSearchValues({});
+        } catch {
+          setMetaFields([]);
+        }
+      } else {
+        setMetaFields([]);
+      }
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const normalizedType = normalizeNiveau(selectedNiveau);
+      const response = await getAllFieldsForEntity(
+        documentType_id,
+        normalizedType,
+        selectedEntitee,
+      );
+      const visibleFields = response.filter((f: any) => f.hidden !== true);
+      setMetaFields(visibleFields);
+      setSelectedFields([]);
+      setSearchValues({});
+    } catch (error) {
+      console.error("Erreur chargement méta-champs:", error);
+      setMetaFields([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const filteredTypes = useMemo(() => {
-    if (isUserAdmin(user)) return types;
-    const accessibleIds = getUserAccessibleEntityIds(user);
-    if (hasAdditionalAccess(user)) {
-      return types.filter((typeDoc) => {
-        if (
-          typeDoc.entitee_un_id &&
-          accessibleIds.un.has(typeDoc.entitee_un_id)
-        )
-          return true;
-        if (
-          typeDoc.entitee_deux_id &&
-          accessibleIds.deux.has(typeDoc.entitee_deux_id)
-        )
-          return true;
-        if (
-          typeDoc.entitee_trois_id &&
-          accessibleIds.trois.has(typeDoc.entitee_trois_id)
-        )
-          return true;
-        return false;
-      });
-    }
-    const fonctionId = getUserFonctionEntityId(user);
-    const fonctionType = getUserFonctionEntityType(user);
-    if (!fonctionId || !fonctionType) return [];
-    return types.filter((typeDoc) => {
-      if (fonctionType === "un") return typeDoc.entitee_un_id === fonctionId;
-      if (fonctionType === "deux")
-        return typeDoc.entitee_deux_id === fonctionId;
-      if (fonctionType === "trois")
-        return typeDoc.entitee_trois_id === fonctionId;
-      return false;
-    });
-  }, [types, user]);
+  // Déclenché dès que documentType_id, selectedNiveau ou selectedEntitee change
+  useEffect(() => {
+    loadMetaFieldsForEntity();
+  }, [documentType_id, selectedNiveau, selectedEntitee]);
+
+  // =============================================
+  // ✅ CHARGEMENT DES TYPES PAR ENTITÉ — Many-to-Many
+  // =============================================
+  useEffect(() => {
+    const loadTypesByEntitee = async () => {
+      if (!selectedEntitee || !selectedNiveau) {
+        setFilteredTypesByEntitee([]);
+        return;
+      }
+
+      setLoadingTypes(true);
+      try {
+        let typesData: TypeDocument[] = [];
+
+        switch (selectedNiveau) {
+          case "un":
+            typesData = await getTypesOfEntiteeUn(selectedEntitee);
+            break;
+          case "deux":
+            typesData = await getTypesOfEntiteeDeux(selectedEntitee);
+            break;
+          case "trois":
+            typesData = await getTypesOfEntiteeTrois(selectedEntitee);
+            break;
+        }
+
+        setFilteredTypesByEntitee(typesData);
+      } catch (error) {
+        console.error("❌ Erreur chargement types par entité:", error);
+        setFilteredTypesByEntitee([]);
+      } finally {
+        setLoadingTypes(false);
+      }
+    };
+
+    loadTypesByEntitee();
+  }, [selectedEntitee, selectedNiveau]);
 
   // Charger les titres et les entités
   useEffect(() => {
@@ -556,9 +596,22 @@ export default function Recherche() {
     loadTitresEtEntites();
   }, []);
 
-  // Options pour le premier dropdown
+  // Chargement initial
+  useEffect(() => {
+    const loadData = async () => {
+      const [resDocs, resTypes] = await Promise.all([
+        getDocuments(),
+        getTypeDocuments(),
+      ]);
+      setDocs(resDocs);
+      setTypes(resTypes.typeDocument);
+    };
+    loadData();
+  }, []);
+
+  // Options niveau
   const niveauOptions = useMemo(() => {
-    const options: { label: string; value: string }[] = [];
+    const options: { label: string; value: NiveauType }[] = [];
     if (isUserAdmin(user)) {
       if (titres.niveau1) options.push({ label: titres.niveau1, value: "un" });
       if (titres.niveau2)
@@ -577,7 +630,7 @@ export default function Recherche() {
     return options;
   }, [titres, user]);
 
-  // Options pour le deuxième dropdown
+  // Options entité
   const entiteeOptions = useMemo(() => {
     if (!selectedNiveau) return [];
     let entites: any[] = [];
@@ -596,49 +649,29 @@ export default function Recherche() {
     }));
   }, [selectedNiveau, entiteeUn, entiteeDeux, entiteeTrois, user]);
 
-  // Filtrer les types
-  useEffect(() => {
-    if (!selectedEntitee || !selectedNiveau) {
-      setFilteredTypesByEntitee([]);
-      return;
-    }
-    const filtered = types.filter((typeDoc) => {
-      if (selectedNiveau === "un")
-        return typeDoc.entitee_un_id === selectedEntitee;
-      if (selectedNiveau === "deux")
-        return typeDoc.entitee_deux_id === selectedEntitee;
-      if (selectedNiveau === "trois")
-        return typeDoc.entitee_trois_id === selectedEntitee;
-      return false;
+  // =============================================
+  // getUserFonctionTypes — pour le cas sans accès
+  // (maintenant via API Many-to-Many si possible,
+  //  sinon fallback sur filtrage local)
+  // =============================================
+  const getUserFonctionTypes = (
+    user: User | null,
+    allTypes: TypeDocument[],
+  ) => {
+    // Fallback local (utilisé uniquement pour l'interface simple sans niveau sélectionné)
+    const entityType = getUserFonctionEntityType(user);
+    const entityId = getUserFonctionEntityId(user);
+    if (!entityType || !entityId) return [];
+    // NOTE: si vous avez les API Many-to-Many, utilisez-les ici aussi
+    // Pour l'instant, on filtre via les IDs présents dans typeDoc
+    return allTypes.filter((typeDoc: any) => {
+      const entities: any[] = typeDoc.entitees || [];
+      return entities.some(
+        (e: any) =>
+          e.niveau === normalizeNiveau(entityType) && e.id === entityId,
+      );
     });
-    setFilteredTypesByEntitee(filtered);
-  }, [selectedEntitee, selectedNiveau, types]);
-
-  // Chargement initial
-  useEffect(() => {
-    const loadData = async () => {
-      const [resDocs, resTypes] = await Promise.all([
-        getDocuments(),
-        getTypeDocuments(),
-      ]);
-      setDocs(resDocs);
-      setTypes(resTypes.typeDocument);
-    };
-    loadData();
-  }, []);
-
-  // Métadonnées
-  useEffect(() => {
-    if (documentType_id) {
-      getMetaById(String(documentType_id)).then((res) => {
-        setMetaFields(res);
-        setSelectedFields([]);
-        setSearchValues({});
-      });
-    } else {
-      setMetaFields([]);
-    }
-  }, [documentType_id]);
+  };
 
   const toggleField = (id: number) => {
     setSelectedFields((prev) =>
@@ -666,6 +699,7 @@ export default function Recherche() {
   );
 
   const getSearchInterface = () => {
+    // Cas simple : pas d'accès supplémentaire, pas admin
     if (!hasAdditionalAccess(user) && !isUserAdmin(user)) {
       const fonctionTypes = getUserFonctionTypes(user, types);
       return (
@@ -688,6 +722,8 @@ export default function Recherche() {
         </div>
       );
     }
+
+    // Cas admin ou accès multiples : interface à 3 dropdowns
     return (
       <div className="bg-white p-6 rounded-2xl border border-emerald-100 shadow-sm mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -702,6 +738,7 @@ export default function Recherche() {
                 setSelectedNiveau(e.value);
                 setSelectedEntitee(null);
                 setDocumentType_id(null);
+                setFilteredTypesByEntitee([]);
               }}
               placeholder="Sélectionner un niveau"
               className="w-full border-none shadow-none bg-emerald-50/50 rounded-xl"
@@ -742,13 +779,19 @@ export default function Recherche() {
               value={documentType_id}
               options={filteredTypesByEntitee}
               onChange={(e) => setDocumentType_id(e.value)}
-              disabled={!selectedEntitee || filteredTypesByEntitee.length === 0}
+              disabled={
+                !selectedEntitee ||
+                filteredTypesByEntitee.length === 0 ||
+                loadingTypes
+              }
               placeholder={
                 !selectedEntitee
                   ? "Choisissez d'abord une structure"
-                  : filteredTypesByEntitee.length === 0
-                    ? "Aucun type disponible"
-                    : "Sélectionner un type"
+                  : loadingTypes
+                    ? "Chargement..."
+                    : filteredTypesByEntitee.length === 0
+                      ? "Aucun type disponible pour cette structure"
+                      : "Sélectionner un type"
               }
               className="w-full border-none shadow-none bg-emerald-50/50 rounded-xl"
               optionLabel="nom"
@@ -778,7 +821,7 @@ export default function Recherche() {
       {documentType_id && metaFields.length > 0 && (
         <div className="bg-white p-6 rounded-2xl border border-emerald-100 shadow-sm mb-6">
           <p className="text-sm font-bold text-emerald-800 mb-3">
-            Critères de recherche :
+            Critères de recherche ({metaFields.length}) :
           </p>
           <div className="flex flex-wrap gap-4">
             {metaFields.map((m) => (
@@ -792,6 +835,11 @@ export default function Recherche() {
                 />
                 <label className="text-sm text-emerald-900 font-medium">
                   {m.label}
+                  {m.source === "custom" && (
+                    <span className="ml-1 text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full">
+                      Personnalisé
+                    </span>
+                  )}
                 </label>
               </div>
             ))}
@@ -836,6 +884,11 @@ export default function Recherche() {
                     className="p-5 text-[11px] font-black text-emerald-800 uppercase"
                   >
                     {m.label}
+                    {m.source === "custom" && (
+                      <span className="ml-1 text-[9px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full">
+                        Personnalisé
+                      </span>
+                    )}
                   </th>
                 ))}
                 <th className="p-5 text-[11px] font-black text-emerald-800 uppercase w-48">
@@ -847,7 +900,17 @@ export default function Recherche() {
               </tr>
             </thead>
             <tbody className="divide-y divide-emerald-50">
-              {documentType_id &&
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={metaFields.length + 3}
+                    className="p-20 text-center"
+                  >
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto" />
+                    <p className="text-emerald-700 mt-2">Chargement...</p>
+                  </td>
+                </tr>
+              ) : documentType_id && paginated.length > 0 ? (
                 paginated.map((d) => (
                   <tr
                     key={d.id}
@@ -878,7 +941,6 @@ export default function Recherche() {
                       );
                     })}
                     <td className="p-5">
-                      {/* ✅ Utiliser le nouveau LocationBadge */}
                       <LocationBadge
                         doc={d}
                         onClick={() => {
@@ -916,10 +978,26 @@ export default function Recherche() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                ))
+              ) : documentType_id ? (
+                <tr>
+                  <td
+                    colSpan={metaFields.length + 3}
+                    className="p-20 text-center"
+                  >
+                    <div className="inline-flex p-6 bg-emerald-50 rounded-full mb-4 text-emerald-200">
+                      <FileText size={48} />
+                    </div>
+                    <p className="text-emerald-800 font-bold text-lg">
+                      Aucun document trouvé
+                    </p>
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
+
         {!documentType_id && (
           <div className="p-20 text-center">
             <div className="inline-flex p-6 bg-emerald-50 rounded-full mb-4 text-emerald-200">
@@ -934,12 +1012,14 @@ export default function Recherche() {
         )}
       </div>
 
-      <Pagination
-        currentPage={currentPage}
-        itemsPerPage={itemsPerPage}
-        totalItems={filtered.length}
-        onPageChange={setCurrentPage}
-      />
+      {filtered.length > itemsPerPage && (
+        <Pagination
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
+          totalItems={filtered.length}
+          onPageChange={setCurrentPage}
+        />
+      )}
 
       <DocumentDetails
         visible={detailsVisible}

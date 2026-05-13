@@ -78,8 +78,8 @@ const CourrierDetails: React.FC<CourrierDetailsProps> = ({
   const getStatutSeverity = (statut: string) => {
     const s = (statut || "").toUpperCase();
     if (s.includes("TRAITE")) return "success";
-    if (s.includes("EN_COURS") || s.includes("ATTRIBUÉ")) return "warning";
-    if (s.includes("REJETÉ")) return "danger";
+    if (s.includes("EN_COURS") || s.includes("ATTRIBUE")) return "warning";
+    if (s.includes("REJETE")) return "danger";
     return "info";
   };
 

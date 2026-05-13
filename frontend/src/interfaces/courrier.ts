@@ -16,9 +16,9 @@ export interface Courrier {
   entitee_id: number;
   statut:
     | "EN_ATTENTE"
-    | "VALIDÉ"
-    | "REJETÉ"
-    | "ATTRIBUÉ"
+    | "VALIDE"
+    | "REJETE"
+    | "ATTRIBUE"
     | "EN_COURS"
     | "TRAITE"
     | "ARCHIVE"

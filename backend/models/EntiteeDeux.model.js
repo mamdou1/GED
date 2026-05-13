@@ -29,6 +29,12 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "entitee_deux_id",
       as: "fonctions",
     });
+    EntiteeDeux.belongsToMany(models.TypeDocument, {
+      through: "entitee_deux_type_documents",
+      foreignKey: "entitee_deux_id",
+      otherKey: "type_document_id",
+      as: "typeDocuments",
+    });
     // Division.belongsTo(models.Type, {
     //   foreignKey: "piece_id",
     //   as: "types",

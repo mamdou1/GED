@@ -40,6 +40,11 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "agent_id",
       as: "agent",
     });
+
+    Document.hasMany(models.DocumentEntity, {
+      foreignKey: "document_id",
+      as: "entities",
+    });
   };
 
   return Document;

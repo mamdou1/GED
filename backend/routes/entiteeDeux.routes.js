@@ -72,4 +72,27 @@ router.delete(
   entiteeDeuxController.deleteEntiteeDeux,
 );
 
+router.get(
+  "/:id/types",
+  verifyToken,
+  authorizePermission("entiteeDeux", "read"),
+  entiteeDeuxController.getTypesOfEntiteeDeux,
+);
+
+// Ajouter des types de documents à une direction
+router.post(
+  "/:id/types",
+  verifyToken,
+  authorizePermission("entiteeDeux", "update"),
+  entiteeDeuxController.addTypesToEntiteeDeux,
+);
+
+// Retirer des types de documents d'une direction
+router.delete(
+  "/:id/types",
+  verifyToken,
+  authorizePermission("entiteeDeux", "update"),
+  entiteeDeuxController.removeTypesFromEntiteeDeux,
+);
+
 module.exports = router;

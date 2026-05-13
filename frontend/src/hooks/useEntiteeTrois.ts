@@ -9,6 +9,9 @@ import {
   getFunctionsByEntiteeTrois,
   getEntiteeTroisTitre,
   updateEntiteeTroisTitre,
+  getTypesOfEntiteeTrois,
+  addTypesToEntiteeTrois,
+  removeTypesFromEntiteeTrois,
 } from "../api/entiteeTrois";
 import type { EntiteeTrois, Fonction } from "../interfaces";
 
@@ -26,6 +29,8 @@ export const entiteeTroisKeys = {
   fonctions: (id: number | string) =>
     [...entiteeTroisKeys.detail(id), "fonctions"] as const,
   titre: () => [...entiteeTroisKeys.all, "titre"] as const,
+  types: (id: number | string) =>
+    [...entiteeTroisKeys.detail(id), "types"] as const,
 };
 
 // =============================================
@@ -176,6 +181,56 @@ export const useUpdateEntiteeTroisTitre = () => {
     mutationFn: (titre: string) => updateEntiteeTroisTitre(titre),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: entiteeTroisKeys.titre() });
+    },
+  });
+};
+
+export const useEntiteeTroisTypes = (entiteeTroisId?: number) => {
+  return useQuery({
+    queryKey: entiteeTroisKeys.types(entiteeTroisId!),
+    queryFn: () => getTypesOfEntiteeTrois(entiteeTroisId!),
+    enabled: !!entiteeTroisId,
+  });
+};
+
+// Hook pour ajouter des types de documents à une direction
+export const useAddTypesToEntiteeTrois = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      entiteeTroisId,
+      typeIds,
+    }: {
+      entiteeTroisId: number;
+      typeIds: number[];
+    }) => addTypesToEntiteeTrois(entiteeTroisId, typeIds),
+    onSuccess: (_, { entiteeTroisId }) => {
+      queryClient.invalidateQueries({
+        queryKey: entiteeTroisKeys.list(String(entiteeTroisId)),
+      });
+      queryClient.invalidateQueries({ queryKey: ["entiteeTrois"] });
+    },
+  });
+};
+
+// Hook pour retirer des types de documents d'une direction
+export const useRemoveTypesFromEntiteeTrois = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      entiteeTroisId,
+      typeIds,
+    }: {
+      entiteeTroisId: number;
+      typeIds: number[];
+    }) => removeTypesFromEntiteeTrois(entiteeTroisId, typeIds),
+    onSuccess: (_, { entiteeTroisId }) => {
+      queryClient.invalidateQueries({
+        queryKey: entiteeTroisKeys.list(String(entiteeTroisId)),
+      });
+      queryClient.invalidateQueries({ queryKey: ["entiteeTrois  "] });
     },
   });
 };

@@ -40,7 +40,7 @@ router.use(verifyToken);
  *         name: statut
  *         schema:
  *           type: string
- *           enum: [EN_ATTENTE, VALIDÉ, REJETÉ, ATTRIBUÉ, EN_COURS, TRAITE, ARCHIVE, RENVOYE]
+ *           enum: [EN_ATTENTE, VALIDE, REJETE, ATTRIBUE, EN_COURS, TRAITE, ARCHIVE, RENVOYE]
  *         description: Statut du courrier
  *       - in: query
  *         name: dateDebut

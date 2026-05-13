@@ -280,6 +280,15 @@ export interface DocumentValue {
   value: string;
 }
 
+export interface DocumentEntity {
+  id: number;
+  document_id: number;
+  entity_title: string;
+  entity_id: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Document {
   id: number;
   type_document_id: number;
@@ -287,9 +296,23 @@ export interface Document {
   values?: DocumentValue[];
   pieces?: Pieces[];
 
+  // ✅ AJOUTER CETTE PROPRIÉTÉ
+  entities?: DocumentEntity[];
+
   // ✅ NOUVEAU : Valeurs des métadonnées des pièces
   pieceValues?: PieceValue[];
   createdAt?: string;
+}
+
+export interface CreateDocumentPayload {
+  type_document_id: number;
+  values: Record<number, any>;
+  entities?: SelectedEntity[];
+}
+
+export interface DocumentEntityPayload {
+  entity_type: EntityType;
+  entity_id: number;
 }
 
 export interface CreateDocumentPayload {

@@ -39,6 +39,11 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "piece_id",
       as: "metaFields",
     });
+
+    Pieces.hasMany(models.EntityTypeDocumentPiece, {
+      foreignKey: "piece_id",
+      as: "entityOverrides",
+    });
   };
 
   return Pieces;

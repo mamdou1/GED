@@ -107,6 +107,13 @@ export default function DocumentPage() {
     documentType_id || expandedType || null,
   );
 
+  // ✅ Ajouter ce state dans DocumentPage
+  const [activeEntity, setActiveEntity] = useState<{
+    entity_type: string;
+    entity_id: number;
+    entity_label: string;
+  } | null>(null);
+
   useEffect(() => {
     if (formVisible && pendingTypeId) {
       setDocumentType_id(pendingTypeId);
@@ -219,24 +226,15 @@ export default function DocumentPage() {
     if (!entityType || !entityId) return [];
 
     return types.filter((doc) => {
-      if (entityType === "un")
-        return (
-          doc.entitee_un_id !== null &&
-          doc.entitee_un_id !== undefined &&
-          doc.entitee_un_id === entityId
-        );
-      if (entityType === "deux")
-        return (
-          doc.entitee_deux_id !== null &&
-          doc.entitee_deux_id !== undefined &&
-          doc.entitee_deux_id === entityId
-        );
-      if (entityType === "trois")
-        return (
-          doc.entitee_trois_id !== null &&
-          doc.entitee_trois_id !== undefined &&
-          doc.entitee_trois_id === entityId
-        );
+      if (entityType === "un") {
+        return (doc.entitee_un || []).some((e: any) => e.id === entityId);
+      }
+      if (entityType === "deux") {
+        return (doc.entitee_deux || []).some((e: any) => e.id === entityId);
+      }
+      if (entityType === "trois") {
+        return (doc.entitee_trois || []).some((e: any) => e.id === entityId);
+      }
       return false;
     });
   };
@@ -246,34 +244,14 @@ export default function DocumentPage() {
   // LIRE LE PARAMÈTRE D'URL
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const entitee = params.get("entitee");
+    const entiteeParam = params.get("entitee");
     const typeId = params.get("typeId");
-    const niveaux = params.get("niveaux");
 
     if (typeId) {
       setDocumentType_id(Number(typeId));
       setSelectedNiveau(null);
-    } else if (entitee) {
-      setSelectedNiveau(entitee);
-
-      let filtered: TypeDocument[] = [];
-
-      if (isUserAdmin()) {
-        filtered = types.filter((t) => {
-          if (entitee === "un") return t.entitee_un_id !== null;
-          if (entitee === "deux") return t.entitee_deux_id !== null;
-          if (entitee === "trois") return t.entitee_trois_id !== null;
-          return false;
-        });
-      } else if (hasAdditionalAccess()) {
-        filtered = getAccessibleTypesForNiveau(
-          entitee as "un" | "deux" | "trois",
-        );
-      } else {
-        filtered = [];
-      }
-
-      setFilteredTypes(filtered);
+    } else if (entiteeParam) {
+      setSelectedNiveau(entiteeParam);
     }
   }, [location.search, types]);
 
@@ -399,101 +377,168 @@ export default function DocumentPage() {
     });
   };
 
+  const hasAccessToEntity = (typeDoc: TypeDocument): boolean => {
+    if (isUserAdmin()) return true;
+
+    const userEntityIds = {
+      un: new Set<number>(),
+      deux: new Set<number>(),
+      trois: new Set<number>(),
+    };
+
+    if (user?.fonction_details?.entitee_un?.id) {
+      userEntityIds.un.add(user.fonction_details.entitee_un.id);
+    }
+    if (user?.fonction_details?.entitee_deux?.id) {
+      userEntityIds.deux.add(user.fonction_details.entitee_deux.id);
+    }
+    if (user?.fonction_details?.entitee_trois?.id) {
+      userEntityIds.trois.add(user.fonction_details.entitee_trois.id);
+    }
+
+    user?.agent_access?.forEach((access: any) => {
+      if (access.entitee_un?.id) userEntityIds.un.add(access.entitee_un.id);
+      if (access.entitee_deux?.id)
+        userEntityIds.deux.add(access.entitee_deux.id);
+      if (access.entitee_trois?.id)
+        userEntityIds.trois.add(access.entitee_trois.id);
+    });
+
+    // Vérifier via les tableaux many-to-many
+    const hasAccessE3 = (typeDoc.entitee_trois || []).some((e: any) =>
+      userEntityIds.trois.has(e.id),
+    );
+    if (hasAccessE3) return true;
+
+    const hasAccessE2 = (typeDoc.entitee_deux || []).some((e: any) =>
+      userEntityIds.deux.has(e.id),
+    );
+    if (hasAccessE2) return true;
+
+    const hasAccessE1 = (typeDoc.entitee_un || []).some((e: any) =>
+      userEntityIds.un.has(e.id),
+    );
+    if (hasAccessE1) return true;
+
+    // Documents non assignés visibles par tous
+    if (
+      (!typeDoc.entitee_un || typeDoc.entitee_un.length === 0) &&
+      (!typeDoc.entitee_deux || typeDoc.entitee_deux.length === 0) &&
+      (!typeDoc.entitee_trois || typeDoc.entitee_trois.length === 0)
+    ) {
+      return true;
+    }
+
+    return false;
+  };
+
   // Grouper les types par entité - UNIQUEMENT pour le niveau sélectionné
   const typesByEntitee = useMemo(() => {
     const grouped: Record<number, TypeDocument[]> = {};
 
-    // Récupérer les types à afficher
     let typesToShow: TypeDocument[] = [];
 
-    if (isUserAdmin()) {
-      // Pour ADMIN, filtrer selon le niveau sélectionné
-      if (selectedNiveau === "un") {
-        // Niveau 1 : uniquement les types liés DIRECTEMENT à une entitee_un
-        // (sans entitee_deux_id et sans entitee_trois_id)
-        typesToShow = types.filter(
-          (type) =>
-            type.entitee_un_id !== null &&
-            type.entitee_un_id !== undefined &&
-            !type.entitee_deux_id &&
-            !type.entitee_trois_id,
-        );
-      } else if (selectedNiveau === "deux") {
-        // Niveau 2 : uniquement les types liés DIRECTEMENT à une entitee_deux
-        // (avec entitee_deux_id mais sans entitee_trois_id)
-        typesToShow = types.filter(
-          (type) =>
-            type.entitee_deux_id !== null &&
-            type.entitee_deux_id !== undefined &&
-            !type.entitee_trois_id,
-        );
-      } else if (selectedNiveau === "trois") {
-        // Niveau 3 : uniquement les types liés DIRECTEMENT à une entitee_trois
-        typesToShow = types.filter(
-          (type) =>
-            type.entitee_trois_id !== null &&
-            type.entitee_trois_id !== undefined,
-        );
-      }
-    } else if (hasAdditionalAccess()) {
-      // Pour utilisateur avec accès supplémentaires
-      const accessibleIds = getUserAccessibleEntityIds();
+    if (isUserAdmin() || hasAdditionalAccess()) {
+      typesToShow = types.filter((t) => hasAccessToEntity(t));
 
+      // ✅ Filtrer par niveau si sélectionné - UNIQUEMENT l'inclusion, pas d'exclusion
       if (selectedNiveau === "un") {
-        typesToShow = types.filter(
-          (type) =>
-            type.entitee_un_id !== null &&
-            type.entitee_un_id !== undefined &&
-            accessibleIds.un.has(type.entitee_un_id) &&
-            !type.entitee_deux_id &&
-            !type.entitee_trois_id,
+        typesToShow = typesToShow.filter(
+          (type) => type.entitee_un && type.entitee_un.length > 0,
+          // ✅ SUPPRIMER les conditions qui excluent entitee_deux et entitee_trois
         );
       } else if (selectedNiveau === "deux") {
-        typesToShow = types.filter(
-          (type) =>
-            type.entitee_deux_id !== null &&
-            type.entitee_deux_id !== undefined &&
-            accessibleIds.deux.has(type.entitee_deux_id) &&
-            !type.entitee_trois_id,
+        typesToShow = typesToShow.filter(
+          (type) => type.entitee_deux && type.entitee_deux.length > 0,
+          // ✅ SUPPRIMER la condition qui exclut entitee_trois
         );
       } else if (selectedNiveau === "trois") {
-        typesToShow = types.filter(
-          (type) =>
-            type.entitee_trois_id !== null &&
-            type.entitee_trois_id !== undefined &&
-            accessibleIds.trois.has(type.entitee_trois_id),
+        typesToShow = typesToShow.filter(
+          (type) => type.entitee_trois && type.entitee_trois.length > 0,
         );
       }
-    } else {
-      // Cas sans accès supplémentaires (ne devrait pas arriver ici car CAS 2.2 est séparé)
-      typesToShow = [];
+      // Si selectedNiveau est null, on garde tous les types
+
+      // ✅ Grouper par entité selon le niveau sélectionné
+      typesToShow.forEach((type) => {
+        if (selectedNiveau === "un") {
+          (type.entitee_un || []).forEach((e: any) => {
+            if (!grouped[e.id]) grouped[e.id] = [];
+            if (!grouped[e.id].find((t) => t.id === type.id)) {
+              grouped[e.id].push(type);
+            }
+          });
+        } else if (selectedNiveau === "deux") {
+          (type.entitee_deux || []).forEach((e: any) => {
+            if (!grouped[e.id]) grouped[e.id] = [];
+            if (!grouped[e.id].find((t) => t.id === type.id)) {
+              grouped[e.id].push(type);
+            }
+          });
+        } else if (selectedNiveau === "trois") {
+          (type.entitee_trois || []).forEach((e: any) => {
+            if (!grouped[e.id]) grouped[e.id] = [];
+            if (!grouped[e.id].find((t) => t.id === type.id)) {
+              grouped[e.id].push(type);
+            }
+          });
+        }
+        // Si aucun niveau sélectionné, on groupe par toutes les entités
+        if (!selectedNiveau) {
+          (type.entitee_un || []).forEach((e: any) => {
+            if (!grouped[e.id]) grouped[e.id] = [];
+            if (!grouped[e.id].find((t) => t.id === type.id)) {
+              grouped[e.id].push(type);
+            }
+          });
+          (type.entitee_deux || []).forEach((e: any) => {
+            if (!grouped[e.id]) grouped[e.id] = [];
+            if (!grouped[e.id].find((t) => t.id === type.id)) {
+              grouped[e.id].push(type);
+            }
+          });
+          (type.entitee_trois || []).forEach((e: any) => {
+            if (!grouped[e.id]) grouped[e.id] = [];
+            if (!grouped[e.id].find((t) => t.id === type.id)) {
+              grouped[e.id].push(type);
+            }
+          });
+        }
+      });
     }
-
-    // Grouper les types par entité (l'entité à laquelle ils sont directement liés)
-    typesToShow.forEach((type) => {
-      let entiteeId: number | null | undefined = null;
-
-      if (selectedNiveau === "un") {
-        entiteeId = type.entitee_un_id;
-      } else if (selectedNiveau === "deux") {
-        entiteeId = type.entitee_deux_id;
-      } else if (selectedNiveau === "trois") {
-        entiteeId = type.entitee_trois_id;
-      }
-
-      // Vérifier que entiteeId est un nombre valide avant de l'utiliser
-      if (entiteeId !== null && entiteeId !== undefined) {
-        if (!grouped[entiteeId]) grouped[entiteeId] = [];
-        grouped[entiteeId].push(type);
-      }
-    });
 
     return grouped;
   }, [types, selectedNiveau, user]);
 
+  // const toggleEntitee = (entiteeId: number) => {
+  //   setExpandedEntitee(expandedEntitee === entiteeId ? null : entiteeId);
+  //   setExpandedType(null);
+  // };
+
   const toggleEntitee = (entiteeId: number) => {
-    setExpandedEntitee(expandedEntitee === entiteeId ? null : entiteeId);
+    const isExpanding = expandedEntitee !== entiteeId;
+    setExpandedEntitee(isExpanding ? entiteeId : null);
     setExpandedType(null);
+
+    // ✅ Stocker l'entité active pour le formulaire
+    if (isExpanding) {
+      const entity = entitees.find((e) => e.id === entiteeId);
+      if (entity) {
+        const entityTypeMap: Record<string, string> = {
+          un: "entitee_un",
+          deux: "entitee_deux",
+          trois: "entitee_trois",
+        };
+        setActiveEntity({
+          entity_type: entityTypeMap[entity.type] || entity.type,
+          entity_id: entity.id,
+          entity_label: entity.libelle,
+        });
+      }
+    } else {
+      // Ne pas effacer activeEntity quand on ferme l'accordéon
+      // pour que le formulaire puisse encore l'utiliser
+    }
   };
 
   const toggleType = async (typeId: number) => {
@@ -685,9 +730,26 @@ export default function DocumentPage() {
                       {entiteeTypes.length > 0 ? (
                         entiteeTypes.map((type) => {
                           const isTypeExpanded = expandedType === type.id;
-                          const typeDocs = allDocs.filter(
-                            (d) => d.type_document_id === type.id,
-                          );
+                          // ✅ CORRIGÉ - Filtrer par type ET par entité
+                          const typeDocs = allDocs.filter((d) => {
+                            // Vérifier le type de document
+                            const hasCorrectType =
+                              d.type_document_id === type.id;
+
+                            // Vérifier que le document est lié à l'entité courante
+                            const hasCorrectEntity = d.entities?.some(
+                              (e: any) =>
+                                e.entity_type ===
+                                  (entiteeItem.type === "un"
+                                    ? "entitee_un"
+                                    : entiteeItem.type === "deux"
+                                      ? "entitee_deux"
+                                      : "entitee_trois") &&
+                                e.entity_id === entiteeItem.id,
+                            );
+
+                            return hasCorrectType && hasCorrectEntity;
+                          });
                           const currentPageForType = getCurrentPageForType(
                             type.id,
                           );
@@ -1707,10 +1769,14 @@ export default function DocumentPage() {
           setEditingDoc(null);
         }}
         onSubmit={editingDoc ? onEdit : handleSubmit}
-        refresh={() => {}} // ✅ PLUS BESOIN de refresh !
+        refresh={() => {}}
         documentType={types}
         selectedTypeId={documentType_id}
         editingDoc={editingDoc}
+        preselectedEntity={activeEntity}
+        entitee_un={entitees.filter((e) => e.type === "un")}
+        entitee_deux={entitees.filter((e) => e.type === "deux")}
+        entitee_trois={entitees.filter((e) => e.type === "trois")}
       />
       <DocumentDetails
         visible={detailsVisible}

@@ -57,4 +57,26 @@ router.delete(
   ctrl.removePieceFromTypeDocument,
 );
 
+router.post(
+  "/:typeDocumentId/entity-pieces/add",
+  verifyToken,
+  authorizePermission("documentType", "update"),
+  ctrl.addPieceToEntityTypeDocument,
+);
+
+router.get(
+  "/:typeDocumentId/entity-pieces/:entityType/:entityId",
+  verifyToken,
+  authorizePermission("documentType", "read"),
+  ctrl.getEffectivePiecesForEntity,
+);
+
+// Retirer une pièce pour une entité
+router.post(
+  "/:typeDocumentId/entity-pieces/remove",
+  verifyToken,
+  authorizePermission("documentType", "update"),
+  ctrl.removePieceFromEntityTypeDocument,
+);
+
 module.exports = router;

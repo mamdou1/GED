@@ -8,6 +8,9 @@ import {
   getFunctionsByEntiteeUn,
   getEntiteeUnTitre,
   updateEntiteeUnTitre,
+  removeTypesFromEntiteeUn,
+  addTypesToEntiteeUn,
+  getTypesOfEntiteeUn,
 } from "../api/entiteeUn";
 import type { EntiteeUn, Fonction } from "../interfaces";
 
@@ -23,6 +26,8 @@ export const entiteeUnKeys = {
   fonctions: (id: number | string) =>
     [...entiteeUnKeys.detail(id), "fonctions"] as const,
   titre: () => [...entiteeUnKeys.all, "titre"] as const,
+  types: (id: number | string) =>
+    [...entiteeUnKeys.detail(id), "types"] as const,
 };
 
 // =============================================
@@ -150,6 +155,56 @@ export const useUpdateEntiteeUnTitre = () => {
     mutationFn: (titre: string) => updateEntiteeUnTitre(titre),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: entiteeUnKeys.titre() });
+    },
+  });
+};
+
+export const useEntiteeUnTypes = (entiteeUnId?: number) => {
+  return useQuery({
+    queryKey: entiteeUnKeys.types(entiteeUnId!),
+    queryFn: () => getTypesOfEntiteeUn(entiteeUnId!),
+    enabled: !!entiteeUnId,
+  });
+};
+
+// Hook pour ajouter des types de documents à une direction
+export const useAddTypesToEntiteeUn = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      entiteeUnId,
+      typeIds,
+    }: {
+      entiteeUnId: number;
+      typeIds: number[];
+    }) => addTypesToEntiteeUn(entiteeUnId, typeIds),
+    onSuccess: (_, { entiteeUnId }) => {
+      queryClient.invalidateQueries({
+        queryKey: entiteeUnKeys.list(String(entiteeUnId)),
+      });
+      queryClient.invalidateQueries({ queryKey: ["entiteeUns"] });
+    },
+  });
+};
+
+// Hook pour retirer des types de documents d'une direction
+export const useRemoveTypesFromEntiteeUn = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      entiteeUnId,
+      typeIds,
+    }: {
+      entiteeUnId: number;
+      typeIds: number[];
+    }) => removeTypesFromEntiteeUn(entiteeUnId, typeIds),
+    onSuccess: (_, { entiteeUnId }) => {
+      queryClient.invalidateQueries({
+        queryKey: entiteeUnKeys.list(String(entiteeUnId)),
+      });
+      queryClient.invalidateQueries({ queryKey: ["entiteeUns"] });
     },
   });
 };

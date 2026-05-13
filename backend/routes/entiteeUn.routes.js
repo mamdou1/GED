@@ -66,5 +66,27 @@ router.delete(
   entiteeUnController.deleteEntiteeUn,
 );
 
+router.get(
+  "/:id/types",
+  verifyToken,
+  authorizePermission("entiteeUn", "read"),
+  entiteeUnController.getTypesOfEntiteeUn,
+);
+
+// Ajouter des types de documents à une direction
+router.post(
+  "/:id/types",
+  verifyToken,
+  authorizePermission("entiteeUn", "update"),
+  entiteeUnController.addTypesToEntiteeUn,
+);
+
+// Retirer des types de documents d'une direction
+router.delete(
+  "/:id/types",
+  verifyToken,
+  authorizePermission("entiteeUn", "update"),
+  entiteeUnController.removeTypesFromEntiteeUn,
+);
 
 module.exports = router;

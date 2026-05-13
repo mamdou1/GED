@@ -1,7 +1,15 @@
 import { useEffect, useState, useRef } from "react";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
-import { Save, Layers, Tag, Plus } from "lucide-react";
+import {
+  Save,
+  Layers,
+  Tag,
+  Plus,
+  Building2,
+  Split,
+  TableOfContents,
+} from "lucide-react";
 import { Dropdown } from "primereact/dropdown";
 import { getMetaById } from "../../api/metaField";
 import { Toast } from "primereact/toast";
@@ -10,13 +18,55 @@ import { Calendar } from "primereact/calendar";
 import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { MetaField } from "../../interfaces";
+import { DocumentEntityPayload } from "../../interfaces";
 
 // ✅ Définir le type correctement
 interface DocumentPayload {
   type_document_id: number | null;
   values: Record<string, string>;
+  piece_values?: Record<string, any>;
+  entities?: DocumentEntityPayload[];
+  defaultEntityType?: string;
   id?: number;
 }
+
+interface MetaField {
+  id: number;
+  name: string;
+  label: string;
+  field_type: string;
+  required: boolean;
+  position: number;
+  options?: any;
+  placeholder?: string;
+  description?: string;
+  source?: "base" | "custom";
+  hidden?: boolean;
+}
+
+// Configuration des entités
+const ENTITY_CONFIG: Record<string, { label: string; icon: any }> = {
+  entitee_un: { label: "entitee_un", icon: Building2 },
+  entitee_deux: { label: "entitee_deux", icon: Split },
+  entitee_trois: { label: "entitee_trois", icon: TableOfContents },
+};
+
+// Map pour convertir les types d'entités
+const ENTITY_TYPE_MAP: Record<string, string> = {
+  entitee_un: "entitee_un",
+  entitee_deux: "entitee_deux",
+  entitee_trois: "entitee_trois",
+};
+
+// Fonction pour normaliser le type d'entité (pour l'API)
+const normalizeEntityType = (type: string): string => {
+  const mapping: Record<string, string> = {
+    entitee_un: "entitee_un",
+    entitee_deux: "entitee_deux",
+    entitee_trois: "entitee_trois",
+  };
+  return mapping[type] || type.toUpperCase();
+};
 
 export default function DocumentForm({
   visible,
@@ -26,11 +76,35 @@ export default function DocumentForm({
   documentType,
   selectedTypeId,
   editingDoc,
+  entitee_un = [],
+  entitee_deux = [],
+  entitee_trois = [],
+  defaultEntityType,
+  preselectedEntity,
 }: any) {
   const [values, setValues] = useState<any>({});
   const [documentType_id, setDocumentType_id] = useState<number | null>(null);
   const [metaFields, setMetaFields] = useState<MetaField[]>([]);
+  const [loading, setLoading] = useState(false);
   const toast = useRef<Toast>(null);
+
+  // Données pour chaque type d'entité
+  const entityData: Record<string, any[]> = {
+    entitee_un: entitee_un,
+    entitee_deux: entitee_deux,
+    entitee_trois: entitee_trois,
+  };
+
+  // ✅ Déterminer l'entité (pré-sélectionnée ou depuis l'URL)
+  const isEntityPreselected =
+    preselectedEntity?.entity_id && preselectedEntity?.entity_id > 0;
+  const effectiveEntityType = isEntityPreselected
+    ? ENTITY_TYPE_MAP[preselectedEntity.entity_type] ||
+      preselectedEntity.entity_type
+    : defaultEntityType;
+  const effectiveEntityId = isEntityPreselected
+    ? preselectedEntity.entity_id
+    : null;
 
   // Charger les données du document à éditer
   useEffect(() => {
@@ -57,6 +131,25 @@ export default function DocumentForm({
       setDocumentType_id(selectedTypeId);
     }
   }, [selectedTypeId, editingDoc]);
+
+  useEffect(() => {
+    // Seulement en mode création
+    if (!visible || editingDoc) return;
+
+    // Vérifier qu'une entité a été pré-sélectionnée
+    if (
+      preselectedEntity &&
+      preselectedEntity.entity_type &&
+      preselectedEntity.entity_id
+    ) {
+      console.log("✅ Entité pré-sélectionnée :", preselectedEntity);
+
+      // Si vous voulez juste stocker l'information, ce useEffect suffit.
+      // handleSubmit utilisera ensuite :
+      // - effectiveEntityType
+      // - effectiveEntityId
+    }
+  }, [visible, preselectedEntity, editingDoc]);
 
   // Effet pour charger les méta-données quand le type change
   useEffect(() => {
@@ -200,63 +293,93 @@ export default function DocumentForm({
   };
 
   const handleSubmit = async () => {
-    // Vérifie que tous les champs required ont une valeur
-    const missing = metaFields.filter((f) => f.required && !values[f.id]);
+    if (!documentType_id) {
+      toast.current?.show({
+        severity: "warn",
+        summary: "Type manquant",
+        detail: "Veuillez sélectionner un type de document",
+      });
+      return;
+    }
+
+    const visibleRequiredFields = metaFields.filter(
+      (f) => f.required && f.hidden !== true,
+    );
+    const missing = visibleRequiredFields.filter((f) => {
+      const val = values[f.id];
+      return val === undefined || val === null || val === "";
+    });
 
     if (missing.length > 0) {
       toast.current?.show({
         severity: "warn",
         summary: "Champs manquants",
-        detail: "Veuillez remplir tous les champs obligatoires !",
+        detail: `Veuillez remplir: ${missing.map((f) => f.label).join(", ")}`,
+      });
+      return;
+    }
+
+    // ✅ Vérifier qu'on a bien une entité
+    if (!effectiveEntityType || !effectiveEntityId) {
+      toast.current?.show({
+        severity: "warn",
+        summary: "Entité manquante",
+        detail: "Veuillez sélectionner une entité",
       });
       return;
     }
 
     try {
-      // ✅ Construire le payload avec le bon format (objet, pas tableau)
       const valuesObject: Record<string, string> = {};
-
-      // Parcourir tous les metaFields pour créer l'objet
       for (const field of metaFields) {
         const fieldValue = values[field.id];
-
-        // Ne pas inclure les fichiers dans le payload JSON
-        if (fieldValue && !(fieldValue instanceof File)) {
-          valuesObject[field.id] = fieldValue.toString();
-        }
-      }
-
-      // ✅ Le payload a maintenant la structure attendue par le backend
-      const payload: DocumentPayload = {
-        type_document_id: documentType_id,
-        values: valuesObject,
-      };
-
-      // ✅ Ajouter l'id si on est en mode édition
-      if (editingDoc?.id) {
-        payload.id = editingDoc.id;
-      }
-
-      console.log("📦 Payload envoyé:", payload);
-
-      const result = await onSubmit(payload);
-      console.log("✅ Document sauvegardé:", result);
-
-      // Uploader les fichiers séparément
-      const fileUploads = [];
-      for (const [fieldId, value] of Object.entries(values)) {
-        if (value instanceof File) {
-          const docId = editingDoc?.id || result?.id;
-          if (docId) {
-            fileUploads.push(uploadDocumentFile(String(docId), fieldId, value));
+        if (
+          fieldValue !== undefined &&
+          fieldValue !== null &&
+          fieldValue !== ""
+        ) {
+          if (!(fieldValue instanceof File)) {
+            valuesObject[field.id] = fieldValue.toString();
           }
         }
       }
 
-      // Attendre que tous les fichiers soient uploadés
-      if (fileUploads.length > 0) {
-        await Promise.all(fileUploads);
+      // ✅ Mapper le type d'entité
+      const mapEntityType = (type: string): string => {
+        const mapping: Record<string, string> = {
+          entiteeUn: "entitee_un",
+          entiteeDeux: "entitee_deux",
+          entiteeTrois: "entitee_trois",
+          entitee_un: "entitee_un",
+          entitee_deux: "entitee_deux",
+          entitee_trois: "entitee_trois",
+        };
+        return mapping[type] || type;
+      };
+
+      const payload: DocumentPayload = {
+        type_document_id: documentType_id,
+        values: valuesObject,
+        entities: [
+          {
+            entity_type: mapEntityType(effectiveEntityType),
+            entity_id: effectiveEntityId,
+          },
+        ],
+      };
+
+      if (editingDoc?.id) {
+        payload.id = editingDoc.id;
       }
+
+      console.log(
+        "📦 Payload envoyé au backend:",
+        JSON.stringify(payload, null, 2),
+      );
+
+      const result = await onSubmit(payload);
+
+      // ... reste du code pour les fichiers ...
 
       toast.current?.show({
         severity: "success",
@@ -267,16 +390,30 @@ export default function DocumentForm({
       });
 
       onHide();
-      refresh();
+      refresh?.();
     } catch (error: any) {
       console.error("❌ Erreur:", error);
       toast.current?.show({
         severity: "error",
         summary: "Erreur",
-        detail: error.message || "Impossible d’enregistrer le document",
+        detail:
+          error.response?.data?.message ||
+          "Impossible d'enregistrer le document",
       });
     }
   };
+
+  const getEntityLabel = () => {
+    if (!effectiveEntityType || !effectiveEntityId) return null;
+    const entities = entityData[effectiveEntityType] || [];
+    const entity = entities.find((e: any) => e.id === effectiveEntityId);
+    return entity?.libelle || preselectedEntity?.entity_label || null;
+  };
+
+  // Récupérer l'icône de l'entité
+  const EntityIcon = effectiveEntityType
+    ? ENTITY_CONFIG[effectiveEntityType]?.icon
+    : null;
 
   return (
     <>

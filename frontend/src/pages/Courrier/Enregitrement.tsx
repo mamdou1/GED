@@ -108,9 +108,9 @@ export default function Enregitrement() {
   const getStatutLabel = (statut: string) => {
     const s = (statut || "").toUpperCase();
     if (s === "EN_ATTENTE") return "En attente";
-    if (s === "VALIDÉ") return "Validé";
-    if (s === "REJETÉ") return "Rejeté";
-    if (s === "ATTRIBUÉ") return "Attribué";
+    if (s === "VALIDE") return "Validé";
+    if (s === "REJETE") return "Rejeté";
+    if (s === "ATTRIBUE") return "Attribué";
     if (s === "EN_COURS") return "En cours";
     if (s === "TRAITE") return "Traité";
     return statut || "En attente";
@@ -119,10 +119,10 @@ export default function Enregitrement() {
   // ✅ Obtenir la couleur du statut
   const getStatutSeverity = (statut: string) => {
     const s = (statut || "").toUpperCase();
-    if (s === "REJETÉ") return "danger";
-    if (s === "VALIDÉ") return "success";
+    if (s === "REJETE") return "danger";
+    if (s === "VALIDE") return "success";
     if (s === "TRAITE") return "success";
-    if (s === "EN_COURS" || s === "ATTRIBUÉ") return "warning";
+    if (s === "EN_COURS" || s === "ATTRIBUE") return "warning";
     return "info";
   };
 
@@ -241,7 +241,7 @@ export default function Enregitrement() {
                       />
                     </td>
                     <td className="px-6 py-4">
-                      {c.statut === "REJETÉ" && c.motif_rejet ? (
+                      {c.statut === "REJETE" && c.motif_rejet ? (
                         <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-2 rounded-lg">
                           <AlertCircle size={14} />
                           <span className="text-sm">{c.motif_rejet}</span>
@@ -264,7 +264,7 @@ export default function Enregitrement() {
                         </button>
 
                         {(c.statut === "EN_ATTENTE" ||
-                          c.statut === "REJETÉ") && (
+                          c.statut === "REJETE") && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();

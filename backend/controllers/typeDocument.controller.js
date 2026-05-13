@@ -9,6 +9,7 @@ const {
   DocumentPieces,
   Document,
   TypeDocumentPieces,
+  EntityTypeDocumentPiece,
   sequelize,
 } = require("../models");
 const logger = require("../config/logger.config");
@@ -572,6 +573,182 @@ exports.getPiecesOfTypeDocument = async (req, res) => {
       userId: req.user?.id,
       duration: Date.now() - startTime,
     });
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.addPieceToEntityTypeDocument = async (req, res) => {
+  try {
+    const { typeDocumentId } = req.params;
+    const { entity_type, entity_id, piece_id } = req.body;
+
+    const globalLink = await TypeDocumentPieces.findOne({
+      where: {
+        document_type_id: typeDocumentId,
+        piece_id,
+      },
+    });
+
+    const existing = await EntityTypeDocumentPiece.findOne({
+      where: {
+        type_document_id: typeDocumentId,
+        entity_type,
+        entity_id,
+        piece_id,
+      },
+    });
+
+    // ==========================================
+    // CAS 1 : pièce globale
+    // ==========================================
+    if (globalLink) {
+      console.log("CAS GLOBAL DETECTÉ");
+
+      if (existing) {
+        await existing.destroy();
+      }
+
+      return res.json({
+        message: "Pièce globale restaurée (suppression override)",
+      });
+    }
+
+    // ==========================================
+    // CAS 2 : non global
+    // ==========================================
+    console.log("CAS NON GLOBAL");
+
+    if (existing) {
+      if (existing.action === "ADD") {
+        return res.json({
+          message: "Pièce déjà ajoutée",
+        });
+      }
+
+      existing.action = "ADD";
+      await existing.save();
+
+      return res.json({
+        message: "Pièce réajoutée avec succès",
+      });
+    }
+
+    const created = await EntityTypeDocumentPiece.create({
+      type_document_id: typeDocumentId,
+      entity_type,
+      entity_id,
+      piece_id,
+      action: "ADD",
+    });
+
+    return res.json({
+      message: "Pièce ajoutée à l'entité",
+    });
+  } catch (err) {
+    return res.status(500).json({
+      message: err.message,
+      stack: err.stack,
+    });
+  } finally {
+    console.log("===== END REQUEST =====");
+  }
+};
+
+exports.removePieceFromEntityTypeDocument = async (req, res) => {
+  try {
+    const { typeDocumentId } = req.params;
+    const { entity_type, entity_id, piece_id } = req.body;
+
+    const existing = await EntityTypeDocumentPiece.findOne({
+      where: {
+        type_document_id: typeDocumentId,
+        entity_type,
+        entity_id,
+        piece_id,
+      },
+    });
+
+    if (existing) {
+      // Si déjà REMOVE, rien à faire
+      if (existing.action === "REMOVE") {
+        return res.json({
+          message: "Pièce déjà retirée",
+        });
+      }
+
+      // Si ADD, on passe à REMOVE
+      existing.action = "REMOVE";
+      await existing.save();
+
+      return res.json({
+        message: "Pièce retirée avec succès",
+      });
+    }
+
+    // Aucun enregistrement existant
+    await EntityTypeDocumentPiece.create({
+      type_document_id: typeDocumentId,
+      entity_type,
+      entity_id,
+      piece_id,
+      action: "REMOVE",
+    });
+
+    return res.json({
+      message: "Pièce retirée pour cette entité",
+    });
+  } catch (err) {
+    return res.status(500).json({
+      message: err.message,
+    });
+  }
+};
+
+exports.getEffectivePiecesForEntity = async (req, res) => {
+  try {
+    const { typeDocumentId, entityType, entityId } = req.params;
+
+    // 1. Récupérer les pièces de base du type de document
+    const typeDocument = await TypeDocument.findByPk(typeDocumentId, {
+      include: [{ model: Pieces, as: "pieces" }],
+    });
+
+    const basePieces = typeDocument.pieces || [];
+
+    // 2. Récupérer les ajouts spécifiques à cette entité
+    const added = await EntityTypeDocumentPiece.findAll({
+      where: {
+        type_document_id: typeDocumentId,
+        entity_type: entityType,
+        entity_id: entityId,
+        action: "ADD",
+      },
+    });
+
+    // 3. Récupérer les retraits spécifiques à cette entité
+    const removed = await EntityTypeDocumentPiece.findAll({
+      where: {
+        type_document_id: typeDocumentId,
+        entity_type: entityType,
+        entity_id: entityId,
+        action: "REMOVE",
+      },
+    });
+
+    const addedPieceIds = added.map((a) => a.piece_id);
+    const removedPieceIds = removed.map((r) => r.piece_id);
+
+    // Récupérer les pièces ajoutées
+    const addedPieces = await Pieces.findAll({
+      where: { id: addedPieceIds },
+    });
+
+    res.json({
+      basePieces,
+      addedPieces,
+      removedPieceIds,
+    });
+  } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };

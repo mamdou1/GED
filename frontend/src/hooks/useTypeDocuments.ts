@@ -6,6 +6,9 @@ import {
   updateTypeDocument,
   deleteTypeDocument,
   addPiecesToTypeDocument,
+  removePiecesFromTypeDocument,
+  addPieceToEntityTypeDocument,
+  removePieceFromEntityTypeDocument,
 } from "../api/typeDocument";
 import { createMetaField, updateMetaField } from "../api/metaField";
 import { getPieces } from "../api/pieces";
@@ -262,6 +265,84 @@ export const useMultipleAffectation = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: typeDocumentKeys.lists() });
+    },
+  });
+};
+
+export const useEffectivePiecesForEntity = (
+  typeDocumentId: string,
+  entityType: string,
+  entityId: number,
+) => {
+  return useQuery({
+    queryKey: effectivePiecesKeys.detail(typeDocumentId, entityType, entityId),
+    queryFn: () =>
+      getEffectivePiecesForEntity(typeDocumentId, entityType, entityId),
+    enabled: !!typeDocumentId && !!entityType && !!entityId, // évite les appels inutiles
+  });
+};
+
+export const useAddPieceToEntityTypeDocument = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      typeDocumentId,
+      payload,
+    }: {
+      typeDocumentId: string;
+      payload: {
+        entity_type: string;
+        entity_id: number;
+        piece_id: number;
+      };
+    }) => addPieceToEntityTypeDocument(typeDocumentId, payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: typeDocumentKeys.lists() });
+
+      queryClient.invalidateQueries({
+        queryKey: typeDocumentKeys.detail(parseInt(variables.typeDocumentId)),
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["effectivePieces"],
+      });
+    },
+    onError: (error: any) => {
+      console.error("❌ Erreur ajout pièce entité:", error);
+    },
+  });
+};
+
+// Retirer une pièce spécifique à une entité
+export const useRemovePieceFromEntityTypeDocument = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      typeDocumentId,
+      payload,
+    }: {
+      typeDocumentId: string;
+      payload: {
+        entity_type: string;
+        entity_id: number;
+        piece_id: number;
+      };
+    }) => removePieceFromEntityTypeDocument(typeDocumentId, payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: typeDocumentKeys.lists() });
+
+      queryClient.invalidateQueries({
+        queryKey: typeDocumentKeys.detail(parseInt(variables.typeDocumentId)),
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["effectivePieces"],
+      });
+    },
+    onError: (error: any) => {
+      console.error("❌ Erreur retrait pièce entité:", error);
     },
   });
 };

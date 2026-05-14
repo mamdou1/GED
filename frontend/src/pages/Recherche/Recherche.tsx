@@ -21,7 +21,7 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react";
-import { getMetaById } from "../../api/metaField";
+import { getMetaFieldsForEntity } from "../../api/metaField";
 import { getDocuments } from "../../api/document";
 import { getTypeDocuments } from "../../api/typeDocument";
 import Pagination from "../../components/layout/Pagination";
@@ -49,6 +49,16 @@ import {
   useTraves,
   useBoxes,
 } from "../../hooks/useArchivageQueries";
+
+// Normaliser le type d'entité pour l'API
+const normalizeEntityType = (type: string): string => {
+  const mapping: Record<string, string> = {
+    un: "EntiteeUn",
+    deux: "EntiteeDeux",
+    trois: "EntiteeTrois",
+  };
+  return mapping[type] || type;
+};
 
 // =============================================
 // ✅ LocationModal - UNIQUEMENT avec les hooks
@@ -415,8 +425,7 @@ export default function Recherche() {
   const itemsPerPage = 8;
   const toast = useRef<Toast>(null);
 
-  // ... (garder toutes les fonctions utilitaires isUserAdmin, getUserAccessibleEntityIds, etc. inchangées)
-
+  // Fonctions utilitaires
   const isUserAdmin = (user: User | null): boolean => {
     if (!user) return false;
     const droitLibelle =
@@ -529,6 +538,35 @@ export default function Recherche() {
     });
   }, [types, user]);
 
+  // ✅ Charger les méta-champs pour l'entité sélectionnée
+  const loadMetaFieldsForEntity = async () => {
+    if (!documentType_id || !selectedNiveau || !selectedEntitee) {
+      setMetaFields([]);
+      return;
+    }
+
+    try {
+      const normalizedType = normalizeEntityType(selectedNiveau);
+      // Utiliser la route /all pour récupérer base + personnalisés
+      const response = await getMetaFieldsForEntity(
+        documentType_id,
+        normalizedType,
+        selectedEntitee
+      );
+      setMetaFields(response);
+      setSelectedFields([]);
+      setSearchValues({});
+    } catch (error) {
+      console.error("Erreur chargement méta-champs:", error);
+      setMetaFields([]);
+    }
+  };
+
+  // ✅ Recharger quand le type de document ou l'entité change
+  useEffect(() => {
+    loadMetaFieldsForEntity();
+  }, [documentType_id, selectedNiveau, selectedEntitee]);
+
   // Charger les titres et les entités
   useEffect(() => {
     const loadTitresEtEntites = async () => {
@@ -596,7 +634,7 @@ export default function Recherche() {
     }));
   }, [selectedNiveau, entiteeUn, entiteeDeux, entiteeTrois, user]);
 
-  // Filtrer les types
+  // Filtrer les types par entité
   useEffect(() => {
     if (!selectedEntitee || !selectedNiveau) {
       setFilteredTypesByEntitee([]);
@@ -614,7 +652,7 @@ export default function Recherche() {
     setFilteredTypesByEntitee(filtered);
   }, [selectedEntitee, selectedNiveau, types]);
 
-  // Chargement initial
+  // Chargement initial des documents et types
   useEffect(() => {
     const loadData = async () => {
       const [resDocs, resTypes] = await Promise.all([
@@ -626,19 +664,6 @@ export default function Recherche() {
     };
     loadData();
   }, []);
-
-  // Métadonnées
-  useEffect(() => {
-    if (documentType_id) {
-      getMetaById(String(documentType_id)).then((res) => {
-        setMetaFields(res);
-        setSelectedFields([]);
-        setSearchValues({});
-      });
-    } else {
-      setMetaFields([]);
-    }
-  }, [documentType_id]);
 
   const toggleField = (id: number) => {
     setSelectedFields((prev) =>
@@ -792,6 +817,11 @@ export default function Recherche() {
                 />
                 <label className="text-sm text-emerald-900 font-medium">
                   {m.label}
+                  {m.source === "custom" && (
+                    <span className="ml-1 text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full">
+                      Personnalisé
+                    </span>
+                  )}
                 </label>
               </div>
             ))}
@@ -836,6 +866,11 @@ export default function Recherche() {
                     className="p-5 text-[11px] font-black text-emerald-800 uppercase"
                   >
                     {m.label}
+                    {m.source === "custom" && (
+                      <span className="ml-1 text-[9px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full align-middle">
+                        Personnalisé
+                      </span>
+                    )}
                   </th>
                 ))}
                 <th className="p-5 text-[11px] font-black text-emerald-800 uppercase w-48">
@@ -847,7 +882,7 @@ export default function Recherche() {
               </tr>
             </thead>
             <tbody className="divide-y divide-emerald-50">
-              {documentType_id &&
+              {documentType_id && paginated.length > 0 ? (
                 paginated.map((d) => (
                   <tr
                     key={d.id}
@@ -871,14 +906,11 @@ export default function Recherche() {
                           key={m.id}
                           className="p-5 text-sm text-emerald-900 font-medium"
                         >
-                          {value || (
-                            <span className="text-emerald-200">---</span>
-                          )}
+                          {value || <span className="text-emerald-200">---</span>}
                         </td>
                       );
                     })}
                     <td className="p-5">
-                      {/* ✅ Utiliser le nouveau LocationBadge */}
                       <LocationBadge
                         doc={d}
                         onClick={() => {
@@ -916,7 +948,22 @@ export default function Recherche() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                ))
+              ) : documentType_id ? (
+                <tr>
+                  <td
+                    colSpan={metaFields.length + 3}
+                    className="p-20 text-center"
+                  >
+                    <div className="inline-flex p-6 bg-emerald-50 rounded-full mb-4 text-emerald-200">
+                      <FileText size={48} />
+                    </div>
+                    <p className="text-emerald-800 font-bold text-lg">
+                      Aucun document trouvé
+                    </p>
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
@@ -934,12 +981,14 @@ export default function Recherche() {
         )}
       </div>
 
-      <Pagination
-        currentPage={currentPage}
-        itemsPerPage={itemsPerPage}
-        totalItems={filtered.length}
-        onPageChange={setCurrentPage}
-      />
+      {filtered.length > itemsPerPage && (
+        <Pagination
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
+          totalItems={filtered.length}
+          onPageChange={setCurrentPage}
+        />
+      )}
 
       <DocumentDetails
         visible={detailsVisible}

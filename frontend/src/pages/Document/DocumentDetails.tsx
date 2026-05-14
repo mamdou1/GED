@@ -23,6 +23,52 @@ import { useAuth } from "../../context/AuthContext";
 import { Dropdown } from "primereact/dropdown";
 import { Badge } from "primereact/badge";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
+import api from "../../api/axios";
+
+interface MetaFieldValue {
+  id: number;
+  label: string;
+  field_type: string;
+  value: any;
+  source?: string;
+  is_custom?: boolean;
+  hidden?: boolean;
+}
+
+interface DocumentValue {
+  meta_field_id: number;
+  value: string;
+  metaField?: {
+    id: number;
+    label: string;
+    field_type: string;
+  };
+}
+
+interface CustomFieldValue {
+  entity_custom_field_id: number;
+  value: string;
+  customField?: {
+    id: number;
+    label: string;
+    field_type: string;
+  };
+}
+
+interface DocumentEntity {
+  entity_type: string;
+  entity_id: number;
+  entity_label?: string;
+}
+
+interface Box {
+  id: number;
+  libelle: string;
+  code_box: string;
+  current_count: number;
+  capacite_max: number;
+  typeDocument?: { nom: string };
+}
 
 export default function DocumentDetails({
   visible,
@@ -32,12 +78,112 @@ export default function DocumentDetails({
 }: any) {
   const [showArchiveForm, setShowArchiveForm] = useState(false);
   const [showMoveForm, setShowMoveForm] = useState(false);
-  const [boxes, setBoxes] = useState<any[]>([]);
-  const [selectedBox, setSelectedBox] = useState<any>(null);
+  const [boxes, setBoxes] = useState<Box[]>([]);
+  const [selectedBox, setSelectedBox] = useState<Box | null>(null);
   const [loadingBoxes, setLoadingBoxes] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [allFields, setAllFields] = useState<MetaFieldValue[]>([]);
+  const [loadingFields, setLoadingFields] = useState(false);
   const toast = useRef<Toast>(null);
   const { can } = useAuth();
+
+  // Normaliser le type d'entité
+  const normalizeEntityType = (type: string): string => {
+    const mapping: Record<string, string> = {
+      entiteeun: "EntiteeUn",
+      entiteedoux: "EntiteeDeux",
+      entiteetrois: "EntiteeTrois",
+    };
+    return mapping[type?.toLowerCase()] || type;
+  };
+
+  // Charger les champs avec leurs valeurs pour l'affichage
+  const loadFieldsWithValues = async () => {
+    if (!doc) return;
+
+    setLoadingFields(true);
+    try {
+      const entity = doc.entities?.[0];
+
+      if (!entity) {
+        const fallbackFields: MetaFieldValue[] = (
+          doc.values || []
+        ).map((v: DocumentValue) => ({
+          id: v.meta_field_id,
+          label: v.metaField?.label || "Champ",
+          field_type: v.metaField?.field_type || "TEXT",
+          value: v.value || "-",
+          source: "base",
+        }));
+        setAllFields(fallbackFields);
+        return;
+      }
+
+      const normalizedType = normalizeEntityType(entity.entity_type);
+
+      const response = await api.get(
+        `/meta-fields/${doc.type_document_id}/entity/${normalizedType}/${entity.entity_id}/all`
+      );
+
+      const allMetaFields: any[] = response.data.data || [];
+
+      const valuesMap = new Map<number, string>();
+
+      // Valeurs des champs de base
+      if (doc.values && Array.isArray(doc.values)) {
+        doc.values.forEach((v: DocumentValue) => {
+          valuesMap.set(v.meta_field_id, v.value);
+        });
+      }
+
+      // Valeurs des champs personnalisés
+      if (doc.customFieldValues && Array.isArray(doc.customFieldValues)) {
+        doc.customFieldValues.forEach((v: CustomFieldValue) => {
+          valuesMap.set(v.entity_custom_field_id, v.value);
+        });
+      }
+
+      const fieldsWithValues: MetaFieldValue[] = allMetaFields.map(
+        (field: any) => {
+          const value = valuesMap.get(field.id) || "-";
+          return {
+            id: field.id,
+            label: field.label,
+            field_type: field.field_type,
+            value: value,
+            source: field.source,
+            is_custom: field.source === "custom",
+            hidden: field.hidden,
+          };
+        }
+      );
+
+      const visibleFields = fieldsWithValues.filter(
+        (f: MetaFieldValue) => f.hidden !== true
+      );
+      setAllFields(visibleFields);
+    } catch (error) {
+      console.error("Erreur chargement des champs:", error);
+      const fallbackFields: MetaFieldValue[] = (
+        doc.values || []
+      ).map((v: DocumentValue) => ({
+        id: v.meta_field_id,
+        label: v.metaField?.label || "Champ",
+        field_type: v.metaField?.field_type || "TEXT",
+        value: v.value || "-",
+        source: "base",
+      }));
+      setAllFields(fallbackFields);
+    } finally {
+      setLoadingFields(false);
+    }
+  };
+
+  useEffect(() => {
+    if (visible && doc) {
+      loadFieldsWithValues();
+    }
+  }, [visible, doc]);
 
   // Charger la liste des boxes disponibles pour le déplacement
   const loadBoxes = useCallback(async () => {
@@ -45,9 +191,8 @@ export default function DocumentDetails({
     setLoadingBoxes(true);
     try {
       const response = await getBoxes();
-      // Filtrer pour exclure le box actuel du document
       const availableBoxes = response.filter(
-        (box: any) => box.id !== doc?.box_id,
+        (box: Box) => box.id !== doc?.box_id
       );
       setBoxes(availableBoxes);
     } catch (error) {
@@ -68,7 +213,6 @@ export default function DocumentDetails({
     }
   }, [showMoveForm, loadBoxes]);
 
-  // Réinitialiser l'état quand on ferme la modale
   const handleClose = () => {
     setShowArchiveForm(false);
     setShowMoveForm(false);
@@ -91,7 +235,8 @@ export default function DocumentDetails({
           return;
         }
         try {
-          await retireDocumentFromBox(doc.box_id, doc.id);
+          // ✅ Correction: Convertir doc.id et doc.box_id en string
+          await retireDocumentFromBox(String(doc.box_id), String(doc.id));
           if (onRefresh) onRefresh();
           toast.current?.show({
             severity: "success",
@@ -120,7 +265,6 @@ export default function DocumentDetails({
       return;
     }
 
-    // Vérifier la capacité du box destination
     if (selectedBox.current_count >= selectedBox.capacite_max) {
       toast.current?.show({
         severity: "error",
@@ -132,7 +276,8 @@ export default function DocumentDetails({
 
     setMoving(true);
     try {
-      await moveDocumentToBox(doc.id, doc.box_id, selectedBox.id);
+      // ✅ Correction: Convertir les IDs en string
+      await moveDocumentToBox(String(doc.id), String(doc.box_id), String(selectedBox.id));
 
       toast.current?.show({
         severity: "success",
@@ -155,8 +300,7 @@ export default function DocumentDetails({
     }
   };
 
-  // Template pour l'option du dropdown
-  const boxOptionTemplate = (option: any) => {
+  const boxOptionTemplate = (option: Box) => {
     if (!option) return null;
     const isFull = option.current_count >= option.capacite_max;
     return (
@@ -164,8 +308,7 @@ export default function DocumentDetails({
         <div className="flex flex-col">
           <span className="font-bold text-sm">{option.libelle}</span>
           <span className="text-xs text-slate-400">
-            {option.code_box} • {option.current_count}/{option.capacite_max}{" "}
-            docs
+            {option.code_box} • {option.current_count}/{option.capacite_max} docs
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -186,26 +329,48 @@ export default function DocumentDetails({
     );
   };
 
-  // Template pour l'option sélectionnée
-  const selectedBoxTemplate = (option: any) => {
+  const selectedBoxTemplate = (option: Box) => {
     if (!option) return <span>Sélectionner un box...</span>;
     return (
       <div className="flex items-center justify-between w-full">
         <div className="flex flex-col">
           <span className="font-bold text-sm">{option.libelle}</span>
           <span className="text-xs text-slate-400">
-            {option.code_box} • {option.current_count}/{option.capacite_max}{" "}
-            docs
+            {option.code_box} • {option.current_count}/{option.capacite_max} docs
           </span>
         </div>
       </div>
     );
   };
 
-  // Vérifier si le document existe et est archivé
   if (!doc) return null;
 
   const isArchived = doc.box_id !== null;
+
+  const renderValue = (field: MetaFieldValue) => {
+    if (field.field_type === "FILE" && field.value && field.value !== "-") {
+      return (
+        <a
+          href={field.value}
+          target="_blank"
+          rel="noreferrer"
+          className="text-emerald-600 hover:underline flex items-center gap-1"
+        >
+          <Eye size={14} /> Voir fichier
+        </a>
+      );
+    }
+    return field.value || "-";
+  };
+
+  const getEntityLabel = () => {
+    if (doc.entities && doc.entities.length > 0) {
+      const entity = doc.entities[0];
+      if (entity.entity_label) return entity.entity_label;
+      return `${entity.entity_type} #${entity.entity_id}`;
+    }
+    return null;
+  };
 
   return (
     <>
@@ -223,9 +388,9 @@ export default function DocumentDetails({
           </div>
         }
         visible={visible}
-        style={{ width: "650px" }}
+        style={{ width: "650px", maxWidth: "90vw" }}
         onHide={handleClose}
-        className="custom-dialog overflow-hidden"
+        className="custom-dialog overflow-hidden rounded-3xl"
         footer={
           <div className="flex justify-end gap-3 p-4 bg-emerald-50/50">
             <Button
@@ -236,7 +401,7 @@ export default function DocumentDetails({
           </div>
         }
       >
-        <div className="space-y-6 pt-4">
+        <div className="space-y-6 pt-4 max-h-[70vh] overflow-y-auto px-1">
           {/* Banner Référence */}
           <div className="bg-emerald-950 p-6 rounded-3xl shadow-xl shadow-emerald-900/20 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8 bg-emerald-800/20 rounded-full -mr-10 -mt-10 blur-2xl"></div>
@@ -255,11 +420,10 @@ export default function DocumentDetails({
             </div>
           </div>
 
-          {/* SECTION ARCHIVAGE DYNAMIQUE AVEC DÉPLACEMENT */}
+          {/* SECTION ARCHIVAGE DYNAMIQUE */}
           {can("box", "create") && (
             <div className="border-t border-b border-emerald-50 py-4 space-y-3">
               {isArchived ? (
-                // ✅ Si déjà archivé → Afficher les options (Retirer ou Déplacer)
                 <div className="space-y-3">
                   {!showMoveForm ? (
                     <div className="flex gap-3">
@@ -312,7 +476,6 @@ export default function DocumentDetails({
                           loading={loadingBoxes}
                           itemTemplate={boxOptionTemplate}
                           valueTemplate={selectedBoxTemplate}
-                          //panelClassName="w-full"
                         />
                       </div>
 
@@ -362,7 +525,6 @@ export default function DocumentDetails({
                   )}
                 </div>
               ) : !showArchiveForm ? (
-                // ✅ Si pas archivé → bouton Archiver uniquement
                 <button
                   onClick={() => setShowArchiveForm(true)}
                   className="w-full flex items-center justify-center gap-3 p-4 bg-emerald-50 text-emerald-700 rounded-2xl font-black hover:bg-emerald-100 transition-all border-2 border-dashed border-emerald-200"
@@ -396,111 +558,146 @@ export default function DocumentDetails({
             </div>
           )}
 
+          {/* Entité associée */}
+          {doc.entities && doc.entities.length > 0 && (
+            <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
+              <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-2">
+                Structure associée
+              </p>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                <span className="text-sm font-medium text-slate-700">
+                  {getEntityLabel()}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Métadonnées */}
           <div className="space-y-3">
             <p className="text-[10px] font-black text-emerald-800/40 uppercase tracking-widest ml-1">
-              Métadonnées indexées
+              Métadonnées indexées{" "}
+              {loadingFields ? "(chargement...)" : `(${allFields.length})`}
             </p>
-            <div className="grid grid-cols-1 gap-2">
-              {doc.values?.map((v: any) => (
-                <div
-                  key={v.id}
-                  className="flex items-center justify-between p-4 bg-white border border-emerald-50 rounded-2xl shadow-sm"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-emerald-50 rounded-lg text-emerald-500">
-                      <Tag size={14} />
+
+            {loadingFields ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
+                <p className="text-sm text-slate-400 mt-2">Chargement...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2">
+                {allFields.map((field: MetaFieldValue) => (
+                  <div
+                    key={field.id}
+                    className={`flex items-center justify-between p-4 bg-white border rounded-2xl shadow-sm ${
+                      field.is_custom
+                        ? "border-purple-200 bg-purple-50/20"
+                        : "border-emerald-50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`p-2 rounded-lg ${
+                          field.is_custom
+                            ? "bg-purple-100 text-purple-600"
+                            : "bg-emerald-50 text-emerald-500"
+                        }`}
+                      >
+                        <Tag size={14} />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-emerald-700">
+                          {field.label}
+                        </span>
+                        {field.is_custom && (
+                          <span className="ml-2 text-[9px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full">
+                            Personnalisé
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-xs font-bold text-emerald-700">
-                      {v.metaField?.label}
+                    <span className="text-sm font-black text-emerald-950 break-all text-right max-w-[250px]">
+                      {renderValue(field)}
                     </span>
                   </div>
-                  <span className="text-sm font-black text-emerald-950">
-                    {v.metaField?.field_type === "file" ? (
-                      <a
-                        href={v.value}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-emerald-600 hover:underline"
+                ))}
+
+                {allFields.length === 0 && !loadingFields && (
+                  <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed">
+                    <FileText size={32} className="mx-auto text-slate-300 mb-2" />
+                    <p className="text-slate-400 text-sm">Aucune métadonnée</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Section des pièces justificatives */}
+            {doc.pieces && doc.pieces.length > 0 && (
+              <div className="space-y-3 mt-6">
+                <p className="text-[10px] font-black text-emerald-800/40 uppercase tracking-widest ml-1">
+                  Pièces justificatives ({doc.pieces.length})
+                </p>
+                <div className="space-y-2">
+                  {doc.pieces.map((piece: any) => {
+                    const isDisponible = piece.DocumentPieces?.disponible || false;
+                    return (
+                      <div
+                        key={piece.id}
+                        className={`p-3 rounded-xl border ${
+                          isDisponible
+                            ? "bg-emerald-50 border-emerald-200"
+                            : "bg-white border-slate-100"
+                        }`}
                       >
-                        Ouvrir
-                      </a>
-                    ) : (
-                      v.value || "-"
-                    )}
-                  </span>
-                </div>
-              ))}
-              {/* Section des pièces justificatives */}
-              {doc.pieces && doc.pieces.length > 0 && (
-                <div className="space-y-3 mt-6">
-                  <p className="text-[10px] font-black text-emerald-800/40 uppercase tracking-widest ml-1">
-                    Pièces justificatives ({doc.pieces.length})
-                  </p>
-                  <div className="space-y-2">
-                    {doc.pieces.map((piece: any) => {
-                      const isDisponible =
-                        piece.DocumentPieces?.disponible || false;
-                      return (
-                        <div
-                          key={piece.id}
-                          className={`p-3 rounded-xl border ${
-                            isDisponible
-                              ? "bg-emerald-50 border-emerald-200"
-                              : "bg-white border-slate-100"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className={`p-1.5 rounded-lg ${
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`p-1.5 rounded-lg ${
+                                isDisponible ? "bg-emerald-200" : "bg-slate-100"
+                              }`}
+                            >
+                              <FileText
+                                size={14}
+                                className={
                                   isDisponible
-                                    ? "bg-emerald-200"
-                                    : "bg-slate-100"
+                                    ? "text-emerald-700"
+                                    : "text-slate-400"
+                                }
+                              />
+                            </div>
+                            <div>
+                              <span
+                                className={`text-sm font-bold ${
+                                  isDisponible
+                                    ? "text-emerald-900"
+                                    : "text-slate-600"
                                 }`}
                               >
-                                <FileText
-                                  size={14}
-                                  className={
-                                    isDisponible
-                                      ? "text-emerald-700"
-                                      : "text-slate-400"
-                                  }
-                                />
-                              </div>
-                              <div>
+                                {piece.libelle}
+                              </span>
+                              <div className="flex items-center gap-2 mt-1">
                                 <span
-                                  className={`text-sm font-bold ${
+                                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                                     isDisponible
-                                      ? "text-emerald-900"
-                                      : "text-slate-600"
+                                      ? "bg-emerald-200 text-emerald-800"
+                                      : "bg-slate-200 text-slate-600"
                                   }`}
                                 >
-                                  {piece.libelle}
+                                  {isDisponible
+                                    ? "Disponible"
+                                    : "Non disponible"}
                                 </span>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span
-                                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                                      isDisponible
-                                        ? "bg-emerald-200 text-emerald-800"
-                                        : "bg-slate-200 text-slate-600"
-                                    }`}
-                                  >
-                                    {isDisponible
-                                      ? "Disponible"
-                                      : "Non disponible"}
-                                  </span>
-                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </Dialog>

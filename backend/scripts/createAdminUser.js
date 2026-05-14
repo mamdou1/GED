@@ -1,4 +1,5 @@
 // scripts/createAdminUser.js
+require("dotenv").config();
 const bcrypt = require("bcryptjs");
 const db = require("../models");
 
@@ -54,7 +55,7 @@ async function createAdminUser() {
     const adminExistant = await db.Agent.findOne({
       where: {
         [db.Sequelize.Op.or]: [
-          { username: "admin1234" },
+          { username: "admin55" },
           { email: "admin@systeme.local" },
         ],
       },
@@ -73,7 +74,7 @@ async function createAdminUser() {
       console.log(`   Prénom: ${adminExistant.prenom || "Non défini"}`);
     } else {
       const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash("admin123", salt);
+      const hashedPassword = await bcrypt.hash("admin6565", salt);
 
       const nouvelAdmin = await db.Agent.create(
         {
@@ -81,7 +82,7 @@ async function createAdminUser() {
           prenom: "Système",
           num_matricule: "ADMIN001",
           email: "admin@systeme.local",
-          username: "admin1234",
+          username: "admin66",
           password: hashedPassword,
           telephone: "0000000001",
           droit_id: droitAdmin.id,

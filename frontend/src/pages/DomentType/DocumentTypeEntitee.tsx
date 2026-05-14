@@ -45,6 +45,7 @@ import { Dropdown } from "primereact/dropdown";
 import TypeDocumentAjoutPieces from "./TypeDocumentAjoutPieces";
 import DocumentTypeAffectAndForm from "./DocumentTypeAffectAndForm";
 import { useAuth } from "../../context/AuthContext";
+import EntityFieldManager from "./EntityFieldManager";
 
 export default function DocumentTypeEntitee() {
   const { user } = useAuth();
@@ -79,6 +80,8 @@ export default function DocumentTypeEntitee() {
   const [affectationFormVisible, setAffectationFormVisible] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [metaVisible, setMetaVisible] = useState(false);
+  const [entityFieldManagerVisible, setEntityFieldManagerVisible] = useState(false);
+  const [selectedEntityType, setSelectedEntityType] = useState<string>("EntiteeUn");
   const [query, setQuery] = useState("");
   const [formPiecesVisible, setFormPiecesVisible] = useState(false);
   const [selectedTypeDoc, setSelectedTypeDoc] = useState<string | null>(null);
@@ -91,15 +94,12 @@ export default function DocumentTypeEntitee() {
   );
 
   // ✅ ÉTATS PAGINATION
-  // Pagination des accordéons (structures)
   const [currentStructurePage, setCurrentStructurePage] = useState(1);
-  const structuresPerPage = 5; // Nombre d'accordéons par page
-
-  // Pagination interne pour chaque accordéon (stockée par nom de structure)
+  const structuresPerPage = 5;
   const [internalPages, setInternalPages] = useState<Record<string, number>>(
     {},
   );
-  const itemsPerPageInternal = 10; // Nombre de documents par page dans un accordéon
+  const itemsPerPageInternal = 10;
 
   // Fonctions utilitaires (inchangées)
   const isUserAdmin = (user: User | null): boolean => {
@@ -295,7 +295,6 @@ export default function DocumentTypeEntitee() {
 
   const groupedTypes = getGroupedData();
 
-  // ✅ PAGINATION DES ACCORDÉONS (structures)
   const paginatedStructures = useMemo(() => {
     const structureNames = Object.keys(groupedTypes);
     const startIndex = (currentStructurePage - 1) * structuresPerPage;
@@ -312,7 +311,6 @@ export default function DocumentTypeEntitee() {
 
   const totalStructures = Object.keys(groupedTypes).length;
 
-  // ✅ Fonction pour obtenir les documents paginés d'une structure
   const getPaginatedDocumentsForStructure = (
     structureName: string,
     documents: TypeDocument[],
@@ -330,7 +328,6 @@ export default function DocumentTypeEntitee() {
     };
   };
 
-  // ✅ Fonction pour changer la page interne d'une structure
   const handleInternalPageChange = (structureName: string, page: number) => {
     setInternalPages((prev) => ({
       ...prev,
@@ -338,13 +335,11 @@ export default function DocumentTypeEntitee() {
     }));
   };
 
-  // Reset des pages quand les filtres changent
   useEffect(() => {
     setCurrentStructurePage(1);
     setInternalPages({});
   }, [query, selectedTypeDoc]);
 
-  // ✅ handleSubmit (inchangé)
   const handleSubmit = async (formData: {
     code: string;
     nom: string;
@@ -406,7 +401,6 @@ export default function DocumentTypeEntitee() {
     }
   };
 
-  // ✅ handleDelete (inchangé)
   const handleDelete = (id: string) => {
     confirmDialog({
       message:
@@ -442,7 +436,6 @@ export default function DocumentTypeEntitee() {
     });
   };
 
-  // ✅ handleMetaSubmit (inchangé)
   const handleMetaSubmit = async (fieldsPayload: any[]) => {
     if (!selected?.id) return;
     try {
@@ -465,7 +458,6 @@ export default function DocumentTypeEntitee() {
     }
   };
 
-  // ✅ onAddPieces (inchangé)
   const onAddPieces = async (
     typeId: string,
     payload: AddPiecesToTypeDocumentPayload,
@@ -479,7 +471,6 @@ export default function DocumentTypeEntitee() {
     }
   };
 
-  // ✅ handleAffectationSubmit (inchangé)
   const handleAffectationSubmit = async (payload: any) => {
     try {
       if (selected?.id) {
@@ -498,7 +489,6 @@ export default function DocumentTypeEntitee() {
     }
   };
 
-  // ✅ handleMultipleAffectation (inchangé)
   const handleMultipleAffectation = async (typeIds: string[]) => {
     try {
       if (!selectedTypeDoc) return;
@@ -566,7 +556,6 @@ export default function DocumentTypeEntitee() {
     }
   };
 
-  // ✅ Gestion des états de chargement/erreur
   if (isLoading) {
     return (
       <Layout>
@@ -649,7 +638,6 @@ export default function DocumentTypeEntitee() {
           <>
             {Object.entries(paginatedStructures).map(
               ([structureName, docs]) => {
-                // Récupérer les documents paginés pour cette structure
                 const {
                   documents: paginatedDocs,
                   totalDocuments,
@@ -826,6 +814,8 @@ export default function DocumentTypeEntitee() {
                                       >
                                         <Pencil size={25} />
                                       </button>
+                                      
+                                      {/* Bouton Métadonnées de base */}
                                       <button
                                         onClick={(e) => {
                                           setSelected(t);
@@ -833,9 +823,34 @@ export default function DocumentTypeEntitee() {
                                           e.stopPropagation();
                                         }}
                                         className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg"
+                                        title="Gérer les champs de base"
                                       >
                                         <Settings size={25} />
                                       </button>
+
+                                      {/* Bouton Personnalisation par entité */}
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelected(t);
+                                          // Déterminer le type d'entité
+                                          if (t.entitee_trois_id) {
+                                            setSelectedEntityType("EntiteeTrois");
+                                          } else if (t.entitee_deux_id) {
+                                            setSelectedEntityType("EntiteeDeux");
+                                          } else if (t.entitee_un_id) {
+                                            setSelectedEntityType("EntiteeUn");
+                                          } else {
+                                            setSelectedEntityType("EntiteeUn");
+                                          }
+                                          setEntityFieldManagerVisible(true);
+                                        }}
+                                        className="p-2 text-purple-500 hover:bg-purple-50 rounded-lg"
+                                        title="Personnaliser les champs pour cette entité"
+                                      >
+                                        <Settings size={25} />
+                                      </button>
+
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
@@ -853,7 +868,6 @@ export default function DocumentTypeEntitee() {
                           </table>
                         </div>
 
-                        {/* ✅ Pagination interne pour cet accordéon */}
                         {totalPages > 1 && (
                           <div className="border-t border-slate-100 p-4 bg-slate-50/30">
                             <div className="flex justify-center items-center">
@@ -875,7 +889,6 @@ export default function DocumentTypeEntitee() {
               },
             )}
 
-            {/* ✅ Pagination des accordéons (structures) */}
             {totalStructures > structuresPerPage && (
               <div className="mt-8 flex justify-center pt-4 border-t border-slate-200">
                 <div className="flex flex-col items-center gap-2">
@@ -910,12 +923,14 @@ export default function DocumentTypeEntitee() {
         onHide={() => setDetailsVisible(false)}
         type={selected}
       />
+      
       <DocumentTypeMetaForm
         visible={metaVisible}
         onHide={() => setMetaVisible(false)}
         onSubmit={handleMetaSubmit}
         type={selected}
       />
+      
       <TypeDocumentAjoutPieces
         visible={formPiecesVisible}
         onHide={() => setFormPiecesVisible(false)}
@@ -924,6 +939,7 @@ export default function DocumentTypeEntitee() {
         title={"Pièces à fournir"}
         pieces={pieces}
       />
+      
       <DocumentTypeAffectationForm
         visible={affectationFormVisible}
         onHide={() => setAffectationFormVisible(false)}
@@ -948,6 +964,30 @@ export default function DocumentTypeEntitee() {
           filteredOptions.find((o) => o.value === selectedTypeDoc)?.label ||
           ""
         }
+      />
+
+      {/* Modal pour la personnalisation des champs par entité */}
+      <EntityFieldManager
+        visible={entityFieldManagerVisible}
+        onHide={() => setEntityFieldManagerVisible(false)}
+        typeDocumentId={selected?.id}
+        entityType={selectedEntityType}
+        entityId={
+          selected?.entitee_trois_id ||
+          selected?.entitee_deux_id ||
+          selected?.entitee_un_id ||
+          0
+        }
+        typeDocumentName={selected?.nom}
+        entityName={
+          selected?.entitee_trois?.libelle ||
+          selected?.entitee_deux?.libelle ||
+          selected?.entitee_un?.libelle ||
+          "Entité"
+        }
+        onRefresh={() => {
+          refetch();
+        }}
       />
     </Layout>
   );

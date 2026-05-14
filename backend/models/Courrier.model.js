@@ -6,6 +6,8 @@ module.exports = (sequelize, DataTypes) => {
     {
       idcourrier: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
       reference: { type: DataTypes.STRING, unique: true, allowNull: false },
+      numero_courrier: { type: DataTypes.STRING, allowNull: true }, // Nouveau champ: numéro du courrier
+      date_enregistrement: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }, // Date d'enregistrement
       type: { type: DataTypes.ENUM("ARRIVE", "DEPART"), allowNull: false, defaultValue: "ARRIVE" },
       nature: DataTypes.STRING,
       type_support: DataTypes.STRING,
@@ -49,20 +51,20 @@ module.exports = (sequelize, DataTypes) => {
       updatedAt: "date_modification",
       hooks: {
         beforeCreate: async (courrier, options) => {
+          // Suppression de la génération automatique de la référence
+          // La référence doit maintenant être fournie manuellement
           if (!courrier.reference) {
-            const prefix = courrier.type === "ARRIVE" ? "AR" : "DP";
-            const annee = new Date().getFullYear();
-            const lastCourrier = await Courrier.findOne({
-              where: { type: courrier.type, reference: { [Op.like]: `${prefix}-${annee}-%` } },
-              order: [["reference", "DESC"]],
-              transaction: options.transaction,
-            });
-            let sequence = 1;
-            if (lastCourrier) {
-              const lastNum = parseInt(lastCourrier.reference.split("-").pop(), 10);
-              if (!isNaN(lastNum)) sequence = lastNum + 1;
-            }
-            courrier.reference = `${prefix}-${annee}-${String(sequence).padStart(4, "0")}`;
+            throw new Error("La référence du courrier est obligatoire");
+          }
+          
+          // Vérifier si la référence existe déjà
+          const existingCourrier = await Courrier.findOne({
+            where: { reference: courrier.reference },
+            transaction: options.transaction,
+          });
+          
+          if (existingCourrier) {
+            throw new Error("Cette référence existe déjà");
           }
         },
       },

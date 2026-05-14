@@ -14,6 +14,9 @@ const {
   PieceValue,
   PieceMetaField,
   Agent,
+  EntityCustomField,
+  EntityCustomFieldValue,
+  DocumentEntity,
 } = require("../models");
 const buildAccessWhere = require("../utils/buildAccessWhere.utils");
 const path = require("path");
@@ -21,12 +24,14 @@ const logger = require("../config/logger.config");
 const HistoriqueService = require("../services/historique.service");
 const fs = require("fs");
 
+// ==================== CREATE ====================
 exports.create = async (req, res) => {
   const t = await sequelize.transaction();
   const startTime = Date.now();
 
   try {
-    const { type_document_id, values, piece_values } = req.body;
+    const { type_document_id, values, piece_values, entities } = req.body;
+    const currentUser = req.user.id;
 
     if (!type_document_id) {
       return res
@@ -34,19 +39,14 @@ exports.create = async (req, res) => {
         .json({ message: "Le type de document est requis" });
     }
 
-    const currentUser = req.user.id;
-    const currentUserData = await Agent.findByPk(currentUser);
+    // Vérifier qu'une entité est fournie
+    if (!entities || !entities.length || !entities[0].entity_type || !entities[0].entity_id) {
+      return res.status(400).json({
+        message: "entities avec entity_type et entity_id est requis",
+      });
+    }
 
-    logger.info("📄 Tentative de création d'un document", {
-      userId: currentUser,
-      type_document_id,
-      values,
-    });
-    console.log("🔍 values reçues:", values);
-    console.log("🔍 type de values:", typeof values);
-    console.log("🔍 clés:", Object.keys(values));
-    console.log("🔍 nom:", currentUserData.nom);
-    console.log("🔍 prénom:", currentUserData.prenom);
+    const entity = entities[0];
 
     // 1. Créer le document
     const doc = await Document.create(
@@ -54,10 +54,20 @@ exports.create = async (req, res) => {
         type_document_id,
         agent_id: currentUser,
       },
-      { transaction: t },
+      { transaction: t }
     );
 
-    // 2. Associer les pièces du type
+    // 2. LIAISON DOCUMENT → ENTITÉ
+    await DocumentEntity.create(
+      {
+        document_id: doc.id,
+        entity_type: entity.entity_type,
+        entity_id: entity.entity_id,
+      },
+      { transaction: t }
+    );
+
+    // 3. Associer les pièces du type
     const typeDocumentPieces = await TypeDocumentPieces.findAll({
       where: { document_type_id: type_document_id },
       transaction: t,
@@ -72,17 +82,56 @@ exports.create = async (req, res) => {
       await DocumentPieces.bulkCreate(pieceRows, { transaction: t });
     }
 
-    // 3. Meta values du document
+    // 4. Séparer et traiter les valeurs (base vs personnalisés)
     if (values && Object.keys(values).length > 0) {
-      const metaRows = Object.entries(values).map(([meta_field_id, value]) => ({
-        document_id: doc.id,
-        meta_field_id: parseInt(meta_field_id),
-        value: value.toString(),
-      }));
-      await DocumentValue.bulkCreate(metaRows, { transaction: t });
+      const baseFieldValues = [];
+      const customFieldValues = [];
+
+      for (const [metaFieldId, value] of Object.entries(values)) {
+        // Vérifier si c'est un champ de base
+        const metaField = await MetaField.findByPk(parseInt(metaFieldId), {
+          transaction: t,
+        });
+
+        if (metaField) {
+          baseFieldValues.push({
+            document_id: doc.id,
+            meta_field_id: parseInt(metaFieldId),
+            value: value.toString(),
+          });
+        } else {
+          // Vérifier si c'est un champ personnalisé
+          const customField = await EntityCustomField.findByPk(
+            parseInt(metaFieldId),
+            { transaction: t }
+          );
+
+          if (customField) {
+            customFieldValues.push({
+              entity_custom_field_id: parseInt(metaFieldId),
+              document_id: doc.id,
+              value: value.toString(),
+            });
+          } else {
+            console.warn(`Champ non trouvé pour l'ID: ${metaFieldId}`);
+          }
+        }
+      }
+
+      // Insérer les valeurs des champs de base
+      if (baseFieldValues.length > 0) {
+        await DocumentValue.bulkCreate(baseFieldValues, { transaction: t });
+      }
+
+      // Insérer les valeurs des champs personnalisés
+      if (customFieldValues.length > 0) {
+        await EntityCustomFieldValue.bulkCreate(customFieldValues, {
+          transaction: t,
+        });
+      }
     }
 
-    // 4. Valeurs des métadonnées des pièces
+    // 5. Valeurs des métadonnées des pièces
     if (piece_values && Object.keys(piece_values).length > 0) {
       const pieceValueRows = [];
 
@@ -98,9 +147,7 @@ exports.create = async (req, res) => {
       }
 
       if (pieceValueRows.length > 0) {
-        await PieceValue.bulkCreate(pieceValueRows, {
-          transaction: t,
-        });
+        await PieceValue.bulkCreate(pieceValueRows, { transaction: t });
       }
     }
 
@@ -113,7 +160,6 @@ exports.create = async (req, res) => {
       duration: Date.now() - startTime,
     });
 
-    // Journalisation dans l'historique
     await HistoriqueService.logCreate(req, "document", doc);
 
     res.status(201).json({
@@ -133,6 +179,7 @@ exports.create = async (req, res) => {
   }
 };
 
+// ==================== GET ALL ====================
 exports.getAll = async (req, res) => {
   const startTime = Date.now();
 
@@ -144,6 +191,10 @@ exports.getAll = async (req, res) => {
 
     const data = await Document.findAll({
       include: [
+        {
+          model: DocumentEntity,
+          as: "entities",
+        },
         {
           model: Pieces,
           as: "pieces",
@@ -162,6 +213,11 @@ exports.getAll = async (req, res) => {
             { model: DocumentFile, as: "files" },
           ],
         },
+        {
+          model: EntityCustomFieldValue,
+          as: "customFieldValues",
+          include: [{ model: EntityCustomField, as: "customField" }],
+        },
       ],
     });
 
@@ -170,27 +226,6 @@ exports.getAll = async (req, res) => {
       userId: req.user?.id,
       duration: Date.now() - startTime,
     });
-
-    // Journalisation dans l'historique pour les GET avec sidebar
-    if (req.headers["x-sidebar-navigation"] === "true") {
-      await HistoriqueService.log({
-        agent_id: req.user?.id || null,
-        action: "read",
-        resource: "document",
-        resource_id: null,
-        resource_identifier: "liste des documents",
-        description: "Consultation de la liste des documents",
-        method: req.method,
-        path: req.originalUrl,
-        status: 200,
-        ip: req.ip,
-        user_agent: req.headers["user-agent"],
-        data: {
-          count: data.length,
-          duration: Date.now() - startTime,
-        },
-      });
-    }
 
     res.json(data);
   } catch (e) {
@@ -204,6 +239,7 @@ exports.getAll = async (req, res) => {
   }
 };
 
+// ==================== GET BY ID ====================
 exports.getById = async (req, res) => {
   const startTime = Date.now();
   const { id } = req.params;
@@ -230,6 +266,11 @@ exports.getById = async (req, res) => {
           ],
         },
         {
+          model: EntityCustomFieldValue,
+          as: "customFieldValues",
+          include: [{ model: EntityCustomField, as: "customField" }],
+        },
+        {
           model: Pieces,
           as: "pieces",
           attributes: ["id", "libelle", "code_pieces"],
@@ -237,6 +278,10 @@ exports.getById = async (req, res) => {
             model: DocumentPieces,
             attributes: ["disponible"],
           },
+        },
+        {
+          model: DocumentEntity,
+          as: "entities",
         },
       ],
     });
@@ -255,7 +300,6 @@ exports.getById = async (req, res) => {
       duration: Date.now() - startTime,
     });
 
-    // Journalisation dans l'historique pour la consultation d'un document spécifique
     await HistoriqueService.log({
       agent_id: req.user?.id || null,
       action: "read",
@@ -287,6 +331,7 @@ exports.getById = async (req, res) => {
   }
 };
 
+// ==================== UPDATE ====================
 exports.update = async (req, res) => {
   const startTime = Date.now();
   const { id } = req.params;
@@ -301,6 +346,7 @@ exports.update = async (req, res) => {
     const oldDoc = await Document.findByPk(id, {
       include: [
         { model: DocumentValue, as: "values" },
+        { model: EntityCustomFieldValue, as: "customFieldValues" },
         { model: Agent, as: "agent" },
       ],
     });
@@ -315,54 +361,33 @@ exports.update = async (req, res) => {
 
     const { values } = req.body;
 
-    // ✅ Gestion des différents formats possibles
-    if (values) {
-      if (Array.isArray(values)) {
-        // Format tableau avec IDs (attendu pour les mises à jour)
-        for (const v of values) {
-          if (v && v.id && v.value !== undefined) {
-            await DocumentValue.update(
-              { value: v.value },
-              { where: { id: v.id } },
-            );
-          }
-        }
-      } else if (typeof values === "object") {
-        // Format objet { meta_field_id: value }
-        for (const [metaFieldId, value] of Object.entries(values)) {
-          // Chercher si une valeur existe déjà
-          const existingValue = await DocumentValue.findOne({
-            where: {
-              document_id: id,
-              meta_field_id: metaFieldId,
-            },
-          });
+    if (values && typeof values === "object") {
+      // Mise à jour des champs de base
+      for (const [metaFieldId, value] of Object.entries(values)) {
+        const existingValue = await DocumentValue.findOne({
+          where: {
+            document_id: id,
+            meta_field_id: metaFieldId,
+          },
+        });
 
-          if (existingValue) {
-            // Mise à jour
-            await existingValue.update({ value: String(value) });
-          } else {
-            // Création (pour les nouveaux champs)
-            await DocumentValue.create({
-              document_id: id,
-              meta_field_id: metaFieldId,
-              value: String(value),
-            });
-          }
+        if (existingValue) {
+          await existingValue.update({ value: String(value) });
+        } else {
+          await DocumentValue.create({
+            document_id: id,
+            meta_field_id: metaFieldId,
+            value: String(value),
+          });
         }
-      } else {
-        logger.warn("⚠️ Format de values non supporté", {
-          documentId: id,
-          valuesType: typeof values,
-        });
-        return res.status(400).json({
-          message: "Format de valeurs non supporté",
-        });
       }
     }
 
     const updatedDoc = await Document.findByPk(id, {
-      include: [{ model: DocumentValue, as: "values" }],
+      include: [
+        { model: DocumentValue, as: "values" },
+        { model: EntityCustomFieldValue, as: "customFieldValues" },
+      ],
     });
 
     logger.info("✅ Document modifié avec succès", {
@@ -386,6 +411,7 @@ exports.update = async (req, res) => {
   }
 };
 
+// ==================== REMOVE ====================
 exports.remove = async (req, res) => {
   const startTime = Date.now();
   const { id } = req.params;
@@ -413,7 +439,6 @@ exports.remove = async (req, res) => {
       duration: Date.now() - startTime,
     });
 
-    // Journalisation dans l'historique
     await HistoriqueService.logDelete(req, "document", doc);
 
     res.json({ success: true });
@@ -429,6 +454,7 @@ exports.remove = async (req, res) => {
   }
 };
 
+// ==================== UPLOAD DOCUMENT FILES ====================
 exports.uploadDocumentFiles = async (req, res) => {
   const t = await sequelize.transaction();
   const startTime = Date.now();
@@ -456,9 +482,6 @@ exports.uploadDocumentFiles = async (req, res) => {
     });
 
     const documentValueIds = documentValues.map((dv) => dv.id);
-
-    console.log("Document value IDs trouvées:", documentValueIds);
-
     const uploadedFiles = [];
 
     for (const file of files) {
@@ -467,9 +490,7 @@ exports.uploadDocumentFiles = async (req, res) => {
         .replace(/^.*uploads\//, "uploads/");
 
       const fileName = file.filename || path.basename(file.path);
-
-      const document_value_id =
-        documentValueIds.length > 0 ? documentValueIds[0] : null;
+      const document_value_id = documentValueIds.length > 0 ? documentValueIds[0] : null;
 
       const docFichier = await DocumentFichier.create(
         {
@@ -482,7 +503,7 @@ exports.uploadDocumentFiles = async (req, res) => {
           new_file_name: fileName,
           mode: "INDIVIDUEL",
         },
-        { transaction: t },
+        { transaction: t }
       );
 
       uploadedFiles.push(docFichier);
@@ -498,26 +519,6 @@ exports.uploadDocumentFiles = async (req, res) => {
       duration: Date.now() - startTime,
     });
 
-    // Journalisation dans l'historique
-    await HistoriqueService.log({
-      agent_id: req.user?.id || null,
-      action: "upload",
-      resource: "document_fichier",
-      resource_id: null,
-      resource_identifier: `Upload de ${uploadedFiles.length} fichier(s)`,
-      description: `Upload de ${uploadedFiles.length} fichier(s) pour le document #${documentId}`,
-      method: req.method,
-      path: req.originalUrl,
-      status: 200,
-      ip: req.ip,
-      user_agent: req.headers["user-agent"],
-      data: {
-        count: uploadedFiles.length,
-        files: uploadedFiles.map((f) => ({ id: f.id, name: f.original_name })),
-        duration: Date.now() - startTime,
-      },
-    });
-
     res.json({
       message: "Fichiers ajoutés avec succès",
       files: uploadedFiles,
@@ -525,14 +526,7 @@ exports.uploadDocumentFiles = async (req, res) => {
     });
   } catch (err) {
     await t.rollback();
-    logger.error("❌ Erreur upload:", {
-      documentId,
-      pieceId,
-      error: err.message,
-      stack: err.stack,
-      userId: req.user?.id,
-      duration: Date.now() - startTime,
-    });
+    logger.error("❌ Erreur upload:", err);
     res.status(500).json({
       message: "Erreur lors de l'upload",
       error: err.message,
@@ -540,6 +534,7 @@ exports.uploadDocumentFiles = async (req, res) => {
   }
 };
 
+// ==================== UPLOAD PIECE FILE ====================
 exports.uploadPieceFile = async (req, res) => {
   const t = await sequelize.transaction();
   const startTime = Date.now();
@@ -586,7 +581,7 @@ exports.uploadPieceFile = async (req, res) => {
           original_name: file.originalname,
           mode: "INDIVIDUEL",
         },
-        { transaction: t },
+        { transaction: t }
       );
 
       uploadedFiles.push(docFichier);
@@ -603,26 +598,6 @@ exports.uploadPieceFile = async (req, res) => {
       duration: Date.now() - startTime,
     });
 
-    // Journalisation dans l'historique
-    await HistoriqueService.log({
-      agent_id: req.user?.id || null,
-      action: "upload",
-      resource: "document_fichier",
-      resource_id: null,
-      resource_identifier: `Upload de ${uploadedFiles.length} fichier(s)`,
-      description: `Upload de fichier pour métadonnée de pièce #${pieceId} du document #${documentId}`,
-      method: req.method,
-      path: req.originalUrl,
-      status: 200,
-      ip: req.ip,
-      user_agent: req.headers["user-agent"],
-      data: {
-        count: uploadedFiles.length,
-        piece_value_id,
-        duration: Date.now() - startTime,
-      },
-    });
-
     res.json({
       message: "Fichier(s) uploadé(s) avec succès",
       files: uploadedFiles,
@@ -630,14 +605,7 @@ exports.uploadPieceFile = async (req, res) => {
     });
   } catch (err) {
     await t.rollback();
-    logger.error("❌ Erreur uploadPieceFile:", {
-      documentId,
-      pieceId,
-      error: err.message,
-      stack: err.stack,
-      userId: req.user?.id,
-      duration: Date.now() - startTime,
-    });
+    logger.error("❌ Erreur uploadPieceFile:", err);
     res.status(500).json({
       message: "Erreur lors de l'upload du fichier",
       error: err.message,
@@ -645,6 +613,7 @@ exports.uploadPieceFile = async (req, res) => {
   }
 };
 
+// ==================== UPLOAD LOT UNIQUE ====================
 exports.uploadLotUniqueWithPieces = async (req, res) => {
   const t = await sequelize.transaction();
   const startTime = Date.now();
@@ -685,7 +654,7 @@ exports.uploadLotUniqueWithPieces = async (req, res) => {
               original_name: file.originalname,
               mode: "LOT_UNIQUE",
             },
-            { transaction: t },
+            { transaction: t }
           );
 
           const [docPiece, created] = await DocumentPieces.findOrCreate({
@@ -714,7 +683,7 @@ exports.uploadLotUniqueWithPieces = async (req, res) => {
             original_name: file.originalname,
             mode: "LOT_UNIQUE",
           },
-          { transaction: t },
+          { transaction: t }
         );
         uploadedFiles.push(docFichier);
       }
@@ -730,26 +699,6 @@ exports.uploadLotUniqueWithPieces = async (req, res) => {
       duration: Date.now() - startTime,
     });
 
-    // Journalisation dans l'historique
-    await HistoriqueService.log({
-      agent_id: req.user?.id || null,
-      action: "upload",
-      resource: "document_fichier",
-      resource_id: null,
-      resource_identifier: `Upload lot unique avec ${piecesToAssociate.length} pièce(s)`,
-      description: `Upload lot unique pour document #${documentId} avec ${piecesToAssociate.length} pièce(s) associée(s)`,
-      method: req.method,
-      path: req.originalUrl,
-      status: 200,
-      ip: req.ip,
-      user_agent: req.headers["user-agent"],
-      data: {
-        associatedPieces: piecesToAssociate.length,
-        filesCount: uploadedFiles.length,
-        duration: Date.now() - startTime,
-      },
-    });
-
     res.json({
       message:
         piecesToAssociate.length > 0
@@ -760,17 +709,12 @@ exports.uploadLotUniqueWithPieces = async (req, res) => {
     });
   } catch (err) {
     await t.rollback();
-    logger.error("❌ Erreur upload lot avec pièces:", {
-      documentId,
-      error: err.message,
-      stack: err.stack,
-      userId: req.user?.id,
-      duration: Date.now() - startTime,
-    });
+    logger.error("❌ Erreur upload lot avec pièces:", err);
     res.status(500).json({ message: err.message });
   }
 };
 
+// ==================== UPDATE DISPONIBILITE ====================
 exports.updateDocumentPieceDisponibilite = async (req, res) => {
   const startTime = Date.now();
   const { documentId, pieceId } = req.params;
@@ -793,12 +737,6 @@ exports.updateDocumentPieceDisponibilite = async (req, res) => {
       defaults: { disponible: false },
     });
 
-    if (!doc) {
-      return res
-        .status(404)
-        .json({ message: "Relation document/pièce introuvable" });
-    }
-
     doc.disponible = disponible;
     await doc.save();
 
@@ -810,42 +748,17 @@ exports.updateDocumentPieceDisponibilite = async (req, res) => {
       duration: Date.now() - startTime,
     });
 
-    // Journalisation dans l'historique
-    await HistoriqueService.log({
-      agent_id: req.user?.id || null,
-      action: "update",
-      resource: "document_pieces",
-      resource_id: doc.id,
-      resource_identifier: `Pièce #${pieceId} du document #${documentId}`,
-      description: `Mise à jour disponibilité: ${disponible ? "disponible" : "non disponible"}`,
-      method: req.method,
-      path: req.originalUrl,
-      status: 200,
-      ip: req.ip,
-      user_agent: req.headers["user-agent"],
-      data: {
-        disponible: doc.disponible,
-        duration: Date.now() - startTime,
-      },
-    });
-
     return res.json({
       message: "Disponibilité mise à jour",
       disponible: doc.disponible,
     });
   } catch (error) {
-    logger.error("❌ Erreur update disponibilité:", {
-      documentId,
-      pieceId,
-      error: error.message,
-      stack: error.stack,
-      userId: req.user?.id,
-      duration: Date.now() - startTime,
-    });
+    logger.error("❌ Erreur update disponibilité:", error);
     return res.status(500).json({ message: "Erreur update disponibilité" });
   }
 };
 
+// ==================== GET DOCUMENT FILES ====================
 exports.getDocumentFiles = async (req, res) => {
   const startTime = Date.now();
   const { documentId, pieceId } = req.params;
@@ -875,20 +788,14 @@ exports.getDocumentFiles = async (req, res) => {
 
     return res.json(files);
   } catch (error) {
-    logger.error("❌ getPieceFiles error:", {
-      documentId,
-      pieceId,
-      error: error.message,
-      stack: error.stack,
-      userId: req.user?.id,
-      duration: Date.now() - startTime,
-    });
+    logger.error("❌ getPieceFiles error:", error);
     return res.status(500).json({
       message: "Erreur lors de la récupération des fichiers",
     });
   }
 };
 
+// ==================== GET DOCUMENT PIECES ====================
 exports.getDocumentPieces = async (req, res) => {
   const startTime = Date.now();
   const { documentId } = req.params;
@@ -975,17 +882,12 @@ exports.getDocumentPieces = async (req, res) => {
 
     res.json({ pieces });
   } catch (error) {
-    logger.error("🔥 getDocumentPieces error:", {
-      documentId,
-      error: error.message,
-      stack: error.stack,
-      userId: req.user?.id,
-      duration: Date.now() - startTime,
-    });
+    logger.error("🔥 getDocumentPieces error:", error);
     res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
+// ==================== GET LOT UNIQUE FILES ====================
 exports.getLotUniqueFiles = async (req, res) => {
   const startTime = Date.now();
   const { documentId } = req.params;
@@ -1013,36 +915,23 @@ exports.getLotUniqueFiles = async (req, res) => {
 
     return res.json(files);
   } catch (error) {
-    logger.error("❌ getLotUniqueFiles:", {
-      documentId,
-      error: error.message,
-      stack: error.stack,
-      userId: req.user?.id,
-      duration: Date.now() - startTime,
-    });
+    logger.error("❌ getLotUniqueFiles:", error);
     return res.status(500).json({ message: "Erreur récupération lot unique" });
   }
 };
 
-/**
- * Supprimer un fichier uploadé
- * DELETE /api/documents/:documentId/files/:fileId
- */
+// ==================== DELETE DOCUMENT FILE ====================
 exports.deleteDocumentFile = async (req, res) => {
   const startTime = Date.now();
   const { documentId, fileId } = req.params;
 
   try {
-    logger.info(
-      "🗑️ Tentative de suppression d'un fichier dans document_fichier",
-      {
-        documentId,
-        fileId,
-        userId: req.user?.id,
-      },
-    );
+    logger.info("🗑️ Tentative de suppression d'un fichier", {
+      documentId,
+      fileId,
+      userId: req.user?.id,
+    });
 
-    // 1. Vérifier que le fichier existe
     const file = await DocumentFichier.findOne({
       where: {
         id: fileId,
@@ -1059,10 +948,8 @@ exports.deleteDocumentFile = async (req, res) => {
       return res.status(404).json({ message: "Fichier non trouvé" });
     }
 
-    // 2. Récupérer le chemin complet du fichier
     const filePath = path.join(process.cwd(), file.fichier);
 
-    // 3. Supprimer le fichier du système de fichiers
     try {
       if (fs.existsSync(filePath)) {
         await fs.promises.unlink(filePath);
@@ -1070,22 +957,14 @@ exports.deleteDocumentFile = async (req, res) => {
           filePath,
           userId: req.user?.id,
         });
-      } else {
-        logger.warn("⚠️ Fichier physique non trouvé", {
-          filePath,
-          userId: req.user?.id,
-        });
       }
     } catch (unlinkError) {
-      logger.error("❌ Erreur lors de la suppression du fichier physique", {
+      logger.error("❌ Erreur suppression fichier physique", {
         filePath,
         error: unlinkError.message,
-        userId: req.user?.id,
       });
-      // On continue même si la suppression physique échoue
     }
 
-    // 4. Supprimer l'enregistrement en base de données
     await file.destroy();
 
     logger.info("✅ Fichier supprimé avec succès", {
@@ -1094,28 +973,6 @@ exports.deleteDocumentFile = async (req, res) => {
       originalName: file.original_name,
       userId: req.user?.id,
       duration: Date.now() - startTime,
-    });
-
-    // 5. Journalisation dans l'historique
-    await HistoriqueService.log({
-      agent_id: req.user?.id || null,
-      action: "delete",
-      resource: "document_fichier",
-      resource_id: fileId,
-      resource_identifier: file.original_name,
-      description: `Suppression du fichier "${file.original_name}" du document #${documentId}`,
-      method: req.method,
-      path: req.originalUrl,
-      status: 200,
-      ip: req.ip,
-      user_agent: req.headers["user-agent"],
-      data: {
-        documentId,
-        fileId,
-        originalName: file.original_name,
-        filePath: file.fichier,
-        duration: Date.now() - startTime,
-      },
     });
 
     res.json({
@@ -1127,14 +984,7 @@ exports.deleteDocumentFile = async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error("❌ Erreur lors de la suppression du fichier:", {
-      documentId,
-      fileId,
-      error: error.message,
-      stack: error.stack,
-      userId: req.user?.id,
-      duration: Date.now() - startTime,
-    });
+    logger.error("❌ Erreur lors de la suppression du fichier:", error);
     res.status(500).json({
       message: "Erreur lors de la suppression du fichier",
       error: error.message,
@@ -1142,10 +992,7 @@ exports.deleteDocumentFile = async (req, res) => {
   }
 };
 
-/**
- * Supprimer un fichier de pièce (PiecesFichier)
- * DELETE /api/documents/:documentId/pieces/:pieceId/files/:fileId
- */
+// ==================== DELETE PIECE FILE ====================
 exports.deletePieceFile = async (req, res) => {
   const startTime = Date.now();
   const { documentId, pieceId, fileId } = req.params;
@@ -1158,7 +1005,6 @@ exports.deletePieceFile = async (req, res) => {
       userId: req.user?.id,
     });
 
-    // 1. Vérifier que le fichier existe
     const file = await PiecesFichier.findOne({
       where: {
         id: fileId,
@@ -1177,10 +1023,8 @@ exports.deletePieceFile = async (req, res) => {
       return res.status(404).json({ message: "Fichier non trouvé" });
     }
 
-    // 2. Récupérer le chemin complet du fichier
     const filePath = path.join(process.cwd(), file.fichier);
 
-    // 3. Supprimer le fichier du système de fichiers
     try {
       if (fs.existsSync(filePath)) {
         await fs.promises.unlink(filePath);
@@ -1196,7 +1040,6 @@ exports.deletePieceFile = async (req, res) => {
       });
     }
 
-    // 4. Supprimer l'enregistrement
     await file.destroy();
 
     logger.info("✅ Fichier de pièce supprimé avec succès", {
@@ -1207,30 +1050,12 @@ exports.deletePieceFile = async (req, res) => {
       duration: Date.now() - startTime,
     });
 
-    await HistoriqueService.log({
-      agent_id: req.user?.id || null,
-      action: "delete",
-      resource: "pieces_fichier",
-      resource_id: fileId,
-      resource_identifier: file.original_name,
-      description: `Suppression du fichier de pièce "${file.original_name}"`,
-      method: req.method,
-      path: req.originalUrl,
-      status: 200,
-      ip: req.ip,
-      user_agent: req.headers["user-agent"],
-    });
-
     res.json({
       success: true,
       message: "Fichier supprimé avec succès",
     });
   } catch (error) {
-    logger.error("❌ Erreur suppression fichier de pièce:", {
-      error: error.message,
-      stack: error.stack,
-      userId: req.user?.id,
-    });
+    logger.error("❌ Erreur suppression fichier de pièce:", error);
     res.status(500).json({
       message: "Erreur lors de la suppression",
       error: error.message,

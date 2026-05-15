@@ -101,6 +101,13 @@ export default function DocumentPage() {
   const [pendingTypeId, setPendingTypeId] = useState<number | null>(null);
   const [pageByType, setPageByType] = useState<Record<number, number>>({});
 
+  // ✅ AJOUT : état pour l'entité à passer au formulaire (champs personnalisés)
+  const [currentEntityForForm, setCurrentEntityForForm] = useState<{
+    id: number;
+    type: "un" | "deux" | "trois";
+    label: string;
+  } | null>(null);
+
   // ✅ ÉTAT 3: Requêtes conditionnelles avec TanStack Query
   const { data: typeDocuments = [] } = useDocumentsByType(documentType_id);
   const { data: metaFields = [] } = useMetaFieldsByType(
@@ -239,6 +246,15 @@ export default function DocumentPage() {
         );
       return false;
     });
+  };
+
+  // ✅ AJOUT : fonction utilitaire pour récupérer l'entité de la fonction courante
+  const getCurrentFonctionEntity = () => {
+    const entityType = getUserFonctionEntityType();
+    const entityId = getUserFonctionEntityId();
+    if (!entityType || !entityId) return null;
+    const entitee = entitees.find(e => e.id === entityId && e.type === entityType);
+    return entitee ? { id: entityId, type: entityType, label: entitee.libelle } : null;
   };
 
   // ✅ PLUS BESOIN DE LA FONCTION load() NI DE useEffect !
@@ -750,6 +766,8 @@ export default function DocumentPage() {
                                       e.stopPropagation();
                                       setPendingTypeId(type.id);
                                       setEditingDoc(null);
+                                      // ✅ AJOUT : stocker l'entité courante
+                                      setCurrentEntityForForm({ id: entiteeItem.id, type: entiteeItem.type, label: entiteeItem.libelle });
                                       setFormVisible(true);
                                     }}
                                     className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"
@@ -849,6 +867,8 @@ export default function DocumentPage() {
                                                         setPendingTypeId(
                                                           type.id,
                                                         );
+                                                        // ✅ AJOUT : stocker l'entité courante
+                                                        setCurrentEntityForForm({ id: entiteeItem.id, type: entiteeItem.type, label: entiteeItem.libelle });
                                                         setFormVisible(true);
                                                       }}
                                                       className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
@@ -886,7 +906,7 @@ export default function DocumentPage() {
                                                       onClick={(e) =>
                                                         handleDelete(
                                                           String(doc.id),
-                                                          e.stopPropagation(),
+                                                          e.stopPropagation,
                                                         )
                                                       }
                                                       className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
@@ -924,6 +944,8 @@ export default function DocumentPage() {
                                       <button
                                         onClick={() => {
                                           setDocumentType_id(type.id);
+                                          // ✅ AJOUT : stocker l'entité courante
+                                          setCurrentEntityForForm({ id: entiteeItem.id, type: entiteeItem.type, label: entiteeItem.libelle });
                                           setFormVisible(true);
                                         }}
                                         className="mt-3 text-sm bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition-all"
@@ -1137,6 +1159,8 @@ export default function DocumentPage() {
                                       e.stopPropagation();
                                       setPendingTypeId(type.id);
                                       setEditingDoc(null);
+                                      // ✅ AJOUT : stocker l'entité courante
+                                      setCurrentEntityForForm({ id: entiteeItem.id, type: entiteeItem.type, label: entiteeItem.libelle });
                                       setFormVisible(true);
                                     }}
                                     className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"
@@ -1236,6 +1260,8 @@ export default function DocumentPage() {
                                                         setPendingTypeId(
                                                           type.id,
                                                         );
+                                                        // ✅ AJOUT : stocker l'entité courante
+                                                        setCurrentEntityForForm({ id: entiteeItem.id, type: entiteeItem.type, label: entiteeItem.libelle });
                                                         setFormVisible(true);
                                                       }}
                                                       className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
@@ -1311,6 +1337,8 @@ export default function DocumentPage() {
                                       <button
                                         onClick={() => {
                                           setDocumentType_id(type.id);
+                                          // ✅ AJOUT : stocker l'entité courante
+                                          setCurrentEntityForForm({ id: entiteeItem.id, type: entiteeItem.type, label: entiteeItem.libelle });
                                           setFormVisible(true);
                                         }}
                                         className="mt-3 text-sm bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition-all"
@@ -1455,6 +1483,9 @@ export default function DocumentPage() {
                         e.stopPropagation();
                         setPendingTypeId(type.id);
                         setEditingDoc(null);
+                        // ✅ AJOUT : récupérer l'entité de la fonction courante
+                        const entity = getCurrentFonctionEntity();
+                        if (entity) setCurrentEntityForForm(entity);
                         setFormVisible(true);
                       }}
                       className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"
@@ -1537,6 +1568,9 @@ export default function DocumentPage() {
                                           e.stopPropagation();
                                           setEditingDoc(doc);
                                           setPendingTypeId(type.id);
+                                          // ✅ AJOUT : récupérer l'entité de la fonction courante
+                                          const entity = getCurrentFonctionEntity();
+                                          if (entity) setCurrentEntityForForm(entity);
                                           setFormVisible(true);
                                         }}
                                         className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
@@ -1612,6 +1646,9 @@ export default function DocumentPage() {
                         <button
                           onClick={() => {
                             setDocumentType_id(type.id);
+                            // ✅ AJOUT : récupérer l'entité de la fonction courante
+                            const entity = getCurrentFonctionEntity();
+                            if (entity) setCurrentEntityForForm(entity);
                             setFormVisible(true);
                           }}
                           className="mt-3 text-sm bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition-all"
@@ -1674,6 +1711,7 @@ export default function DocumentPage() {
           icon={<Plus size={18} className="mr-2" />}
           onClick={() => {
             setSelected(null);
+            setCurrentEntityForForm(null); // ✅ AJOUT : réinitialiser
             setFormVisible(true);
           }}
           className="bg-emerald-600 hover:bg-emerald-700 text-white border-none px-6 py-3 rounded-xl shadow-lg shadow-emerald-200 transition-all font-bold"
@@ -1705,12 +1743,23 @@ export default function DocumentPage() {
         onHide={() => {
           setFormVisible(false);
           setEditingDoc(null);
+          setCurrentEntityForForm(null); // ✅ AJOUT : nettoyer
         }}
         onSubmit={editingDoc ? onEdit : handleSubmit}
         refresh={() => {}} // ✅ PLUS BESOIN de refresh !
         documentType={types}
         selectedTypeId={documentType_id}
         editingDoc={editingDoc}
+        // ✅ AJOUT : passer l'entité courante au formulaire
+        preselectedEntity={
+          currentEntityForForm
+            ? {
+                entity_id: currentEntityForForm.id,
+                entity_type: currentEntityForForm.type === "un" ? "EntiteeUn" : currentEntityForForm.type === "deux" ? "EntiteeDeux" : "EntiteeTrois",
+                entity_label: currentEntityForForm.label,
+              }
+            : null
+        }
       />
       <DocumentDetails
         visible={detailsVisible}

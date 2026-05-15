@@ -25,6 +25,7 @@ db.MetaField = require("./MetaField.model")(sequelize, DataTypes);
 db.Document = require("./Document.model")(sequelize, DataTypes);
 db.DocumentValue = require("./DocumentValue.model")(sequelize, DataTypes);
 db.DocumentFile = require("./DocumentFIle.model")(sequelize, DataTypes);
+db.DocumentEntity = require("./DocumentEntity")(sequelize, DataTypes);
 
 // =====================
 // 🔹 NOUVEAUX MODÈLES Archive
@@ -69,11 +70,9 @@ db.PieceValue = require("./PieceValue.model")(sequelize, DataTypes);
 db.PieceMetaField = require("./PieceMetaField.model")(sequelize, DataTypes);
 db.PiecesFichier = require("./PiecesFichier.model")(sequelize, DataTypes);
 
-
-
-
-//Models pour les courriers
-
+// =====================
+// 🔹 MODÈLES POUR LES COURRIERS
+// =====================
 db.Courrier = require("./Courrier.model")(sequelize, DataTypes);
 db.PieceJointe = require("./PieceJointe.model")(sequelize, DataTypes);
 db.AttributionCourrier = require("./AttributionCourrier.model")(sequelize, DataTypes);
@@ -82,6 +81,19 @@ db.AuditCourrier = require("./AuditCourrier.model")(sequelize, DataTypes);
 db.Expediteur = require("./Expediteur.model")(sequelize, DataTypes);
 db.DestinataireExterne = require("./DestinataireExterne.model")(sequelize, DataTypes);
 
+// =====================
+// 🔹 MODÈLES POUR LES MÉTADONNÉES PERSONNALISÉES PAR ENTITÉ
+// =====================
+db.MetaFieldOverride = require("./MetaFieldOverride")(sequelize, DataTypes);
+db.EntityCustomField = require("./EntityCustomField")(sequelize, DataTypes);
+db.EntityCustomFieldValue = require("./EntityCustomFieldValue")(sequelize, DataTypes);
+
+// =====================
+// 🔹 MODÈLES POUR LES ASSOCIATIONS TYPEDOCUMENT-ENTITÉ
+// =====================
+// db.TypeDocumentEntiteeUn = require("./TypeDocumentEntiteeUn")(sequelize, DataTypes);
+// db.TypeDocumentEntiteeDeux = require("./TypeDocumentEntiteeDeux")(sequelize, DataTypes);
+// db.TypeDocumentEntiteeTrois = require("./TypeDocumentEntiteeTrois")(sequelize, DataTypes);
 
 // 🔹 Appel des associations
 Object.keys(db).forEach((modelName) => {

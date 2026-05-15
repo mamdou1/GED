@@ -21,7 +21,7 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react";
-import { getMetaFieldsForEntity } from "../../api/metaField";
+import { getAllFieldsForEntity } from "../../api/metaField"; // ✅ Utiliser la route /all
 import { getDocuments } from "../../api/document";
 import { getTypeDocuments } from "../../api/typeDocument";
 import Pagination from "../../components/layout/Pagination";
@@ -72,7 +72,6 @@ function LocationModal({ visible, onHide, doc }: any) {
 
   if (!doc) return null;
 
-  // ✅ Reconstruire le chemin UNIQUEMENT avec les hooks
   const getDocumentLocation = () => {
     const boxId = doc.box_id;
     if (!boxId) return null;
@@ -98,7 +97,7 @@ function LocationModal({ visible, onHide, doc }: any) {
     if (!trave.rayon_id) return result;
 
     const rayon = allRayons.find(
-      (r) => Number(r.id) === Number(trave.rayon_id),
+      (r) => Number(r.id) === Number(trave.rayon_id)
     );
     if (!rayon) return result;
     result.rayon = rayon.code;
@@ -106,7 +105,7 @@ function LocationModal({ visible, onHide, doc }: any) {
     if (!rayon.salle_id) return result;
 
     const salle = allSalles.find(
-      (s) => Number(s.id) === Number(rayon.salle_id),
+      (s) => Number(s.id) === Number(rayon.salle_id)
     );
     if (!salle) return result;
     result.salle = salle.libelle;
@@ -122,7 +121,6 @@ function LocationModal({ visible, onHide, doc }: any) {
 
   const location = getDocumentLocation();
   const isArchived = location !== null;
-
   const ratio = location?.capaciteMax
     ? (location.currentCount / location.capaciteMax) * 100
     : 0;
@@ -200,7 +198,6 @@ function LocationModal({ visible, onHide, doc }: any) {
             <p className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">
               📍 Localisation physique
             </p>
-
             {location.site && (
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
                 <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
@@ -212,7 +209,6 @@ function LocationModal({ visible, onHide, doc }: any) {
                 </div>
               </div>
             )}
-
             {location.salle && (
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
                 <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
@@ -224,7 +220,6 @@ function LocationModal({ visible, onHide, doc }: any) {
                 </div>
               </div>
             )}
-
             {location.rayon && (
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
                 <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
@@ -236,7 +231,6 @@ function LocationModal({ visible, onHide, doc }: any) {
                 </div>
               </div>
             )}
-
             {location.trave && (
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
                 <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
@@ -248,7 +242,6 @@ function LocationModal({ visible, onHide, doc }: any) {
                 </div>
               </div>
             )}
-
             <div className="border-t border-emerald-100 pt-3">
               <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl">
                 <div className="p-2 bg-emerald-200 rounded-lg text-emerald-700">
@@ -284,14 +277,18 @@ function LocationModal({ visible, onHide, doc }: any) {
                     </div>
                     <div className="w-full bg-emerald-200 rounded-full h-1.5">
                       <div
-                        className={`h-1.5 rounded-full transition-all ${isFull ? "bg-red-500" : "bg-emerald-600"}`}
+                        className={`h-1.5 rounded-full transition-all ${
+                          isFull ? "bg-red-500" : "bg-emerald-600"
+                        }`}
                         style={{ width: `${Math.min(ratio, 100)}%` }}
                       />
                     </div>
                   </div>
                   <div className="mt-3">
                     <span
-                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold ${getStatusColor(location.status).bg} ${getStatusColor(location.status).text}`}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold ${
+                        getStatusColor(location.status).bg
+                      } ${getStatusColor(location.status).text}`}
                     >
                       {getStatusColor(location.status).icon}
                       {location.status === "LIBRE" && "Libre"}
@@ -328,7 +325,6 @@ function LocationBadge({ doc, onClick }: { doc: any; onClick: () => void }) {
     );
   }
 
-  // ✅ Reconstruire le chemin pour l'affichage compact
   const getCompactPath = () => {
     const box = allBoxes.find((b) => Number(b.id) === Number(doc.box_id));
     if (!box) return `Box #${doc.box_id}`;
@@ -337,22 +333,22 @@ function LocationBadge({ doc, onClick }: { doc: any; onClick: () => void }) {
 
     if (box.trave_id) {
       const trave = allTraves.find(
-        (t) => Number(t.id) === Number(box.trave_id),
+        (t) => Number(t.id) === Number(box.trave_id)
       );
       if (trave) {
         path = `${trave.code} → ${path}`;
 
         if (trave.rayon_id) {
           const rayon = allRayons.find(
-            (r) => Number(r.id) === Number(trave.rayon_id),
+            (r) => Number(r.id) === Number(trave.rayon_id)
           );
           if (rayon && rayon.salle_id) {
             const salle = allSalles.find(
-              (s) => Number(s.id) === Number(rayon.salle_id),
+              (s) => Number(s.id) === Number(rayon.salle_id)
             );
             if (salle && salle.site_id) {
               const site = allSites.find(
-                (s) => Number(s.id) === Number(salle.site_id),
+                (s) => Number(s.id) === Number(salle.site_id)
               );
               if (site) {
                 path = `${site.nom} → ${path}`;
@@ -419,13 +415,13 @@ export default function Recherche() {
 
   const [selectedFields, setSelectedFields] = useState<number[]>([]);
   const [searchValues, setSearchValues] = useState<{ [key: number]: string }>(
-    {},
+    {}
   );
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
   const toast = useRef<Toast>(null);
 
-  // Fonctions utilitaires
+  // ========== FONCTIONS UTILITAIRES (accès) ==========
   const isUserAdmin = (user: User | null): boolean => {
     if (!user) return false;
     const droitLibelle =
@@ -470,7 +466,7 @@ export default function Recherche() {
     (user?.agent_access?.length ?? 0) > 0;
 
   const getUserFonctionEntityType = (
-    user: User | null,
+    user: User | null
   ): "un" | "deux" | "trois" | null => {
     if (user?.fonction_details?.entitee_trois) return "trois";
     if (user?.fonction_details?.entitee_deux) return "deux";
@@ -487,10 +483,7 @@ export default function Recherche() {
     );
   };
 
-  const getUserFonctionTypes = (
-    user: User | null,
-    allTypes: TypeDocument[],
-  ) => {
+  const getUserFonctionTypes = (user: User | null, allTypes: TypeDocument[]) => {
     const entityType = getUserFonctionEntityType(user);
     const entityId = getUserFonctionEntityId(user);
     if (!entityType || !entityId) return [];
@@ -507,10 +500,7 @@ export default function Recherche() {
     const accessibleIds = getUserAccessibleEntityIds(user);
     if (hasAdditionalAccess(user)) {
       return types.filter((typeDoc) => {
-        if (
-          typeDoc.entitee_un_id &&
-          accessibleIds.un.has(typeDoc.entitee_un_id)
-        )
+        if (typeDoc.entitee_un_id && accessibleIds.un.has(typeDoc.entitee_un_id))
           return true;
         if (
           typeDoc.entitee_deux_id &&
@@ -530,15 +520,14 @@ export default function Recherche() {
     if (!fonctionId || !fonctionType) return [];
     return types.filter((typeDoc) => {
       if (fonctionType === "un") return typeDoc.entitee_un_id === fonctionId;
-      if (fonctionType === "deux")
-        return typeDoc.entitee_deux_id === fonctionId;
+      if (fonctionType === "deux") return typeDoc.entitee_deux_id === fonctionId;
       if (fonctionType === "trois")
         return typeDoc.entitee_trois_id === fonctionId;
       return false;
     });
   }, [types, user]);
 
-  // ✅ Charger les méta-champs pour l'entité sélectionnée
+  // ✅ Charger les méta-champs (base + personnalisés) via la route /all
   const loadMetaFieldsForEntity = async () => {
     if (!documentType_id || !selectedNiveau || !selectedEntitee) {
       setMetaFields([]);
@@ -547,13 +536,19 @@ export default function Recherche() {
 
     try {
       const normalizedType = normalizeEntityType(selectedNiveau);
-      // Utiliser la route /all pour récupérer base + personnalisés
-      const response = await getMetaFieldsForEntity(
+      console.log("🔍 Chargement des champs pour:", {
+        typeDocId: documentType_id,
+        entityType: normalizedType,
+        entityId: selectedEntitee,
+      });
+      const response = await getAllFieldsForEntity(
         documentType_id,
         normalizedType,
         selectedEntitee
       );
-      setMetaFields(response);
+      console.log("📋 Champs récupérés (base + personnalisés):", response);
+      const visibleFields = response.filter((f: any) => f.hidden !== true);
+      setMetaFields(visibleFields);
       setSelectedFields([]);
       setSearchValues({});
     } catch (error) {
@@ -562,7 +557,6 @@ export default function Recherche() {
     }
   };
 
-  // ✅ Recharger quand le type de document ou l'entité change
   useEffect(() => {
     loadMetaFieldsForEntity();
   }, [documentType_id, selectedNiveau, selectedEntitee]);
@@ -599,8 +593,7 @@ export default function Recherche() {
     const options: { label: string; value: string }[] = [];
     if (isUserAdmin(user)) {
       if (titres.niveau1) options.push({ label: titres.niveau1, value: "un" });
-      if (titres.niveau2)
-        options.push({ label: titres.niveau2, value: "deux" });
+      if (titres.niveau2) options.push({ label: titres.niveau2, value: "deux" });
       if (titres.niveau3)
         options.push({ label: titres.niveau3, value: "trois" });
       return options;
@@ -667,7 +660,7 @@ export default function Recherche() {
 
   const toggleField = (id: number) => {
     setSelectedFields((prev) =>
-      prev.includes(id) ? prev.filter((fid) => fid !== id) : [...prev, id],
+      prev.includes(id) ? prev.filter((fid) => fid !== id) : [...prev, id]
     );
   };
 
@@ -687,7 +680,7 @@ export default function Recherche() {
 
   const paginated = filtered.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
+    currentPage * itemsPerPage
   );
 
   const getSearchInterface = () => {
@@ -750,8 +743,8 @@ export default function Recherche() {
                 !selectedNiveau
                   ? "Choisissez d'abord un niveau"
                   : entiteeOptions.length === 0
-                    ? "Aucune structure accessible"
-                    : "Sélectionner une structure"
+                  ? "Aucune structure accessible"
+                  : "Sélectionner une structure"
               }
               className="w-full border-none shadow-none bg-emerald-50/50 rounded-xl"
               optionLabel="label"
@@ -772,8 +765,8 @@ export default function Recherche() {
                 !selectedEntitee
                   ? "Choisissez d'abord une structure"
                   : filteredTypesByEntitee.length === 0
-                    ? "Aucun type disponible"
-                    : "Sélectionner un type"
+                  ? "Aucun type disponible"
+                  : "Sélectionner un type"
               }
               className="w-full border-none shadow-none bg-emerald-50/50 rounded-xl"
               optionLabel="nom"
@@ -899,7 +892,7 @@ export default function Recherche() {
                     </td>
                     {metaFields.map((m) => {
                       const value = d.values?.find(
-                        (v: any) => v.metaField?.id === m.id,
+                        (v: any) => v.metaField?.id === m.id
                       )?.value;
                       return (
                         <td

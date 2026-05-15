@@ -1,3 +1,4 @@
+// models/Document.js
 module.exports = (sequelize, DataTypes) => {
   const Document = sequelize.define(
     "Document",
@@ -6,10 +7,13 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: true,
       },
-
       type_document_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
+      },
+      agent_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
       },
     },
     { tableName: "documents", timestamps: true, underscored: true },
@@ -20,10 +24,12 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "type_document_id",
       as: "typeDocument",
     });
+    
     Document.hasMany(models.DocumentValue, {
       foreignKey: "document_id",
       as: "values",
     });
+    
     Document.belongsTo(models.Box, {
       foreignKey: "box_id",
       as: "box",
@@ -40,6 +46,20 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "agent_id",
       as: "agent",
     });
+
+    // ✅ RELATION AVEC DocumentEntity (pour lier les documents aux entités)
+    Document.hasMany(models.DocumentEntity, {
+      foreignKey: "document_id",
+      as: "entities",
+    });
+
+    // ✅ RELATION AVEC EntityCustomFieldValue (pour les champs personnalisés)
+    if (models.EntityCustomFieldValue) {
+      Document.hasMany(models.EntityCustomFieldValue, {
+        foreignKey: "document_id",
+        as: "customFieldValues",
+      });
+    }
   };
 
   return Document;

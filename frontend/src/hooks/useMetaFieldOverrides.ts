@@ -11,6 +11,7 @@ import {
 } from "../api/metaField";
 import { toast } from "react-hot-toast";
 
+// ✅ Utiliser getAllFieldsForEntity (avec /all) pour récupérer base + personnalisés
 export const useEntityMetaFields = (
   typeDocumentId: number,
   entityType: string,
@@ -18,7 +19,7 @@ export const useEntityMetaFields = (
 ) => {
   return useQuery({
     queryKey: ["entityMetaFields", typeDocumentId, entityType, entityId],
-    queryFn: () => getAllFieldsForEntity(typeDocumentId, entityType, entityId),
+    queryFn: () => getAllFieldsForEntity(typeDocumentId, entityType, entityId), // ← ICI
     enabled: !!typeDocumentId && !!entityType && !!entityId,
   });
 };

@@ -124,7 +124,6 @@ exports.remove = async (req, res) => {
       return res.status(404).json({ message: "Métadonnée non trouvée" });
     }
 
-    // Supprimer également toutes les surcharges liées à ce champ
     await MetaFieldOverride.destroy({ where: { meta_field_id: id } });
     await MetaField.destroy({ where: { id } });
 
@@ -150,7 +149,6 @@ exports.remove = async (req, res) => {
   }
 };
 
-// ✅ Récupérer les champs originaux (sans surcharge)
 exports.getByType = async (req, res) => {
   const startTime = Date.now();
   const { typeId } = req.params;
@@ -199,7 +197,6 @@ exports.getByType = async (req, res) => {
 
 // ==================== SURCHARGES POUR CHAMPS DE BASE ====================
 
-// Récupérer les champs avec surcharges pour une entité spécifique
 exports.getByTypeForEntity = async (req, res) => {
   const startTime = Date.now();
   const { typeId, entityType, entityId } = req.params;
@@ -268,7 +265,6 @@ exports.getByTypeForEntity = async (req, res) => {
   }
 };
 
-// Créer ou mettre à jour une surcharge pour une entité
 exports.setOverride = async (req, res) => {
   const startTime = Date.now();
   const { typeId, metaFieldId } = req.params;
@@ -343,7 +339,6 @@ exports.setOverride = async (req, res) => {
   }
 };
 
-// Supprimer une surcharge
 exports.removeOverride = async (req, res) => {
   const startTime = Date.now();
   const { typeId, metaFieldId } = req.params;
@@ -404,7 +399,6 @@ exports.removeOverride = async (req, res) => {
   }
 };
 
-// Supprimer toutes les surcharges d'une entité
 exports.removeAllOverrides = async (req, res) => {
   const startTime = Date.now();
   const { typeId, entityType, entityId } = req.params;
@@ -450,7 +444,6 @@ exports.removeAllOverrides = async (req, res) => {
   }
 };
 
-// Vérifier si une entité a des surcharges
 exports.hasOverrides = async (req, res) => {
   const startTime = Date.now();
   const { typeId, entityType, entityId } = req.params;
@@ -479,7 +472,6 @@ exports.hasOverrides = async (req, res) => {
   }
 };
 
-// Cloner les surcharges
 exports.cloneOverrides = async (req, res) => {
   const startTime = Date.now();
   const { sourceType, sourceId, targetType, targetId, typeDocumentId } = req.body;
@@ -533,117 +525,100 @@ exports.cloneOverrides = async (req, res) => {
   }
 };
 
-// ==================== GESTION DES CHAMPS PERSONNALISÉS PAR ENTITÉ ====================
+// ==================== GESTION DES CHAMPS PERSONNALISÉS ====================
 
-// Récupérer TOUS les champs (base + personnalisés)
+// ✅ VERSION CORRIGÉE - Retourne TOUS les champs personnalisés
 exports.getAllFieldsForEntity = async (req, res) => {
-  const startTime = Date.now();
   const { typeId, entityType, entityId } = req.params;
 
   try {
-    console.log(`🔍 getAllFieldsForEntity: typeId=${typeId}, entityType=${entityType}, entityId=${entityId}`);
-
     // 1. Champs de base
     const baseFields = await MetaField.findAll({
       where: { type_document_id: parseInt(typeId) },
       order: [["position", "ASC"]],
     });
 
-    // 2. Surcharges
-    const overrides = await MetaFieldOverride.findAll({
-      where: {
-        type_document_id: parseInt(typeId),
-        entity_type: entityType,
-        entity_id: parseInt(entityId),
-      },
-    });
+    // 2. Surcharges si entité valide
+    let formattedBaseFields = baseFields.map(f => ({
+      id: f.id,
+      name: f.name,
+      label: f.label,
+      field_type: f.field_type || "TEXT",
+      required: f.required === 1,
+      position: f.position || 0,
+      options: f.options,
+      placeholder: f.placeholder,
+      description: f.description,
+      source: "base",
+      hidden: false,
+    }));
 
-    const overrideMap = new Map();
-    overrides.forEach((o) => overrideMap.set(o.meta_field_id, o));
+    if (entityType && entityId && entityType !== 'null' && entityId !== 'null') {
+      const overrides = await MetaFieldOverride.findAll({
+        where: {
+          type_document_id: parseInt(typeId),
+          entity_type: entityType,
+          entity_id: parseInt(entityId),
+        },
+      });
+      const overrideMap = new Map(overrides.map(o => [o.meta_field_id, o]));
+      formattedBaseFields = baseFields.map(field => {
+        const override = overrideMap.get(field.id);
+        return {
+          id: field.id,
+          name: field.name,
+          label: override?.label_override || field.label,
+          field_type: field.field_type || "TEXT",
+          required: override?.required_override !== undefined ? override.required_override : (field.required === 1),
+          position: override?.position_override ?? field.position ?? 0,
+          options: override?.options_override || field.options,
+          placeholder: override?.placeholder_override || field.placeholder,
+          description: override?.description_override || field.description,
+          source: "base",
+          hidden: override?.hidden === true,
+        };
+      });
+    }
 
-    const formattedBaseFields = baseFields.map((field) => {
-      const override = overrideMap.get(field.id);
-      return {
-        id: field.id,
-        name: field.name,
-        label: override?.label_override || field.label,
-        field_type: field.field_type || "TEXT",
-        required: override?.required_override !== undefined ? override.required_override : field.required,
-        position: override?.position_override !== undefined ? override.position_override : field.position,
-        options: override?.options_override || field.options,
-        placeholder: override?.placeholder_override || field.placeholder,
-        description: override?.description_override || field.description,
-        default_value: override?.default_value_override || field.default_value,
-        source: "base",
-        is_overridden: !!override,
-        hidden: override?.hidden === true,
-        original: override
-          ? {
-              label: field.label,
-              required: field.required,
-              position: field.position,
-            }
-          : null,
-      };
-    });
-
-    // 3. Champs personnalisés
+    // 3. Champs personnalisés - IGNORER entityType/entityId (comme dans l'exemple)
     const customFields = await EntityCustomField.findAll({
       where: {
         type_document_id: parseInt(typeId),
-        entity_type: entityType,
-        entity_id: parseInt(entityId),
         is_active: true,
       },
       order: [["position", "ASC"]],
     });
 
-    const formattedCustomFields = customFields.map((field) => ({
+    const formattedCustomFields = customFields.map(field => ({
       id: field.id,
       name: field.name,
       label: field.label,
       field_type: field.field_type,
-      required: field.required,
-      position: field.position,
+      required: field.required === 1,
+      position: field.position || 0,
       options: field.options,
       placeholder: field.placeholder,
       description: field.description,
-      default_value: field.default_value,
       source: "custom",
-      is_custom: true,
-      is_overridden: false,
       hidden: field.hidden === true,
     }));
 
-    // 4. Fusionner
     const allFields = [...formattedBaseFields, ...formattedCustomFields].sort(
-      (a, b) => a.position - b.position,
+      (a, b) => a.position - b.position
     );
 
-    console.log(`📋 TOTAL: base=${formattedBaseFields.length}, custom=${formattedCustomFields.length}, total=${allFields.length}`);
-
-    res.json({
-      success: true,
-      data: allFields,
-      summary: {
-        base: formattedBaseFields.length,
-        custom: formattedCustomFields.length,
-        total: allFields.length,
-      },
-    });
+    res.json({ success: true, data: allFields });
   } catch (e) {
-    console.error("❌ Erreur getAllFieldsForEntity:", e);
     res.status(500).json({ message: e.message });
   }
 };
 
-// Ajouter un champ personnalisé
 exports.addCustomField = async (req, res) => {
   const startTime = Date.now();
   const { typeId, entityType, entityId } = req.params;
 
   try {
-    logger.info("📝 Ajout d'un champ personnalisé pour une entité", {
+    logger.info("📝 Ajout d'un champ personnalisé", {
       typeId,
       entityType,
       entityId,
@@ -651,38 +626,39 @@ exports.addCustomField = async (req, res) => {
       body: req.body,
     });
 
-    const entityValid = await validateEntity(entityType, parseInt(entityId));
-    if (!entityValid) {
-      return res.status(404).json({ message: "Entité introuvable" });
+    // Vérifier si l'entité existe (si fournie)
+    if (entityType && entityId && entityType !== 'null' && entityId !== 'null') {
+      const entityValid = await validateEntity(entityType, parseInt(entityId));
+      if (!entityValid) {
+        return res.status(404).json({ message: "Entité introuvable" });
+      }
     }
 
     const existingField = await EntityCustomField.findOne({
       where: {
         type_document_id: parseInt(typeId),
-        entity_type: entityType,
-        entity_id: parseInt(entityId),
+        entity_type: entityType || null,
+        entity_id: entityId ? parseInt(entityId) : null,
         name: req.body.name,
       },
     });
 
     if (existingField) {
       return res.status(400).json({
-        message: `Un champ avec le nom "${req.body.name}" existe déjà pour cette entité`,
+        message: `Un champ avec le nom "${req.body.name}" existe déjà`,
       });
     }
 
     const customField = await EntityCustomField.create({
       type_document_id: parseInt(typeId),
-      entity_type: entityType,
-      entity_id: parseInt(entityId),
+      entity_type: entityType || null,
+      entity_id: entityId ? parseInt(entityId) : null,
       ...req.body,
     });
 
     logger.info("✅ Champ personnalisé ajouté avec succès", {
       customFieldId: customField.id,
       name: customField.name,
-      entityType,
-      entityId,
       userId: req.user?.id,
       duration: Date.now() - startTime,
     });
@@ -706,7 +682,6 @@ exports.addCustomField = async (req, res) => {
   }
 };
 
-// Modifier un champ personnalisé
 exports.updateCustomField = async (req, res) => {
   const startTime = Date.now();
   const { typeId, entityType, entityId, fieldId } = req.params;
@@ -724,8 +699,6 @@ exports.updateCustomField = async (req, res) => {
       where: {
         id: parseInt(fieldId),
         type_document_id: parseInt(typeId),
-        entity_type: entityType,
-        entity_id: parseInt(entityId),
       },
     });
 
@@ -763,7 +736,6 @@ exports.updateCustomField = async (req, res) => {
   }
 };
 
-// Supprimer un champ personnalisé
 exports.deleteCustomField = async (req, res) => {
   const startTime = Date.now();
   const { typeId, entityType, entityId, fieldId } = req.params;
@@ -781,8 +753,6 @@ exports.deleteCustomField = async (req, res) => {
       where: {
         id: parseInt(fieldId),
         type_document_id: parseInt(typeId),
-        entity_type: entityType,
-        entity_id: parseInt(entityId),
       },
     });
 
@@ -814,7 +784,6 @@ exports.deleteCustomField = async (req, res) => {
   }
 };
 
-// Masquer/Afficher un champ personnalisé
 exports.toggleCustomFieldHide = async (req, res) => {
   const startTime = Date.now();
   const { typeId, entityType, entityId, fieldId } = req.params;
@@ -834,8 +803,6 @@ exports.toggleCustomFieldHide = async (req, res) => {
       where: {
         id: parseInt(fieldId),
         type_document_id: parseInt(typeId),
-        entity_type: entityType,
-        entity_id: parseInt(entityId),
       },
     });
 
@@ -875,7 +842,6 @@ exports.toggleCustomFieldHide = async (req, res) => {
   }
 };
 
-// Fonction utilitaire pour valider l'existence d'une entité
 async function validateEntity(entityType, entityId) {
   const models = {
     EntiteeUn: EntiteeUn,

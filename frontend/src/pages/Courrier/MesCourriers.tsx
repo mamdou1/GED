@@ -216,9 +216,9 @@ export default function MesCourriers() {
                       </button>
 
                       {/* ✅ Bouton Traiter (visible pour les statuts traitables) */}
-                      {(c.statut === "ATTRIBUÉ" ||
+                      {(c.statut === "ATTRIBUE" ||
                         c.statut === "EN_COURS" ||
-                        c.statut === "VALIDÉ") && (
+                        c.statut === "VALIDE") && (
                         <button
                           onClick={() => handleTraiter(c)}
                           className="p-3 text-slate-400 hover:text-green-600 hover:bg-white hover:shadow-md rounded-xl transition-all"

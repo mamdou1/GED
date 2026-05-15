@@ -70,30 +70,28 @@ db.PieceValue = require("./PieceValue.model")(sequelize, DataTypes);
 db.PieceMetaField = require("./PieceMetaField.model")(sequelize, DataTypes);
 db.PiecesFichier = require("./PiecesFichier.model")(sequelize, DataTypes);
 
-// =====================
-// 🔹 MODÈLES POUR LES COURRIERS
-// =====================
+
+
+
+//Models pour les courriers
+
 db.Courrier = require("./Courrier.model")(sequelize, DataTypes);
 db.PieceJointe = require("./PieceJointe.model")(sequelize, DataTypes);
-db.AttributionCourrier = require("./AttributionCourrier.model")(sequelize, DataTypes);
-db.TraitementCourrier = require("./TraitementCourrier.model")(sequelize, DataTypes);
+db.AttributionCourrier = require("./AttributionCourrier.model")(
+  sequelize,
+  DataTypes,
+);
+db.TraitementCourrier = require("./TraitementCourrier.model")(
+  sequelize,
+  DataTypes,
+);
 db.AuditCourrier = require("./AuditCourrier.model")(sequelize, DataTypes);
 db.Expediteur = require("./Expediteur.model")(sequelize, DataTypes);
-db.DestinataireExterne = require("./DestinataireExterne.model")(sequelize, DataTypes);
+db.DestinataireExterne = require("./DestinataireExterne.model")(
+  sequelize,
+  DataTypes,
+);
 
-// =====================
-// 🔹 MODÈLES POUR LES MÉTADONNÉES PERSONNALISÉES PAR ENTITÉ
-// =====================
-db.MetaFieldOverride = require("./MetaFieldOverride")(sequelize, DataTypes);
-db.EntityCustomField = require("./EntityCustomField")(sequelize, DataTypes);
-db.EntityCustomFieldValue = require("./EntityCustomFieldValue")(sequelize, DataTypes);
-
-// =====================
-// 🔹 MODÈLES POUR LES ASSOCIATIONS TYPEDOCUMENT-ENTITÉ
-// =====================
-// db.TypeDocumentEntiteeUn = require("./TypeDocumentEntiteeUn")(sequelize, DataTypes);
-// db.TypeDocumentEntiteeDeux = require("./TypeDocumentEntiteeDeux")(sequelize, DataTypes);
-// db.TypeDocumentEntiteeTrois = require("./TypeDocumentEntiteeTrois")(sequelize, DataTypes);
 
 // 🔹 Appel des associations
 Object.keys(db).forEach((modelName) => {

@@ -195,6 +195,119 @@ exports.getByType = async (req, res) => {
   }
 };
 
+exports.getAllFieldsForEntity = async (req, res) => {
+  const startTime = Date.now();
+  const { typeId, entityType, entityId } = req.params;
+
+  try {
+    console.log(
+      `🔍 getAllFieldsForEntity: typeId=${typeId}, entityType=${entityType}, entityId=${entityId}`,
+    );
+
+    const baseFields = await MetaField.findAll({
+      where: { type_document_id: parseInt(typeId) },
+      order: [["position", "ASC"]],
+    });
+
+    console.log(`📋 Champs de base trouvés: ${baseFields.length}`);
+
+    const overrides = await MetaFieldOverride.findAll({
+      where: {
+        type_document_id: parseInt(typeId),
+        entity_type: entityType,
+        entity_id: parseInt(entityId),
+      },
+    });
+
+    const overrideMap = new Map();
+    overrides.forEach((o) => overrideMap.set(o.meta_field_id, o));
+
+    const formattedBaseFields = baseFields.map((field) => {
+      const override = overrideMap.get(field.id);
+      return {
+        id: field.id,
+        name: field.name,
+        label: override?.label_override || field.label,
+        field_type: field.field_type || "TEXT",
+        required:
+          override?.required_override !== undefined
+            ? override.required_override
+            : field.required === 1 || field.required === true,
+        position:
+          override?.position_override !== undefined
+            ? override.position_override
+            : field.position || 0,
+        options: override?.options_override || field.options,
+        placeholder: override?.placeholder_override || field.placeholder,
+        description: override?.description_override || field.description,
+        default_value: override?.default_value_override || field.default_value,
+        source: "base",
+        is_overridden: !!override,
+        hidden: override?.hidden === true,
+        original: override
+          ? {
+              label: field.label,
+              required: field.required === 1 || field.required === true,
+              position: field.position || 0,
+            }
+          : null,
+      };
+    });
+
+    console.log(`📋 Champs de base formatés: ${formattedBaseFields.length}`);
+
+    const customFields = await EntityCustomField.findAll({
+      where: {
+        type_document_id: parseInt(typeId),
+        entity_type: entityType,
+        entity_id: parseInt(entityId),
+        is_active: true,
+      },
+      order: [["position", "ASC"]],
+    });
+
+    console.log(`📋 Champs personnalisés trouvés: ${customFields.length}`);
+
+    const formattedCustomFields = customFields.map((field) => ({
+      id: field.id,
+      name: field.name,
+      label: field.label,
+      field_type: field.field_type,
+      required: field.required === 1 || field.required === true,
+      position: field.position || 0,
+      options: field.options,
+      placeholder: field.placeholder,
+      description: field.description,
+      default_value: field.default_value,
+      source: "custom",
+      is_custom: true,
+      is_overridden: false,
+      hidden: field.hidden === true,
+    }));
+
+    const allFields = [...formattedBaseFields, ...formattedCustomFields].sort(
+      (a, b) => a.position - b.position,
+    );
+
+    console.log(
+      `📋 TOTAL: base=${formattedBaseFields.length}, custom=${formattedCustomFields.length}, total=${allFields.length}`,
+    );
+
+    res.json({
+      success: true,
+      data: allFields,
+      summary: {
+        base: formattedBaseFields.length,
+        custom: formattedCustomFields.length,
+        total: allFields.length,
+      },
+    });
+  } catch (e) {
+    console.error("❌ Erreur getAllFieldsForEntity:", e);
+    res.status(500).json({ message: e.message });
+  }
+};
+
 // ==================== SURCHARGES POUR CHAMPS DE BASE ====================
 
 exports.getByTypeForEntity = async (req, res) => {

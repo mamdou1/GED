@@ -13,7 +13,15 @@ export interface Courrier {
   destinataire_idagent?: number;
   destinataire_externe_id?: number;
   entitee_id: number;
-  statut: 'EN_ATTENTE' | 'VALIDÉ' | 'REJETÉ' | 'ATTRIBUÉ' | 'EN_COURS' | 'TRAITE' | 'ARCHIVE' | 'RENVOYE';
+  statut:
+    | "EN_ATTENTE"
+    | "VALIDÉ"
+    | "REJETÉ"
+    | "ATTRIBUÉ"
+    | "EN_COURS"
+    | "TRAITE"
+    | "ARCHIVE"
+    | "RENVOYE";
   date_reception: string;
   date_enregistrement?: string; // Nouveau champ
   date_limite_traitement?: string;

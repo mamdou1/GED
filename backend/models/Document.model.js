@@ -46,20 +46,6 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "agent_id",
       as: "agent",
     });
-
-    // ✅ RELATION AVEC DocumentEntity (pour lier les documents aux entités)
-    Document.hasMany(models.DocumentEntity, {
-      foreignKey: "document_id",
-      as: "entities",
-    });
-
-    // ✅ RELATION AVEC EntityCustomFieldValue (pour les champs personnalisés)
-    if (models.EntityCustomFieldValue) {
-      Document.hasMany(models.EntityCustomFieldValue, {
-        foreignKey: "document_id",
-        as: "customFieldValues",
-      });
-    }
   };
 
   return Document;

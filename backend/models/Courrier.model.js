@@ -27,7 +27,7 @@ module.exports = (sequelize, DataTypes) => {
       entitee_id: { type: DataTypes.INTEGER, allowNull: false, comment: "Direction principale" },
 
       statut: {
-        type: DataTypes.ENUM("EN_ATTENTE", "VALIDÉ", "REJETÉ", "ATTRIBUÉ", "EN_COURS", "TRAITE", "ARCHIVE", "RENVOYE"),
+        type: DataTypes.ENUM("EN_ATTENTE", "VALIDE", "REJETE", "ATTRIBUE", "EN_COURS", "TRAITE", "ARCHIVE", "RENVOYE"),
         defaultValue: "EN_ATTENTE",
       },
 

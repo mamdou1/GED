@@ -9,8 +9,13 @@ import {
   getFunctionsByEntiteeDeux,
   getEntiteeDeuxTitre,
   updateEntiteeDeuxTitre,
+  addTypesToEntiteeDeux,
+  getTypesOfEntiteeDeux,
+  removeTypesFromEntiteeDeux,
 } from "../api/entiteeDeux";
 import type { EntiteeDeux, Fonction } from "../interfaces";
+import { entiteeUnKeys } from "./useEntitees";
+import { addTypesToEntiteeUn, getTypesOfEntiteeUn } from "../api/entiteeUn";
 
 // =============================================
 // 1. CLÉS DE CACHE
@@ -26,6 +31,8 @@ export const entiteeDeuxKeys = {
   fonctions: (id: number | string) =>
     [...entiteeDeuxKeys.detail(id), "fonctions"] as const,
   titre: () => [...entiteeDeuxKeys.all, "titre"] as const,
+  types: (id: number | string) =>
+    [...entiteeDeuxKeys.detail(id), "types"] as const,
 };
 
 // =============================================
@@ -167,6 +174,56 @@ export const useUpdateEntiteeDeuxTitre = () => {
     mutationFn: (titre: string) => updateEntiteeDeuxTitre(titre),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: entiteeDeuxKeys.titre() });
+    },
+  });
+};
+
+export const useEntiteeDeuxTypes = (entiteeDeuxId?: number) => {
+  return useQuery({
+    queryKey: entiteeDeuxKeys.types(entiteeDeuxId!),
+    queryFn: () => getTypesOfEntiteeDeux(entiteeDeuxId!),
+    enabled: !!entiteeDeuxId,
+  });
+};
+
+// Hook pour ajouter des types de documents à une direction
+export const useAddTypesToEntiteeDeux = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      entiteeDeuxId,
+      typeIds,
+    }: {
+      entiteeDeuxId: number;
+      typeIds: number[];
+    }) => addTypesToEntiteeDeux(entiteeDeuxId, typeIds),
+    onSuccess: (_, { entiteeDeuxId }) => {
+      queryClient.invalidateQueries({
+        queryKey: entiteeDeuxKeys.list(String(entiteeDeuxId)),
+      });
+      queryClient.invalidateQueries({ queryKey: ["entiteeDeuxs"] });
+    },
+  });
+};
+
+// Hook pour retirer des types de documents d'une direction
+export const useRemoveTypesFromEntiteeDeux = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      entiteeDeuxId,
+      typeIds,
+    }: {
+      entiteeDeuxId: number;
+      typeIds: number[];
+    }) => removeTypesFromEntiteeDeux(entiteeDeuxId, typeIds),
+    onSuccess: (_, { entiteeDeuxId }) => {
+      queryClient.invalidateQueries({
+        queryKey: entiteeDeuxKeys.list(String(entiteeDeuxId)),
+      });
+      queryClient.invalidateQueries({ queryKey: ["entiteeDeuxs"] });
     },
   });
 };

@@ -25,6 +25,12 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "entitee_trois_id",
       as: "fonctions",
     });
+    EntiteeTrois.belongsToMany(models.TypeDocument, {
+      through: "entitee_trois_type_documents",
+      foreignKey: "entitee_trois_id",
+      otherKey: "type_document_id",
+      as: "typeDocuments",
+    });
   };
   return EntiteeTrois;
 };

@@ -3,6 +3,7 @@ import type {
   TypeDocument,
   CreateTypeDocumentPayload,
   AddPiecesToTypeDocumentPayload,
+  Pieces,
 } from "../interfaces";
 
 export const createTypeDocument = async (
@@ -68,5 +69,46 @@ export const getPiecesOfTypeDocument = async (
   document_typeId: string,
 ): Promise<any[]> => {
   const response = await api.get(`/types-documents/${document_typeId}/pieces`);
+  return response.data;
+};
+
+// Ajouter une pièce spécifique à une entité
+export const addPieceToEntityTypeDocument = async (
+  typeDocumentId: string,
+  payload: EntityPiecePayload,
+): Promise<{ message: string }> => {
+  const response = await api.post(
+    `/types-documents/${typeDocumentId}/entity-pieces/add`,
+    payload,
+  );
+
+  return response.data;
+};
+
+// Retirer une pièce spécifique à une entité
+export const removePieceFromEntityTypeDocument = async (
+  typeDocumentId: string,
+  payload: EntityPiecePayload,
+): Promise<{ message: string }> => {
+  const response = await api.post(
+    `/types-documents/${typeDocumentId}/entity-pieces/remove`,
+    payload,
+  );
+
+  return response.data;
+};
+
+export const getEffectivePiecesForEntity = async (
+  typeDocumentId: string,
+  entityType: string,
+  entityId: number,
+): Promise<{
+  basePieces: Pieces[];
+  addedPieces: Pieces[];
+  removedPieceIds: number[];
+}> => {
+  const response = await api.get(
+    `/types-documents/${typeDocumentId}/entity-pieces/${entityType}/${entityId}`,
+  );
   return response.data;
 };

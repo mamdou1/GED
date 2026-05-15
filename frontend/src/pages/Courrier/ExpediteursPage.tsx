@@ -225,7 +225,7 @@ const ExpediteursPage: React.FC = () => {
             {paginated.length > 0 ? (
               paginated.map((e: Expediteur) => (
                 <tr key={e.idexpediteur} className="hover:bg-emerald-50/30 transition-all group">
-                  <td className="px-6 py-4 font-mono font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100 inline-block">{e.idexpediteur}</td>
+                  <td className="px-6 py-4 font-mono font-bold text-emerald-700 bg-emerald-50 rounded-lg border border-emerald-100 inline-block">{e.idexpediteur}</td>
                   <td className="px-6 py-4">{typeBodyTemplate(e)}</td>
                   <td className="px-6 py-4 font-semibold text-slate-700">{nomBodyTemplate(e)}</td>
                   <td className="px-6 py-4 text-slate-600">{e.telephone || "-"}</td>

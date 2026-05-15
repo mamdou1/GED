@@ -2,6 +2,7 @@
 const { Fonction, EntiteeUn, EntiteeDeux, EntiteeTrois } = require("../models");
 const logger = require("../config/logger.config");
 const HistoriqueService = require("../services/historique.service");
+const entityTypeDocumentService = require("../services/entityTypeDocument.service");
 
 exports.createEntiteeDeux = async (req, res) => {
   const startTime = Date.now();
@@ -410,3 +411,23 @@ exports.deleteEntiteeDeux = async (req, res) => {
       .json({ message: "Erreur suppression entitee_deux", error: err.message });
   }
 };
+
+exports.addTypesToEntiteeDeux = entityTypeDocumentService.addTypesToEntity(
+  EntiteeDeux,
+  "EntiteeDeux",
+  "addTypeDocuments",
+);
+
+// Retirer des types de documents d'une direction
+exports.removeTypesFromEntiteeDeux =
+  entityTypeDocumentService.removeTypesFromEntity(
+    EntiteeDeux,
+    "EntiteeDeux",
+    "removeTypeDocuments",
+  );
+
+// Obtenir les types de documents d'une direction
+exports.getTypesOfEntiteeDeux = entityTypeDocumentService.getTypesOfEntity(
+  EntiteeDeux,
+  "EntiteeDeux",
+);

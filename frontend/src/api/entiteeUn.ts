@@ -1,5 +1,6 @@
 import api from "./axios";
-import type { Fonction, EntiteeUn } from "../interfaces";
+import type { Fonction, EntiteeUn, TypeDocument } from "../interfaces";
+import { types } from "util";
 
 const API_URL = "/entiteeUn";
 
@@ -72,4 +73,27 @@ export const deleteEntiteeUnTitre = async (): Promise<{
     console.error("❌ Erreur deleteAllEntiteeTroisTitres:", error);
     throw error;
   }
+};
+
+export const getTypesOfEntiteeUn = async (
+  entiteeUnId: number,
+): Promise<TypeDocument[]> => {
+  const response = await api.get(`${API_URL}/${entiteeUnId}/types`);
+  return response.data;
+};
+
+// Ajouter des types de documents à une direction
+export const addTypesToEntiteeUn = async (
+  entiteeUnId: number,
+  typeIds: number[],
+): Promise<void> => {
+  await api.post(`${API_URL}/${entiteeUnId}/types`, { typeIds });
+};
+
+// Retirer des types de documents d'une direction
+export const removeTypesFromEntiteeUn = async (
+  entiteeUnId: number,
+  typeIds: number[],
+): Promise<void> => {
+  await api.delete(`${API_URL}/${entiteeUnId}/types`, { data: { typeIds } });
 };

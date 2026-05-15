@@ -652,7 +652,7 @@ export default function CourrierPage() {
                           </button>
                         </>
                       )}
-                      {c.statut === "VALIDÉ" && (
+                      {c.statut === "VALIDE" && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();

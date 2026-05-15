@@ -72,4 +72,27 @@ router.delete(
   entiteeTroisController.deleteEntiteeTrois,
 );
 
+router.get(
+  "/:id/types",
+  verifyToken,
+  authorizePermission("entiteeTrois", "read"),
+  entiteeTroisController.getTypesOfEntiteeTrois,
+);
+
+// Ajouter des types de documents à une direction
+router.post(
+  "/:id/types",
+  verifyToken,
+  authorizePermission("entiteeTrois", "update"),
+  entiteeTroisController.addTypesToEntiteeTrois,
+);
+
+// Retirer des types de documents d'une direction
+router.delete(
+  "/:id/types",
+  verifyToken,
+  authorizePermission("entiteeTrois", "update"),
+  entiteeTroisController.removeTypesFromEntiteeTrois,
+);
+
 module.exports = router;

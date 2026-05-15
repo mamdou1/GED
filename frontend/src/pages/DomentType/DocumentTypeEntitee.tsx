@@ -33,19 +33,21 @@ import {
   useCreateMetaField,
   useUpdateMetaField,
   useMultipleAffectation,
+  useAddPieceToEntityTypeDocument,
+  useRemovePieceFromEntityTypeDocument,
 } from "../../hooks/useTypeDocuments";
 
 import {
   TypeDocument,
   AddPiecesToTypeDocumentPayload,
-  Pieces,
   User,
 } from "../../interfaces";
 import { Dropdown } from "primereact/dropdown";
 import TypeDocumentAjoutPieces from "./TypeDocumentAjoutPieces";
 import DocumentTypeAffectAndForm from "./DocumentTypeAffectAndForm";
 import { useAuth } from "../../context/AuthContext";
-import EntityFieldManager from "./EntityFieldManager";
+import EntiteeAjoutTypeDocument from "./EntiteeAjoutTypeDocument";
+import TypeDocumentAjoutPiecesEntytee from "./TypeDocumentAjoutPiecesEntytee";
 
 export default function DocumentTypeEntitee() {
   const { user } = useAuth();
@@ -72,6 +74,8 @@ export default function DocumentTypeEntitee() {
   const createMetaMutation = useCreateMetaField();
   const updateMetaMutation = useUpdateMetaField();
   const multipleAffectationMutation = useMultipleAffectation();
+  const addPieceToEntityMutation = useAddPieceToEntityTypeDocument();
+  const removePieceFromEntityMutation = useRemovePieceFromEntityTypeDocument();
 
   // États UI
   const [selected, setSelected] = useState<any>(null);
@@ -99,7 +103,51 @@ export default function DocumentTypeEntitee() {
   const [internalPages, setInternalPages] = useState<Record<string, number>>(
     {},
   );
-  const itemsPerPageInternal = 10;
+  const itemsPerPageInternal = 10; // Nombre de documents par page dans un accordéon
+
+  const [entiteeModalVisible, setEntiteeModalVisible] = useState(false);
+  const [selectedEntityForTypes, setSelectedEntityForTypes] = useState<{
+    id: number;
+    type: "entiteeUn" | "entiteeDeux" | "entiteeTrois";
+    label: string;
+  } | null>(null);
+
+  const handleOpenEntiteeTypes = (
+    entityId: number,
+    entityType: "entiteeUn" | "entiteeDeux" | "entiteeTrois",
+    entityLabel: string,
+  ) => {
+    setSelectedEntityForTypes({
+      id: entityId,
+      type: entityType,
+      label: entityLabel,
+    });
+    setEntiteeModalVisible(true);
+  };
+  const [selectedAccordionEntity, setSelectedAccordionEntity] = useState<{
+    label: string;
+    value: string;
+    id: number;
+    type: "entiteeUn" | "entiteeDeux" | "entiteeTrois";
+  } | null>(null);
+
+  const [fieldManagerVisible, setFieldManagerVisible] = useState(false);
+
+  // ✅ AJOUTER la fonction convertEntityType adaptée
+  type EntityTypeApi = "entitee_un" | "entitee_deux" | "entitee_trois";
+
+  const convertEntityType = (type: string | undefined): EntityTypeApi => {
+    switch (type) {
+      case "entiteeUn":
+        return "entitee_un";
+      case "entiteeDeux":
+        return "entitee_deux";
+      case "entiteeTrois":
+        return "entitee_trois";
+      default:
+        return "entitee_un";
+    }
+  };
 
   // Fonctions utilitaires (inchangées)
   const isUserAdmin = (user: User | null): boolean => {
@@ -143,19 +191,31 @@ export default function DocumentTypeEntitee() {
         userEntityIds.trois.add(access.entitee_trois.id);
     });
 
-    if (typeDoc.entitee_trois_id) {
-      return userEntityIds.trois.has(typeDoc.entitee_trois_id);
-    }
-    if (typeDoc.entitee_deux_id && !typeDoc.entitee_trois_id) {
-      return userEntityIds.deux.has(typeDoc.entitee_deux_id);
-    }
+    // ✅ Vérifier via les tableaux de relation
+    const hasAccessE3 = (typeDoc.entitee_trois || []).some((e: any) =>
+      userEntityIds.trois.has(e.id),
+    );
+    if (hasAccessE3) return true;
+
+    const hasAccessE2 = (typeDoc.entitee_deux || []).some((e: any) =>
+      userEntityIds.deux.has(e.id),
+    );
+    if (hasAccessE2) return true;
+
+    const hasAccessE1 = (typeDoc.entitee_un || []).some((e: any) =>
+      userEntityIds.un.has(e.id),
+    );
+    if (hasAccessE1) return true;
+
+    // Si aucun accès spécifique mais le doc n'est assigné à aucune entité
     if (
-      typeDoc.entitee_un_id &&
-      !typeDoc.entitee_deux_id &&
-      !typeDoc.entitee_trois_id
+      (!typeDoc.entitee_un || typeDoc.entitee_un.length === 0) &&
+      (!typeDoc.entitee_deux || typeDoc.entitee_deux.length === 0) &&
+      (!typeDoc.entitee_trois || typeDoc.entitee_trois.length === 0)
     ) {
-      return userEntityIds.un.has(typeDoc.entitee_un_id);
+      return true; // Documents non assignés visibles par tous
     }
+
     return false;
   };
 
@@ -200,44 +260,144 @@ export default function DocumentTypeEntitee() {
     return false;
   };
 
+  const getAllEntitiesAsGroups = () => {
+    const groups: Record<string, TypeDocument[]> = {};
+
+    entiteeTrois.forEach((e3) => {
+      if (hasAccessToStructure(e3.libelle)) {
+        groups[e3.libelle] = [];
+      }
+    });
+
+    entiteeDeux.forEach((e2) => {
+      if (hasAccessToStructure(e2.libelle)) {
+        groups[e2.libelle] = [];
+      }
+    });
+
+    entiteeUn.forEach((e1) => {
+      if (hasAccessToStructure(e1.libelle)) {
+        groups[e1.libelle] = [];
+      }
+    });
+
+    groups["Type de documents non assignés"] = [];
+
+    return groups;
+  };
+
   const getGroupedData = () => {
+    if (!types || types.length === 0) {
+      return getAllEntitiesAsGroups();
+    }
+
     const accessibleTypes = types.filter((t) => hasAccessToEntity(t));
 
     const filtered = accessibleTypes.filter((t) => {
       const search = query.toLowerCase();
       const matchesSearch =
         t.code.toLowerCase().includes(search) ||
-        t.cote.toLowerCase().includes(search) ||
+        (t.cote || "").toLowerCase().includes(search) ||
         t.nom.toLowerCase().includes(search);
 
       if (!selectedTypeDoc) return matchesSearch;
 
-      const e1Id = String(t.entitee_un_id || (t.entitee_un as any)?.id);
-      const e2Id = `E2-${t.entitee_deux_id || (t.entitee_deux as any)?.id}`;
-      const e3Id = `E3-${t.entitee_trois_id || (t.entitee_trois as any)?.id}`;
+      // ✅ Récupérer les IDs depuis les tableaux de relation
+      const e1Ids = (t.entitee_un || []).map((e: any) => String(e.id));
+      const e2Ids = (t.entitee_deux || []).map((e: any) => `E2-${e.id}`);
+      const e3Ids = (t.entitee_trois || []).map((e: any) => `E3-${e.id}`);
 
-      return (
-        matchesSearch &&
-        (selectedTypeDoc === e1Id ||
-          selectedTypeDoc === e2Id ||
-          selectedTypeDoc === e3Id)
-      );
+      const allEntityIds = [...e1Ids, ...e2Ids, ...e3Ids];
+
+      return matchesSearch && allEntityIds.includes(selectedTypeDoc);
     });
 
+    // ✅ CRÉER TOUS LES GROUPES VIDES D'ABORD
     const groups: Record<string, TypeDocument[]> = {};
 
-    filtered.forEach((t) => {
-      const structureLabel =
-        t.entitee_trois?.libelle ||
-        t.entitee_deux?.libelle ||
-        t.entitee_un?.libelle ||
-        "Type de documents non assignés";
-
-      if (!hasAccessToStructure(structureLabel)) return;
-
-      if (!groups[structureLabel]) groups[structureLabel] = [];
-      groups[structureLabel].push(t);
+    entiteeTrois.forEach((e3) => {
+      if (hasAccessToStructure(e3.libelle)) {
+        groups[e3.libelle] = [];
+      }
     });
+
+    entiteeDeux.forEach((e2) => {
+      if (hasAccessToStructure(e2.libelle)) {
+        groups[e2.libelle] = [];
+      }
+    });
+
+    entiteeUn.forEach((e1) => {
+      if (hasAccessToStructure(e1.libelle)) {
+        groups[e1.libelle] = [];
+      }
+    });
+
+    // Groupe pour les non assignés
+    const unassignedDocs = filtered.filter(
+      (t) =>
+        (!t.entitee_un || t.entitee_un.length === 0) &&
+        (!t.entitee_deux || t.entitee_deux.length === 0) &&
+        (!t.entitee_trois || t.entitee_trois.length === 0),
+    );
+    if (unassignedDocs.length > 0 || !selectedTypeDoc) {
+      groups["Type de documents non assignés"] = unassignedDocs;
+    }
+
+    // ✅ Remplir les groupes avec les documents (via les tableaux de relation)
+    filtered.forEach((t) => {
+      const assignedStructures = new Set<string>();
+
+      // Ajouter les libellés de entiteeTrois
+      if (t.entitee_trois && t.entitee_trois.length > 0) {
+        t.entitee_trois.forEach((e3: any) => {
+          const found = entiteeTrois.find((item) => item.id === e3.id);
+          if (found) assignedStructures.add(found.libelle);
+        });
+      }
+
+      // Ajouter les libellés de entiteeDeux
+      if (t.entitee_deux && t.entitee_deux.length > 0) {
+        t.entitee_deux.forEach((e2: any) => {
+          const found = entiteeDeux.find((item) => item.id === e2.id);
+          if (found) assignedStructures.add(found.libelle);
+        });
+      }
+
+      // Ajouter les libellés de entiteeUn
+      if (t.entitee_un && t.entitee_un.length > 0) {
+        t.entitee_un.forEach((e1: any) => {
+          const found = entiteeUn.find((item) => item.id === e1.id);
+          if (found) assignedStructures.add(found.libelle);
+        });
+      }
+
+      // Si aucune structure assignée, mettre dans "non assignés"
+      if (assignedStructures.size === 0) {
+        assignedStructures.add("Type de documents non assignés");
+      }
+
+      // Ajouter le document à chaque structure à laquelle il appartient
+      assignedStructures.forEach((structureLabel) => {
+        if (hasAccessToStructure(structureLabel)) {
+          if (!groups[structureLabel]) {
+            groups[structureLabel] = [];
+          }
+          // Éviter les doublons
+          if (!groups[structureLabel].find((doc) => doc.id === t.id)) {
+            groups[structureLabel].push(t);
+          }
+        }
+      });
+    });
+
+    if (selectedTypeDoc) {
+      const filteredGroups: Record<string, TypeDocument[]> = {};
+      Object.entries(groups).forEach(([key, docs]) => {
+        if (docs.length > 0) filteredGroups[key] = docs;
+      });
+      return filteredGroups;
+    }
 
     return groups;
   };
@@ -355,33 +515,29 @@ export default function DocumentTypeEntitee() {
       } else {
         let payload: any = { ...formData };
 
+        // ✅ Pour le many-to-many, on passe les IDs dans des tableaux
         if (selectedTypeDoc) {
-          const cleanId = Number(
-            selectedTypeDoc.replace("E2-", "").replace("E3-", ""),
-          );
-
-          const n1 = entiteeUn.find(
-            (x) => x.id === cleanId && !selectedTypeDoc.includes("E"),
-          );
-          const n2 = entiteeDeux.find(
-            (x) => x.id === cleanId && selectedTypeDoc.includes("E2"),
-          );
-          const n3 = entiteeTrois.find(
-            (x) => x.id === cleanId && selectedTypeDoc.includes("E3"),
-          );
-
-          if (n1) {
-            payload.entitee_un_id = n1.id;
-          } else if (n2) {
-            payload.entitee_un_id = n2.entitee_un_id;
-            payload.entitee_deux_id = n2.id;
-          } else if (n3) {
-            const parentN2 = entiteeDeux.find(
-              (x) => x.id === n3.entitee_deux_id,
-            );
-            payload.entitee_un_id = parentN2?.entitee_un_id;
-            payload.entitee_deux_id = n3.entitee_deux_id;
-            payload.entitee_trois_id = n3.id;
+          if (!selectedTypeDoc.includes("-")) {
+            // EntiteeUn
+            payload.entitee_un_ids = [Number(selectedTypeDoc)];
+          } else if (selectedTypeDoc.includes("E2-")) {
+            const e2Id = Number(selectedTypeDoc.replace("E2-", ""));
+            const e2 = entiteeDeux.find((x) => x.id === e2Id);
+            payload.entitee_deux_ids = [e2Id];
+            if (e2?.entitee_un_id) {
+              payload.entitee_un_ids = [e2.entitee_un_id];
+            }
+          } else if (selectedTypeDoc.includes("E3-")) {
+            const e3Id = Number(selectedTypeDoc.replace("E3-", ""));
+            const e3 = entiteeTrois.find((x) => x.id === e3Id);
+            payload.entitee_trois_ids = [e3Id];
+            if (e3?.entitee_deux_id) {
+              payload.entitee_deux_ids = [e3.entitee_deux_id];
+              const e2 = entiteeDeux.find((x) => x.id === e3.entitee_deux_id);
+              if (e2?.entitee_un_id) {
+                payload.entitee_un_ids = [e2.entitee_un_id];
+              }
+            }
           }
         }
 
@@ -389,12 +545,8 @@ export default function DocumentTypeEntitee() {
         toast.current?.show({
           severity: "success",
           summary: "Créé avec succès",
-          detail: payload.entitee_un_id
-            ? "Affectation automatique réussie"
-            : "Document générique créé",
         });
       }
-
       setFormVisible(false);
     } catch (error) {
       toast.current?.show({ severity: "error", summary: "Erreur" });
@@ -471,6 +623,73 @@ export default function DocumentTypeEntitee() {
     }
   };
 
+  const onAddEntityPiece = async (
+    entityType: EntityTypeApi, // ✅ Utiliser EntityTypeApi
+    entityId: number,
+    pieceId: number,
+  ) => {
+    if (!selected?.id) return;
+
+    try {
+      await addPieceToEntityMutation.mutateAsync({
+        typeDocumentId: String(selected.id),
+        payload: {
+          entity_type: entityType,
+          entity_id: entityId,
+          piece_id: Number(pieceId),
+        },
+      });
+
+      toast.current?.show({
+        severity: "success",
+        summary: "Pièce ajoutée à l'entité",
+      });
+
+      await refetch();
+    } catch (err) {
+      console.error(err);
+      toast.current?.show({
+        severity: "error",
+        summary: "Erreur",
+        detail: "Impossible d'ajouter la pièce",
+      });
+    }
+  };
+
+  const onRemoveEntityPiece = async (
+    entityType: EntityTypeApi, // ✅ Utiliser EntityTypeApi
+    entityId: number,
+    pieceId: number,
+  ) => {
+    if (!selected?.id) return;
+
+    try {
+      await removePieceFromEntityMutation.mutateAsync({
+        typeDocumentId: String(selected.id),
+        payload: {
+          entity_type: entityType,
+          entity_id: entityId,
+          piece_id: Number(pieceId),
+        },
+      });
+
+      toast.current?.show({
+        severity: "success",
+        summary: "Pièce retirée de l'entité",
+      });
+
+      await refetch();
+    } catch (err) {
+      console.error(err);
+      toast.current?.show({
+        severity: "error",
+        summary: "Erreur",
+        detail: "Impossible de retirer la pièce",
+      });
+    }
+  };
+
+  // ✅ handleAffectationSubmit (inchangé)
   const handleAffectationSubmit = async (payload: any) => {
     try {
       if (selected?.id) {
@@ -532,30 +751,79 @@ export default function DocumentTypeEntitee() {
     }
   };
 
+  // const handleStructureClick = (structureName: string) => {
+  //   setExpandedStructure(
+  //     expandedStructure === structureName ? null : structureName,
+  //   );
+
+  //   if (structureName !== "Type de documents non assignés") {
+  //     const foundOption = filteredOptions.find(
+  //       (opt) =>
+  //         opt.label?.includes(structureName) ||
+  //         opt.label?.includes(`🏢 ${structureName}`) ||
+  //         opt.label?.includes(`📂 ${structureName}`) ||
+  //         opt.label?.includes(`📄 ${structureName}`),
+  //     );
+
+  //     if (foundOption && foundOption.value !== null) {
+  //       setSelectedAccordionStructure({
+  //         label: foundOption.label,
+  //         value: foundOption.value,
+  //       });
+  //       setSelectedTypeDoc(foundOption.value);
+  //     }
+  //   }
+  // };
+
   const handleStructureClick = (structureName: string) => {
     setExpandedStructure(
       expandedStructure === structureName ? null : structureName,
     );
 
     if (structureName !== "Type de documents non assignés") {
-      const foundOption = filteredOptions.find(
-        (opt) =>
-          opt.label?.includes(structureName) ||
-          opt.label?.includes(`🏢 ${structureName}`) ||
-          opt.label?.includes(`📂 ${structureName}`) ||
-          opt.label?.includes(`📄 ${structureName}`),
-      );
+      // Chercher l'entité correspondante
+      let entityId: number | undefined;
+      let entityType: "entiteeUn" | "entiteeDeux" | "entiteeTrois" | undefined;
 
-      if (foundOption && foundOption.value !== null) {
-        setSelectedAccordionStructure({
-          label: foundOption.label,
-          value: foundOption.value,
+      const foundE3 = entiteeTrois.find((e) => e.libelle === structureName);
+      if (foundE3) {
+        entityId = foundE3.id;
+        entityType = "entiteeTrois";
+      }
+
+      if (!entityId) {
+        const foundE2 = entiteeDeux.find((e) => e.libelle === structureName);
+        if (foundE2) {
+          entityId = foundE2.id;
+          entityType = "entiteeDeux";
+        }
+      }
+
+      if (!entityId) {
+        const foundE1 = entiteeUn.find((e) => e.libelle === structureName);
+        if (foundE1) {
+          entityId = foundE1.id;
+          entityType = "entiteeUn";
+        }
+      }
+
+      if (entityId && entityType) {
+        setSelectedAccordionEntity({
+          label: structureName,
+          value:
+            entityType === "entiteeUn"
+              ? String(entityId)
+              : entityType === "entiteeDeux"
+                ? `E2-${entityId}`
+                : `E3-${entityId}`,
+          id: entityId,
+          type: entityType,
         });
-        setSelectedTypeDoc(foundOption.value);
       }
     }
   };
 
+  // ✅ Gestion des états de chargement/erreur
   if (isLoading) {
     return (
       <Layout>
@@ -657,9 +925,10 @@ export default function DocumentTypeEntitee() {
                         : "border-slate-100"
                     }`}
                   >
-                    <button
+                    {/* ✅ HEADER DE L'ACCORDÉON */}
+                    <div
                       onClick={() => handleStructureClick(structureName)}
-                      className={`w-full flex items-center justify-between p-5 transition-all ${
+                      className={`w-full flex items-center justify-between p-5 transition-all cursor-pointer ${
                         expandedStructure === structureName
                           ? "bg-emerald-50/50"
                           : "hover:bg-slate-50"
@@ -694,6 +963,62 @@ export default function DocumentTypeEntitee() {
                             >
                               {structureName}
                             </h3>
+
+                            {/* ✅ BOUTON GÉRER LES TYPES - maintenant dans une <div> */}
+                            {!isNonAssigned && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  let entityId: number | undefined;
+                                  let entityTypeValue:
+                                    | "entiteeUn"
+                                    | "entiteeDeux"
+                                    | "entiteeTrois"
+                                    | undefined;
+
+                                  const foundE3 = entiteeTrois.find(
+                                    (e) => e.libelle === structureName,
+                                  );
+                                  if (foundE3) {
+                                    entityId = foundE3.id;
+                                    entityTypeValue = "entiteeTrois";
+                                  }
+
+                                  if (!entityId) {
+                                    const foundE2 = entiteeDeux.find(
+                                      (e) => e.libelle === structureName,
+                                    );
+                                    if (foundE2) {
+                                      entityId = foundE2.id;
+                                      entityTypeValue = "entiteeDeux";
+                                    }
+                                  }
+
+                                  if (!entityId) {
+                                    const foundE1 = entiteeUn.find(
+                                      (e) => e.libelle === structureName,
+                                    );
+                                    if (foundE1) {
+                                      entityId = foundE1.id;
+                                      entityTypeValue = "entiteeUn";
+                                    }
+                                  }
+
+                                  if (entityId && entityTypeValue) {
+                                    handleOpenEntiteeTypes(
+                                      entityId,
+                                      entityTypeValue,
+                                      structureName,
+                                    );
+                                  }
+                                }}
+                                className="p-1.5 text-dgcc5 hover:bg-dgcc12 rounded-lg transition-colors"
+                                title="Gérer les types de documents"
+                              >
+                                <Layers size={16} />
+                              </button>
+                            )}
+
                             {selectedAccordionStructure?.label.includes(
                               structureName,
                             ) && (
@@ -712,174 +1037,191 @@ export default function DocumentTypeEntitee() {
                       ) : (
                         <ChevronRight size={20} className="text-slate-400" />
                       )}
-                    </button>
-
+                    </div>
+                    {/* ✅ CONTENU DE L'ACCORDÉON */}
                     {expandedStructure === structureName && (
                       <div className="border-t border-slate-50">
-                        <div className="overflow-x-auto">
-                          <table className="w-full">
-                            <thead className="bg-slate-50/50">
-                              <tr>
-                                <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-left">
-                                  Code
-                                </th>
-                                <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-left">
-                                  Cote
-                                </th>
-                                <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-left">
-                                  Libellé
-                                </th>
-                                <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-center">
-                                  Actions
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
-                              {paginatedDocs.map((t) => (
-                                <tr
-                                  key={t.id}
-                                  onClick={() => {
-                                    setSelected(t);
-                                    setDetailsVisible(true);
-                                  }}
-                                  className="cursor-pointer hover:bg-slate-100/80 transition-colors"
-                                >
-                                  <td className="p-4">
-                                    <span className="bg-slate-100 text-slate-400 px-2 py-1 rounded-md text-xs font-bold">
-                                      {t.code}
-                                    </span>
-                                  </td>
-                                  <td className="p-4">
-                                    <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold">
-                                      {t.cote}
-                                    </span>
-                                  </td>
-                                  <td className="p-4">
-                                    <div className="font-semibold text-slate-800 text-sm flex items-center gap-2">
-                                      <FileText
-                                        size={25}
-                                        className="text-emerald-500"
-                                      />
-                                      {t.nom}
-                                    </div>
-                                  </td>
-                                  <td className="p-4">
-                                    <div className="flex justify-center gap-1">
-                                      <button
-                                        onClick={(e) => {
-                                          setSelected(t);
-                                          setFormPiecesVisible(true);
-                                          e.stopPropagation();
-                                        }}
-                                        className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg"
-                                      >
-                                        <FilePlus size={25} />
-                                      </button>
-                                      {isNonAssigned && (
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setSelected(t);
-                                            if (selectedAccordionStructure) {
-                                              setSelectedTypeDoc(
-                                                selectedAccordionStructure.value,
-                                              );
-                                              setAffectationFormVisible(true);
-                                            } else {
-                                              setAffectationFormVisible(true);
-                                            }
-                                          }}
-                                          className={`p-2 rounded-lg ${
-                                            selectedAccordionStructure
-                                              ? "text-blue-600 bg-blue-50 hover:bg-blue-100"
-                                              : "text-blue-500 hover:bg-blue-50"
-                                          }`}
-                                          title={
-                                            selectedAccordionStructure
-                                              ? `Affecter à ${selectedAccordionStructure.label}`
-                                              : "Affecter à une structure"
-                                          }
-                                        >
-                                          <SplinePointer size={25} />
-                                        </button>
-                                      )}
+                        {totalDocuments > 0 ? (
+                          <>
+                            <div className="overflow-x-auto">
+                              <table className="w-full">
+                                <thead className="bg-slate-50/50">
+                                  <tr>
+                                    <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-left">
+                                      Code
+                                    </th>
+                                    <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-left">
+                                      Cote
+                                    </th>
+                                    <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-left">
+                                      Libellé
+                                    </th>
+                                    <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-center">
+                                      Actions
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                  {paginatedDocs.map((t) => (
+                                    <tr
+                                      key={t.id}
+                                      onClick={() => {
+                                        setSelected(t);
+                                        setDetailsVisible(true);
+                                      }}
+                                      className="cursor-pointer hover:bg-slate-100/80 transition-colors"
+                                    >
+                                      <td className="p-4">
+                                        <span className="bg-slate-100 text-slate-400 px-2 py-1 rounded-md text-xs font-bold">
+                                          {t.code}
+                                        </span>
+                                      </td>
+                                      <td className="p-4">
+                                        <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold">
+                                          {t.cote}
+                                        </span>
+                                      </td>
+                                      <td className="p-4">
+                                        <div className="font-semibold text-slate-800 text-sm flex items-center gap-2">
+                                          <FileText
+                                            size={25}
+                                            className="text-emerald-500"
+                                          />
+                                          {t.nom}
+                                        </div>
+                                      </td>
+                                      <td className="p-4">
+                                        <div className="flex justify-center gap-1">
+                                          <button
+                                            onClick={(e) => {
+                                              setSelected(t);
+                                              setFormPiecesVisible(true);
+                                              e.stopPropagation();
+                                            }}
+                                            className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg"
+                                            title="Ajouter des pièces"
+                                          >
+                                            <FilePlus size={25} />
+                                          </button>
 
-                                      <button
-                                        onClick={(e) => {
-                                          setEditing(t);
-                                          setFormVisible(true);
-                                          e.stopPropagation();
-                                        }}
-                                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg"
-                                      >
-                                        <Pencil size={25} />
-                                      </button>
-                                      
-                                      {/* Bouton Métadonnées de base */}
-                                      <button
-                                        onClick={(e) => {
-                                          setSelected(t);
-                                          setMetaVisible(true);
-                                          e.stopPropagation();
-                                        }}
-                                        className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg"
-                                        title="Gérer les champs de base"
-                                      >
-                                        <Settings size={25} />
-                                      </button>
+                                          {isNonAssigned && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelected(t);
+                                                if (
+                                                  selectedAccordionStructure
+                                                ) {
+                                                  setSelectedTypeDoc(
+                                                    selectedAccordionStructure.value,
+                                                  );
+                                                  setAffectationFormVisible(
+                                                    true,
+                                                  );
+                                                } else {
+                                                  setAffectationFormVisible(
+                                                    true,
+                                                  );
+                                                }
+                                              }}
+                                              className={`p-2 rounded-lg ${
+                                                selectedAccordionStructure
+                                                  ? "text-blue-600 bg-blue-50 hover:bg-blue-100"
+                                                  : "text-blue-500 hover:bg-blue-50"
+                                              }`}
+                                              title={
+                                                selectedAccordionStructure
+                                                  ? `Affecter à ${selectedAccordionStructure.label}`
+                                                  : "Affecter à une structure"
+                                              }
+                                            >
+                                              <SplinePointer size={25} />
+                                            </button>
+                                          )}
 
-                                      {/* Bouton Personnalisation par entité */}
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setSelected(t);
-                                          // Déterminer le type d'entité
-                                          if (t.entitee_trois_id) {
-                                            setSelectedEntityType("EntiteeTrois");
-                                          } else if (t.entitee_deux_id) {
-                                            setSelectedEntityType("EntiteeDeux");
-                                          } else if (t.entitee_un_id) {
-                                            setSelectedEntityType("EntiteeUn");
-                                          } else {
-                                            setSelectedEntityType("EntiteeUn");
-                                          }
-                                          setEntityFieldManagerVisible(true);
-                                        }}
-                                        className="p-2 text-purple-500 hover:bg-purple-50 rounded-lg"
-                                        title="Personnaliser les champs pour cette entité"
-                                      >
-                                        <Settings size={25} />
-                                      </button>
+                                          <button
+                                            onClick={(e) => {
+                                              setEditing(t);
+                                              setFormVisible(true);
+                                              e.stopPropagation();
+                                            }}
+                                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                                            title="Modifier"
+                                          >
+                                            <Pencil size={25} />
+                                          </button>
 
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDelete(String(t.id));
-                                        }}
-                                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                                      >
-                                        <Trash2 size={25} />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                                          <button
+                                            onClick={(e) => {
+                                              setSelected(t);
+                                              setMetaVisible(true);
+                                              e.stopPropagation();
+                                            }}
+                                            className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg"
+                                            title="Métadonnées"
+                                          >
+                                            <Settings size={25} />
+                                          </button>
 
-                        {totalPages > 1 && (
-                          <div className="border-t border-slate-100 p-4 bg-slate-50/30">
-                            <div className="flex justify-center items-center">
-                              <Pagination
-                                currentPage={internalPage}
-                                totalItems={totalDocuments}
-                                itemsPerPage={itemsPerPageInternal}
-                                onPageChange={(page) =>
-                                  handleInternalPageChange(structureName, page)
-                                }
-                              />
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleDelete(String(t.id));
+                                            }}
+                                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                                            title="Supprimer"
+                                          >
+                                            <Trash2 size={25} />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
+
+                            {/* ✅ Pagination interne pour cet accordéon */}
+                            {totalPages > 1 && (
+                              <div className="border-t border-slate-100 p-4 bg-slate-50/30">
+                                <div className="flex justify-center items-center">
+                                  <Pagination
+                                    currentPage={internalPage}
+                                    totalItems={totalDocuments}
+                                    itemsPerPage={itemsPerPageInternal}
+                                    onPageChange={(page) =>
+                                      handleInternalPageChange(
+                                        structureName,
+                                        page,
+                                      )
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          /* ✅ Message quand l'entité existe mais n'a pas de documents */
+                          <div className="text-center py-8">
+                            <FileText
+                              size={32}
+                              className="mx-auto text-slate-300 mb-2"
+                            />
+                            <p className="text-sm text-slate-400 italic">
+                              Aucun type de document pour cette entité
+                            </p>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Ouvrir le formulaire de création pré-rempli
+                                setEditing(null);
+                                setFormVisible(true);
+                              }}
+                              className="mt-3 text-sm bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition-all"
+                            >
+                              <Plus size={14} className="inline mr-1" /> Créer
+                              le premier type
+                            </button>
                           </div>
                         )}
                       </div>
@@ -930,16 +1272,40 @@ export default function DocumentTypeEntitee() {
         onSubmit={handleMetaSubmit}
         type={selected}
       />
-      
-      <TypeDocumentAjoutPieces
+      {/* <TypeDocumentAjoutPieces
         visible={formPiecesVisible}
         onHide={() => setFormPiecesVisible(false)}
         onSubmit={onAddPieces}
         initial={selected}
         title={"Pièces à fournir"}
         pieces={pieces}
-      />
-      
+      /> */}
+
+      {/* ✅ Remplacer le bloc des modals pièces */}
+      {!expandedStructure ||
+      expandedStructure === "Type de documents non assignés" ? (
+        <TypeDocumentAjoutPieces
+          visible={formPiecesVisible}
+          onHide={() => setFormPiecesVisible(false)}
+          onSubmit={onAddPieces}
+          initial={selected}
+          title={"Pièces à fournir"}
+          pieces={pieces}
+        />
+      ) : (
+        <TypeDocumentAjoutPiecesEntytee
+          visible={formPiecesVisible}
+          onHide={() => setFormPiecesVisible(false)}
+          onSubmit={onAddPieces}
+          onAddEntityPiece={onAddEntityPiece}
+          onRemoveEntityPiece={onRemoveEntityPiece}
+          entityType={convertEntityType(selectedAccordionEntity?.type)}
+          entityId={selectedAccordionEntity?.id || 0}
+          initial={selected}
+          pieces={pieces}
+        />
+      )}
+
       <DocumentTypeAffectationForm
         visible={affectationFormVisible}
         onHide={() => setAffectationFormVisible(false)}
@@ -965,30 +1331,25 @@ export default function DocumentTypeEntitee() {
           ""
         }
       />
-
-      {/* Modal pour la personnalisation des champs par entité */}
-      <EntityFieldManager
-        visible={entityFieldManagerVisible}
-        onHide={() => setEntityFieldManagerVisible(false)}
-        typeDocumentId={selected?.id}
-        entityType={selectedEntityType}
-        entityId={
-          selected?.entitee_trois_id ||
-          selected?.entitee_deux_id ||
-          selected?.entitee_un_id ||
-          0
-        }
-        typeDocumentName={selected?.nom}
-        entityName={
-          selected?.entitee_trois?.libelle ||
-          selected?.entitee_deux?.libelle ||
-          selected?.entitee_un?.libelle ||
-          "Entité"
-        }
-        onRefresh={() => {
-          refetch();
-        }}
-      />
+      {/* ✅ MODAL GESTION DES TYPES PAR ENTITÉ */}
+      {entiteeModalVisible &&
+        selectedEntityForTypes &&
+        selectedEntityForTypes.id > 0 && (
+          <EntiteeAjoutTypeDocument
+            visible={entiteeModalVisible}
+            onHide={() => {
+              setEntiteeModalVisible(false);
+              setSelectedEntityForTypes(null);
+            }}
+            entityId={selectedEntityForTypes.id}
+            entityType={selectedEntityForTypes.type}
+            entityLabel={selectedEntityForTypes.label}
+            allTypes={types}
+            onSuccess={() => {
+              refetch();
+            }}
+          />
+        )}
     </Layout>
   );
 }

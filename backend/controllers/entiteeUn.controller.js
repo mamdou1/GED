@@ -2,6 +2,8 @@
 const { EntiteeUn, Fonction } = require("../models");
 const logger = require("../config/logger.config");
 const HistoriqueService = require("../services/historique.service");
+const entityTypeDocumentService = require("../services/entityTypeDocument.service");
+
 
 exports.createEntiteeUn = async (req, res) => {
   const startTime = Date.now();
@@ -346,3 +348,23 @@ exports.deleteEntiteeUn = async (req, res) => {
       .json({ message: "Erreur suppression EntiteeUn", error: err.message });
   }
 };
+
+exports.addTypesToEntiteeUn = entityTypeDocumentService.addTypesToEntity(
+  EntiteeUn,
+  "EntiteeUn",
+  "addTypeDocuments",
+);
+
+// Retirer des types de documents d'une direction
+exports.removeTypesFromEntiteeUn =
+  entityTypeDocumentService.removeTypesFromEntity(
+    EntiteeUn,
+    "EntiteeUn",
+    "removeTypeDocuments",
+  );
+
+// Obtenir les types de documents d'une direction
+exports.getTypesOfEntiteeUn = entityTypeDocumentService.getTypesOfEntity(
+  EntiteeUn,
+  "EntiteeUn",
+);

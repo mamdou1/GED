@@ -40,18 +40,42 @@ module.exports = (sequelize, DataTypes) => {
       as: "pieces",
     });
 
-    TypeDocument.belongsTo(models.EntiteeUn, {
-      foreignKey: "entitee_un_id",
+    TypeDocument.belongsToMany(models.EntiteeUn, {
+      through: "entitee_un_type_documents",
+      foreignKey: "type_document_id",
+      otherKey: "entitee_un_id",
       as: "entitee_un",
     });
-    TypeDocument.belongsTo(models.EntiteeDeux, {
-      foreignKey: "entitee_deux_id",
+    TypeDocument.belongsToMany(models.EntiteeDeux, {
+      through: "entitee_deux_type_documents",
+      foreignKey: "type_document_id",
+      otherKey: "entitee_deux_id",
       as: "entitee_deux",
     });
-    TypeDocument.belongsTo(models.EntiteeTrois, {
-      foreignKey: "entitee_trois_id",
+    TypeDocument.belongsToMany(models.EntiteeTrois, {
+      through: "entitee_trois_type_documents",
+      foreignKey: "type_document_id",
+      otherKey: "entitee_trois_id",
       as: "entitee_trois",
     });
+
+    TypeDocument.hasMany(models.EntityTypeDocumentPiece, {
+      foreignKey: "type_document_id",
+      as: "entityPieceOverrides",
+    });
+
+    // TypeDocument.belongsTo(models.EntiteeUn, {
+    //   foreignKey: "entitee_un_id",
+    //   as: "entitee_un",
+    // });
+    // TypeDocument.belongsTo(models.EntiteeDeux, {
+    //   foreignKey: "entitee_deux_id",
+    //   as: "entitee_deux",
+    // });
+    // TypeDocument.belongsTo(models.EntiteeTrois, {
+    //   foreignKey: "entitee_trois_id",
+    //   as: "entitee_trois",
+    // });
   };
 
   return TypeDocument;

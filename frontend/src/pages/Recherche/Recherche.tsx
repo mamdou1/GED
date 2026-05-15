@@ -21,7 +21,7 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react";
-import { getAllFieldsForEntity } from "../../api/metaField"; // ✅ Utiliser la route /all
+import { getMetaById } from "../../api/metaField";
 import { getDocuments } from "../../api/document";
 import { getTypeDocuments } from "../../api/typeDocument";
 import Pagination from "../../components/layout/Pagination";
@@ -33,11 +33,20 @@ import {
   EntiteeTrois,
   User,
 } from "../../interfaces";
-import { getAllEntiteeUn, getEntiteeUnTitre } from "../../api/entiteeUn";
-import { getAllEntiteeDeux, getEntiteeDeuxTitre } from "../../api/entiteeDeux";
+import {
+  getAllEntiteeUn,
+  getEntiteeUnTitre,
+  getTypesOfEntiteeUn, // ✅ NOUVEAU — API Many-to-Many
+} from "../../api/entiteeUn";
+import {
+  getAllEntiteeDeux,
+  getEntiteeDeuxTitre,
+  getTypesOfEntiteeDeux, // ✅ NOUVEAU — API Many-to-Many
+} from "../../api/entiteeDeux";
 import {
   getAllEntiteeTrois,
   getEntiteeTroisTitre,
+  getTypesOfEntiteeTrois, // ✅ NOUVEAU — API Many-to-Many
 } from "../../api/entiteeTrois";
 import DocumentDetails from "../Document/DocumentDetails";
 import RechercheUploadPieces from "./RechercheUploadPieces";
@@ -49,16 +58,6 @@ import {
   useTraves,
   useBoxes,
 } from "../../hooks/useArchivageQueries";
-
-// Normaliser le type d'entité pour l'API
-const normalizeEntityType = (type: string): string => {
-  const mapping: Record<string, string> = {
-    un: "EntiteeUn",
-    deux: "EntiteeDeux",
-    trois: "EntiteeTrois",
-  };
-  return mapping[type] || type;
-};
 
 // =============================================
 // ✅ LocationModal - UNIQUEMENT avec les hooks
@@ -89,13 +88,11 @@ function LocationModal({ visible, onHide, doc }: any) {
     };
 
     if (!box.trave_id) return result;
-
     const trave = allTraves.find((t) => Number(t.id) === Number(box.trave_id));
     if (!trave) return result;
     result.trave = trave.code;
 
     if (!trave.rayon_id) return result;
-
     const rayon = allRayons.find(
       (r) => Number(r.id) === Number(trave.rayon_id)
     );
@@ -103,7 +100,6 @@ function LocationModal({ visible, onHide, doc }: any) {
     result.rayon = rayon.code;
 
     if (!rayon.salle_id) return result;
-
     const salle = allSalles.find(
       (s) => Number(s.id) === Number(rayon.salle_id)
     );
@@ -111,7 +107,6 @@ function LocationModal({ visible, onHide, doc }: any) {
     result.salle = salle.libelle;
 
     if (!salle.site_id) return result;
-
     const site = allSites.find((s) => Number(s.id) === Number(salle.site_id));
     if (!site) return result;
     result.site = site.nom;
@@ -307,7 +302,7 @@ function LocationModal({ visible, onHide, doc }: any) {
 }
 
 // =============================================
-// ✅ LocationBadge - UNIQUEMENT avec les hooks
+// ✅ LocationBadge
 // =============================================
 function LocationBadge({ doc, onClick }: { doc: any; onClick: () => void }) {
   const { data: allBoxes = [] } = useBoxes();
@@ -328,37 +323,31 @@ function LocationBadge({ doc, onClick }: { doc: any; onClick: () => void }) {
   const getCompactPath = () => {
     const box = allBoxes.find((b) => Number(b.id) === Number(doc.box_id));
     if (!box) return `Box #${doc.box_id}`;
-
     let path = box.libelle;
-
     if (box.trave_id) {
       const trave = allTraves.find(
         (t) => Number(t.id) === Number(box.trave_id)
       );
       if (trave) {
         path = `${trave.code} → ${path}`;
-
         if (trave.rayon_id) {
           const rayon = allRayons.find(
             (r) => Number(r.id) === Number(trave.rayon_id)
           );
-          if (rayon && rayon.salle_id) {
+          if (rayon?.salle_id) {
             const salle = allSalles.find(
               (s) => Number(s.id) === Number(rayon.salle_id)
             );
-            if (salle && salle.site_id) {
+            if (salle?.site_id) {
               const site = allSites.find(
                 (s) => Number(s.id) === Number(salle.site_id)
               );
-              if (site) {
-                path = `${site.nom} → ${path}`;
-              }
+              if (site) path = `${site.nom} → ${path}`;
             }
           }
         }
       }
     }
-
     return path;
   };
 
@@ -378,7 +367,7 @@ function LocationBadge({ doc, onClick }: { doc: any; onClick: () => void }) {
 }
 
 // =============================================
-// Composant principal Recherche
+// ✅ Composant principal Recherche
 // =============================================
 export default function Recherche() {
   const { user } = useAuth();
@@ -391,7 +380,7 @@ export default function Recherche() {
   const [entiteeDeux, setEntiteeDeux] = useState<EntiteeDeux[]>([]);
   const [entiteeTrois, setEntiteeTrois] = useState<EntiteeTrois[]>([]);
 
-  const [selectedNiveau, setSelectedNiveau] = useState<string | null>(null);
+  const [selectedNiveau, setSelectedNiveau] = useState<NiveauType | null>(null);
   const [selectedEntitee, setSelectedEntitee] = useState<number | null>(null);
   const [filteredTypesByEntitee, setFilteredTypesByEntitee] = useState<
     TypeDocument[]
@@ -417,11 +406,14 @@ export default function Recherche() {
   const [searchValues, setSearchValues] = useState<{ [key: number]: string }>(
     {}
   );
+  const [loading, setLoading] = useState(false); // ✅ NOUVEAU
+  const [loadingTypes, setLoadingTypes] = useState(false); // ✅ NOUVEAU
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
   const toast = useRef<Toast>(null);
 
-  // ========== FONCTIONS UTILITAIRES (accès) ==========
+  // ... (garder toutes les fonctions utilitaires isUserAdmin, getUserAccessibleEntityIds, etc. inchangées)
+
   const isUserAdmin = (user: User | null): boolean => {
     if (!user) return false;
     const droitLibelle =
@@ -466,7 +458,7 @@ export default function Recherche() {
     (user?.agent_access?.length ?? 0) > 0;
 
   const getUserFonctionEntityType = (
-    user: User | null
+    user: User | null,
   ): "un" | "deux" | "trois" | null => {
     if (user?.fonction_details?.entitee_trois) return "trois";
     if (user?.fonction_details?.entitee_deux) return "deux";
@@ -483,7 +475,10 @@ export default function Recherche() {
     );
   };
 
-  const getUserFonctionTypes = (user: User | null, allTypes: TypeDocument[]) => {
+  const getUserFonctionTypes = (
+    user: User | null,
+    allTypes: TypeDocument[],
+  ) => {
     const entityType = getUserFonctionEntityType(user);
     const entityId = getUserFonctionEntityId(user);
     if (!entityType || !entityId) return [];
@@ -500,7 +495,10 @@ export default function Recherche() {
     const accessibleIds = getUserAccessibleEntityIds(user);
     if (hasAdditionalAccess(user)) {
       return types.filter((typeDoc) => {
-        if (typeDoc.entitee_un_id && accessibleIds.un.has(typeDoc.entitee_un_id))
+        if (
+          typeDoc.entitee_un_id &&
+          accessibleIds.un.has(typeDoc.entitee_un_id)
+        )
           return true;
         if (
           typeDoc.entitee_deux_id &&
@@ -520,46 +518,13 @@ export default function Recherche() {
     if (!fonctionId || !fonctionType) return [];
     return types.filter((typeDoc) => {
       if (fonctionType === "un") return typeDoc.entitee_un_id === fonctionId;
-      if (fonctionType === "deux") return typeDoc.entitee_deux_id === fonctionId;
+      if (fonctionType === "deux")
+        return typeDoc.entitee_deux_id === fonctionId;
       if (fonctionType === "trois")
         return typeDoc.entitee_trois_id === fonctionId;
       return false;
     });
   }, [types, user]);
-
-  // ✅ Charger les méta-champs (base + personnalisés) via la route /all
-  const loadMetaFieldsForEntity = async () => {
-    if (!documentType_id || !selectedNiveau || !selectedEntitee) {
-      setMetaFields([]);
-      return;
-    }
-
-    try {
-      const normalizedType = normalizeEntityType(selectedNiveau);
-      console.log("🔍 Chargement des champs pour:", {
-        typeDocId: documentType_id,
-        entityType: normalizedType,
-        entityId: selectedEntitee,
-      });
-      const response = await getAllFieldsForEntity(
-        documentType_id,
-        normalizedType,
-        selectedEntitee
-      );
-      console.log("📋 Champs récupérés (base + personnalisés):", response);
-      const visibleFields = response.filter((f: any) => f.hidden !== true);
-      setMetaFields(visibleFields);
-      setSelectedFields([]);
-      setSearchValues({});
-    } catch (error) {
-      console.error("Erreur chargement méta-champs:", error);
-      setMetaFields([]);
-    }
-  };
-
-  useEffect(() => {
-    loadMetaFieldsForEntity();
-  }, [documentType_id, selectedNiveau, selectedEntitee]);
 
   // Charger les titres et les entités
   useEffect(() => {
@@ -588,9 +553,22 @@ export default function Recherche() {
     loadTitresEtEntites();
   }, []);
 
-  // Options pour le premier dropdown
+  // Chargement initial
+  useEffect(() => {
+    const loadData = async () => {
+      const [resDocs, resTypes] = await Promise.all([
+        getDocuments(),
+        getTypeDocuments(),
+      ]);
+      setDocs(resDocs);
+      setTypes(resTypes.typeDocument);
+    };
+    loadData();
+  }, []);
+
+  // Options niveau
   const niveauOptions = useMemo(() => {
-    const options: { label: string; value: string }[] = [];
+    const options: { label: string; value: NiveauType }[] = [];
     if (isUserAdmin(user)) {
       if (titres.niveau1) options.push({ label: titres.niveau1, value: "un" });
       if (titres.niveau2) options.push({ label: titres.niveau2, value: "deux" });
@@ -608,7 +586,7 @@ export default function Recherche() {
     return options;
   }, [titres, user]);
 
-  // Options pour le deuxième dropdown
+  // Options entité
   const entiteeOptions = useMemo(() => {
     if (!selectedNiveau) return [];
     let entites: any[] = [];
@@ -627,7 +605,7 @@ export default function Recherche() {
     }));
   }, [selectedNiveau, entiteeUn, entiteeDeux, entiteeTrois, user]);
 
-  // Filtrer les types par entité
+  // Filtrer les types
   useEffect(() => {
     if (!selectedEntitee || !selectedNiveau) {
       setFilteredTypesByEntitee([]);
@@ -645,7 +623,7 @@ export default function Recherche() {
     setFilteredTypesByEntitee(filtered);
   }, [selectedEntitee, selectedNiveau, types]);
 
-  // Chargement initial des documents et types
+  // Chargement initial
   useEffect(() => {
     const loadData = async () => {
       const [resDocs, resTypes] = await Promise.all([
@@ -657,6 +635,19 @@ export default function Recherche() {
     };
     loadData();
   }, []);
+
+  // Métadonnées
+  useEffect(() => {
+    if (documentType_id) {
+      getMetaById(String(documentType_id)).then((res) => {
+        setMetaFields(res);
+        setSelectedFields([]);
+        setSearchValues({});
+      });
+    } else {
+      setMetaFields([]);
+    }
+  }, [documentType_id]);
 
   const toggleField = (id: number) => {
     setSelectedFields((prev) =>
@@ -684,6 +675,7 @@ export default function Recherche() {
   );
 
   const getSearchInterface = () => {
+    // Cas simple : pas d'accès supplémentaire, pas admin
     if (!hasAdditionalAccess(user) && !isUserAdmin(user)) {
       const fonctionTypes = getUserFonctionTypes(user, types);
       return (
@@ -706,6 +698,8 @@ export default function Recherche() {
         </div>
       );
     }
+
+    // Cas admin ou accès multiples : interface à 3 dropdowns
     return (
       <div className="bg-white p-6 rounded-2xl border border-emerald-100 shadow-sm mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -720,6 +714,7 @@ export default function Recherche() {
                 setSelectedNiveau(e.value);
                 setSelectedEntitee(null);
                 setDocumentType_id(null);
+                setFilteredTypesByEntitee([]);
               }}
               placeholder="Sélectionner un niveau"
               className="w-full border-none shadow-none bg-emerald-50/50 rounded-xl"
@@ -760,13 +755,17 @@ export default function Recherche() {
               value={documentType_id}
               options={filteredTypesByEntitee}
               onChange={(e) => setDocumentType_id(e.value)}
-              disabled={!selectedEntitee || filteredTypesByEntitee.length === 0}
+              disabled={
+                !selectedEntitee ||
+                filteredTypesByEntitee.length === 0 ||
+                loadingTypes
+              }
               placeholder={
                 !selectedEntitee
                   ? "Choisissez d'abord une structure"
                   : filteredTypesByEntitee.length === 0
-                  ? "Aucun type disponible"
-                  : "Sélectionner un type"
+                    ? "Aucun type disponible"
+                    : "Sélectionner un type"
               }
               className="w-full border-none shadow-none bg-emerald-50/50 rounded-xl"
               optionLabel="nom"
@@ -796,7 +795,7 @@ export default function Recherche() {
       {documentType_id && metaFields.length > 0 && (
         <div className="bg-white p-6 rounded-2xl border border-emerald-100 shadow-sm mb-6">
           <p className="text-sm font-bold text-emerald-800 mb-3">
-            Critères de recherche :
+            Critères de recherche ({metaFields.length}) :
           </p>
           <div className="flex flex-wrap gap-4">
             {metaFields.map((m) => (
@@ -859,11 +858,6 @@ export default function Recherche() {
                     className="p-5 text-[11px] font-black text-emerald-800 uppercase"
                   >
                     {m.label}
-                    {m.source === "custom" && (
-                      <span className="ml-1 text-[9px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full align-middle">
-                        Personnalisé
-                      </span>
-                    )}
                   </th>
                 ))}
                 <th className="p-5 text-[11px] font-black text-emerald-800 uppercase w-48">
@@ -875,7 +869,7 @@ export default function Recherche() {
               </tr>
             </thead>
             <tbody className="divide-y divide-emerald-50">
-              {documentType_id && paginated.length > 0 ? (
+              {documentType_id &&
                 paginated.map((d) => (
                   <tr
                     key={d.id}
@@ -960,6 +954,7 @@ export default function Recherche() {
             </tbody>
           </table>
         </div>
+
         {!documentType_id && (
           <div className="p-20 text-center">
             <div className="inline-flex p-6 bg-emerald-50 rounded-full mb-4 text-emerald-200">

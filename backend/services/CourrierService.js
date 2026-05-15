@@ -237,7 +237,7 @@ class CourrierService {
         let statut_delai = "NORMAL";
         let heures_restantes = null;
 
-        if (row.date_limite_traitement && row.statut === "ATTRIBUÉ") {
+        if (row.date_limite_traitement && row.statut === "ATTRIBUE") {
           heures_restantes = Math.floor(
             (new Date(row.date_limite_traitement) - new Date()) /
               (1000 * 60 * 60),
@@ -431,7 +431,7 @@ class CourrierService {
         where: {
           entitee_id,
           destinataire_idagent: agentId,
-          statut: { [Op.in]: ["ATTRIBUÉ", "EN_COURS", "VALIDÉ"] },
+          statut: { [Op.in]: ["ATTRIBUE", "EN_COURS", "VALIDE"] },
         },
         include: [
           {
@@ -480,7 +480,7 @@ class CourrierService {
     const transaction = await sequelize.transaction();
     try {
       const [affected] = await Courrier.update(
-        { statut: "VALIDÉ", modifie_par_agent_id: agentId },
+        { statut: "VALIDE", modifie_par_agent_id: agentId },
         { where: { idcourrier, statut: "EN_ATTENTE" }, transaction },
       );
 
@@ -513,7 +513,7 @@ class CourrierService {
     try {
       const [affected] = await Courrier.update(
         {
-          statut: "REJETÉ",
+          statut: "REJETE",
           modifie_par_agent_id: agentId,
           motif_traitement: motif,
         },
@@ -554,7 +554,7 @@ class CourrierService {
       const courrier = await Courrier.findByPk(idcourrier, { transaction });
       if (!courrier) throw new Error("Courrier non trouvé");
 
-      if (courrier.statut !== "VALIDÉ" && courrier.statut !== "ATTRIBUÉ") {
+      if (courrier.statut !== "VALIDE" && courrier.statut !== "ATTRIBUE") {
         throw new Error(
           "Seul un courrier validé ou déjà attribué peut recevoir une attribution",
         );
@@ -584,10 +584,10 @@ class CourrierService {
         { transaction },
       );
 
-      if (courrier.statut !== "ATTRIBUÉ") {
+      if (courrier.statut !== "ATTRIBUE") {
         await Courrier.update(
           {
-            statut: "ATTRIBUÉ",
+            statut: "ATTRIBUE",
             date_attribution: new Date(),
             date_limite_traitement: dateLimite,
             motif_traitement: instructions || "Instructions par défaut",
@@ -631,7 +631,7 @@ class CourrierService {
       const courrier = await Courrier.findByPk(idcourrier, { transaction });
       if (!courrier) throw new Error("Courrier non trouvé");
 
-      if (courrier.statut !== "VALIDÉ" && courrier.statut !== "ATTRIBUÉ") {
+      if (courrier.statut !== "VALIDE" && courrier.statut !== "ATTRIBUE") {
         throw new Error(
           "Seul un courrier validé ou déjà attribué peut être attribué à une entité",
         );
@@ -646,13 +646,13 @@ class CourrierService {
         );
       }
 
-      if (courrier.statut !== "ATTRIBUÉ") {
+      if (courrier.statut !== "ATTRIBUE") {
         await Courrier.update(
           {
             destinataire_entitee_id: entiteeId,
             destinataire_entitee_type: entiteeType,
             destinataire_idagent: chef.id,
-            statut: "ATTRIBUÉ",
+            statut: "ATTRIBUE",
             date_attribution: new Date(),
             motif_traitement:
               motif ||
@@ -712,7 +712,7 @@ class CourrierService {
       const courrier = await Courrier.findByPk(idcourrier, { transaction });
       if (!courrier) throw new Error("Courrier non trouvé");
 
-      if (courrier.statut !== "VALIDÉ") {
+      if (courrier.statut !== "VALIDE") {
         throw new Error("Seul un courrier validé peut être attribué");
       }
 
@@ -847,7 +847,7 @@ class CourrierService {
       if (premierDestinataire) {
         await Courrier.update(
           {
-            statut: "ATTRIBUÉ",
+            statut: "ATTRIBUE",
             date_attribution: new Date(),
             destinataire_idagent: premierDestinataire,
             attribue_par_agent_id: reqUser.id,
@@ -1019,7 +1019,7 @@ class CourrierService {
 
       const where = {
         entitee_id,
-        statut: { [Op.in]: ["ATTRIBUÉ", "EN_COURS"] },
+        statut: { [Op.in]: ["ATTRIBUE", "EN_COURS"] },
         date_limite_traitement: { [Op.lt]: new Date() },
       };
 
@@ -1127,9 +1127,9 @@ class CourrierService {
       ] = await Promise.all([
         Courrier.count({ where }),
         Courrier.count({ where: { ...where, statut: "EN_ATTENTE" } }),
-        Courrier.count({ where: { ...where, statut: "VALIDÉ" } }),
-        Courrier.count({ where: { ...where, statut: "REJETÉ" } }),
-        Courrier.count({ where: { ...where, statut: "ATTRIBUÉ" } }),
+        Courrier.count({ where: { ...where, statut: "VALIDE" } }),
+        Courrier.count({ where: { ...where, statut: "REJETE" } }),
+        Courrier.count({ where: { ...where, statut: "ATTRIBUE" } }),
         Courrier.count({ where: { ...where, statut: "TRAITE" } }),
         Courrier.count({ where: { ...where, statut: "ARCHIVE" } }),
         Courrier.count({ where: { ...where, statut: "RENVOYE" } }),
@@ -1138,7 +1138,7 @@ class CourrierService {
         Courrier.count({
           where: {
             ...where,
-            statut: { [Op.in]: ["ATTRIBUÉ", "EN_COURS"] },
+            statut: { [Op.in]: ["ATTRIBUE", "EN_COURS"] },
             date_limite_traitement: { [Op.lt]: new Date() },
           },
         }),

@@ -49,5 +49,9 @@ router.put("/:id", ctrl.update);
 
 // Supprimer un champ de base
 router.delete("/:id", ctrl.remove);
+router.get(
+  "/:typeId/entity/:entityType/:entityId/all",
+  ctrl.getAllFieldsForEntity,
+);
 
 module.exports = router;

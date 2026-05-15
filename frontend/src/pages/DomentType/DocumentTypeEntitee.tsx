@@ -49,11 +49,16 @@ import { useAuth } from "../../context/AuthContext";
 import EntiteeAjoutTypeDocument from "./EntiteeAjoutTypeDocument";
 import TypeDocumentAjoutPiecesEntytee from "./TypeDocumentAjoutPiecesEntytee";
 
+// Types pour les entités (UI et API)
+type EntityTypeUI = "entiteeUn" | "entiteeDeux" | "entiteeTrois";
+type EntityTypeApi = "entitee_un" | "entitee_deux" | "entitee_trois";
+type LegacyEntityType = "direction" | "sousDirection" | "division" | "section" | "service";
+
 export default function DocumentTypeEntitee() {
   const { user } = useAuth();
   const toast = useRef<Toast>(null);
 
-  // ✅ ÉTAT 1: Remplacer les useState multiples par useInitialData
+  // ✅ ÉTAT 1: useInitialData
   const {
     types = [],
     pieces = [],
@@ -66,7 +71,7 @@ export default function DocumentTypeEntitee() {
     refetch,
   } = useInitialData();
 
-  // ✅ ÉTAT 2: Remplacer les mutations
+  // ✅ ÉTAT 2: Mutations
   const createMutation = useCreateTypeDocument();
   const updateMutation = useUpdateTypeDocument();
   const deleteMutation = useDeleteTypeDocument();
@@ -93,50 +98,39 @@ export default function DocumentTypeEntitee() {
     label: string;
     value: string;
   } | null>(null);
-  const [expandedStructure, setExpandedStructure] = useState<string | null>(
-    null,
-  );
+  const [expandedStructure, setExpandedStructure] = useState<string | null>(null);
 
   // ✅ ÉTATS PAGINATION
   const [currentStructurePage, setCurrentStructurePage] = useState(1);
   const structuresPerPage = 5;
-  const [internalPages, setInternalPages] = useState<Record<string, number>>(
-    {},
-  );
-  const itemsPerPageInternal = 10; // Nombre de documents par page dans un accordéon
+  const [internalPages, setInternalPages] = useState<Record<string, number>>({});
+  const itemsPerPageInternal = 10;
 
   const [entiteeModalVisible, setEntiteeModalVisible] = useState(false);
   const [selectedEntityForTypes, setSelectedEntityForTypes] = useState<{
     id: number;
-    type: "entiteeUn" | "entiteeDeux" | "entiteeTrois";
+    type: EntityTypeUI;
     label: string;
   } | null>(null);
 
-  const handleOpenEntiteeTypes = (
-    entityId: number,
-    entityType: "entiteeUn" | "entiteeDeux" | "entiteeTrois",
-    entityLabel: string,
-  ) => {
-    setSelectedEntityForTypes({
-      id: entityId,
-      type: entityType,
-      label: entityLabel,
-    });
-    setEntiteeModalVisible(true);
-  };
   const [selectedAccordionEntity, setSelectedAccordionEntity] = useState<{
     label: string;
     value: string;
     id: number;
-    type: "entiteeUn" | "entiteeDeux" | "entiteeTrois";
+    type: EntityTypeUI;
   } | null>(null);
 
   const [fieldManagerVisible, setFieldManagerVisible] = useState(false);
 
-  // ✅ AJOUTER la fonction convertEntityType adaptée
-  type EntityTypeApi = "entitee_un" | "entitee_deux" | "entitee_trois";
+  // ✅ Fonction utilitaire pour garantir un tableau (many‑to‑many)
+  const getEntitiesArray = (data: any): any[] => {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    return [data];
+  };
 
-  const convertEntityType = (type: string | undefined): EntityTypeApi => {
+  // ✅ Conversion de type d'entité (UI → API)
+  const convertEntityType = (type: EntityTypeUI | undefined): EntityTypeApi => {
     switch (type) {
       case "entiteeUn":
         return "entitee_un";
@@ -149,7 +143,35 @@ export default function DocumentTypeEntitee() {
     }
   };
 
-  // Fonctions utilitaires (inchangées)
+  // ✅ Conversion vers les types legacy attendus par TypeDocumentAjoutPiecesEntytee
+  const mapToLegacyEntityType = (apiType: EntityTypeApi): LegacyEntityType => {
+    switch (apiType) {
+      case "entitee_un":
+        return "direction";
+      case "entitee_deux":
+        return "sousDirection";
+      case "entitee_trois":
+        return "division";
+      default:
+        return "direction";
+    }
+  };
+
+  // ✅ Fonction pour ouvrir le modal de gestion des types par entité
+  const handleOpenEntiteeTypes = (
+    entityId: number,
+    entityType: EntityTypeUI,
+    entityLabel: string,
+  ) => {
+    setSelectedEntityForTypes({
+      id: entityId,
+      type: entityType,
+      label: entityLabel,
+    });
+    setEntiteeModalVisible(true);
+  };
+
+  // Fonctions d'accès
   const isUserAdmin = (user: User | null): boolean => {
     if (!user) return false;
     const droitLibelle =
@@ -164,58 +186,60 @@ export default function DocumentTypeEntitee() {
     );
   };
 
+  const getUserAccessibleEntityIds = (user: User | null) => {
+    if (!user)
+      return { un: new Set<number>(), deux: new Set<number>(), trois: new Set<number>() };
+    const ids = { un: new Set<number>(), deux: new Set<number>(), trois: new Set<number>() };
+    if (user.fonction_details?.entitee_un?.id) ids.un.add(user.fonction_details.entitee_un.id);
+    if (user.fonction_details?.entitee_deux?.id) ids.deux.add(user.fonction_details.entitee_deux.id);
+    if (user.fonction_details?.entitee_trois?.id) ids.trois.add(user.fonction_details.entitee_trois.id);
+    user.agent_access?.forEach((access) => {
+      if (access.entitee_un?.id) ids.un.add(access.entitee_un.id);
+      if (access.entitee_deux?.id) ids.deux.add(access.entitee_deux.id);
+      if (access.entitee_trois?.id) ids.trois.add(access.entitee_trois.id);
+    });
+    return ids;
+  };
+
+  const hasAdditionalAccess = (user: User | null): boolean => (user?.agent_access?.length ?? 0) > 0;
+
+  const getUserFonctionEntityType = (user: User | null): EntityTypeUI | null => {
+    if (user?.fonction_details?.entitee_trois) return "entiteeTrois";
+    if (user?.fonction_details?.entitee_deux) return "entiteeDeux";
+    if (user?.fonction_details?.entitee_un) return "entiteeUn";
+    return null;
+  };
+
+  const getUserFonctionEntityId = (user: User | null): number | null => {
+    return (
+      user?.fonction_details?.entitee_trois?.id ||
+      user?.fonction_details?.entitee_deux?.id ||
+      user?.fonction_details?.entitee_un?.id ||
+      null
+    );
+  };
+
+  // ✅ Accès aux entités (sécurisé avec getEntitiesArray)
   const hasAccessToEntity = (typeDoc: TypeDocument): boolean => {
     if (isUserAdmin(user)) return true;
-
-    const userEntityIds = {
-      un: new Set<number>(),
-      deux: new Set<number>(),
-      trois: new Set<number>(),
-    };
-
-    if (user?.fonction_details?.entitee_un?.id) {
-      userEntityIds.un.add(user.fonction_details.entitee_un.id);
-    }
-    if (user?.fonction_details?.entitee_deux?.id) {
-      userEntityIds.deux.add(user.fonction_details.entitee_deux.id);
-    }
-    if (user?.fonction_details?.entitee_trois?.id) {
-      userEntityIds.trois.add(user.fonction_details.entitee_trois.id);
-    }
-
-    user?.agent_access?.forEach((access) => {
-      if (access.entitee_un?.id) userEntityIds.un.add(access.entitee_un.id);
-      if (access.entitee_deux?.id)
-        userEntityIds.deux.add(access.entitee_deux.id);
-      if (access.entitee_trois?.id)
-        userEntityIds.trois.add(access.entitee_trois.id);
-    });
-
-    // ✅ Vérifier via les tableaux de relation
-    const hasAccessE3 = (typeDoc.entitee_trois || []).some((e: any) =>
-      userEntityIds.trois.has(e.id),
-    );
+    const accessibleIds = getUserAccessibleEntityIds(user);
+    const e3List = getEntitiesArray((typeDoc as any).entitee_trois);
+    const hasAccessE3 = e3List.some((e: any) => accessibleIds.trois.has(e.id));
     if (hasAccessE3) return true;
-
-    const hasAccessE2 = (typeDoc.entitee_deux || []).some((e: any) =>
-      userEntityIds.deux.has(e.id),
-    );
+    const e2List = getEntitiesArray((typeDoc as any).entitee_deux);
+    const hasAccessE2 = e2List.some((e: any) => accessibleIds.deux.has(e.id));
     if (hasAccessE2) return true;
-
-    const hasAccessE1 = (typeDoc.entitee_un || []).some((e: any) =>
-      userEntityIds.un.has(e.id),
-    );
+    const e1List = getEntitiesArray((typeDoc as any).entitee_un);
+    const hasAccessE1 = e1List.some((e: any) => accessibleIds.un.has(e.id));
     if (hasAccessE1) return true;
-
-    // Si aucun accès spécifique mais le doc n'est assigné à aucune entité
+    // Document non assigné
     if (
-      (!typeDoc.entitee_un || typeDoc.entitee_un.length === 0) &&
-      (!typeDoc.entitee_deux || typeDoc.entitee_deux.length === 0) &&
-      (!typeDoc.entitee_trois || typeDoc.entitee_trois.length === 0)
+      getEntitiesArray((typeDoc as any).entitee_un).length === 0 &&
+      getEntitiesArray((typeDoc as any).entitee_deux).length === 0 &&
+      getEntitiesArray((typeDoc as any).entitee_trois).length === 0
     ) {
-      return true; // Documents non assignés visibles par tous
+      return true;
     }
-
     return false;
   };
 
@@ -223,66 +247,28 @@ export default function DocumentTypeEntitee() {
     const isAdmin = isUserAdmin(user);
     if (isAdmin) return true;
     if (structureName === "Type de documents non assignés") return false;
-
-    const userEntityIds = {
-      un: new Set<number>(),
-      deux: new Set<number>(),
-      trois: new Set<number>(),
-    };
-
-    if (user?.fonction_details?.entitee_un?.id) {
-      userEntityIds.un.add(user.fonction_details.entitee_un.id);
-    }
-
-    user?.agent_access?.forEach((access) => {
-      if (access.entitee_un?.id) userEntityIds.un.add(access.entitee_un.id);
-      if (access.entitee_deux?.id)
-        userEntityIds.deux.add(access.entitee_deux.id);
-      if (access.entitee_trois?.id)
-        userEntityIds.trois.add(access.entitee_trois.id);
-    });
-
-    const foundInOptions = optionsEntites.find((opt) =>
-      opt.label?.includes(structureName),
-    );
-
-    if (foundInOptions) {
-      const value = foundInOptions.value;
-      if (!value?.toString().includes("-")) {
-        return userEntityIds.un.has(Number(value));
-      } else {
-        const [prefix, id] = value.split("-");
-        const numId = Number(id);
-        if (prefix === "E2") return userEntityIds.deux.has(numId);
-        if (prefix === "E3") return userEntityIds.trois.has(numId);
-      }
-    }
+    const accessibleIds = getUserAccessibleEntityIds(user);
+    const foundE3 = entiteeTrois.find(e => e.libelle === structureName);
+    if (foundE3 && accessibleIds.trois.has(foundE3.id)) return true;
+    const foundE2 = entiteeDeux.find(e => e.libelle === structureName);
+    if (foundE2 && accessibleIds.deux.has(foundE2.id)) return true;
+    const foundE1 = entiteeUn.find(e => e.libelle === structureName);
+    if (foundE1 && accessibleIds.un.has(foundE1.id)) return true;
     return false;
   };
 
   const getAllEntitiesAsGroups = () => {
     const groups: Record<string, TypeDocument[]> = {};
-
     entiteeTrois.forEach((e3) => {
-      if (hasAccessToStructure(e3.libelle)) {
-        groups[e3.libelle] = [];
-      }
+      if (hasAccessToStructure(e3.libelle)) groups[e3.libelle] = [];
     });
-
     entiteeDeux.forEach((e2) => {
-      if (hasAccessToStructure(e2.libelle)) {
-        groups[e2.libelle] = [];
-      }
+      if (hasAccessToStructure(e2.libelle)) groups[e2.libelle] = [];
     });
-
     entiteeUn.forEach((e1) => {
-      if (hasAccessToStructure(e1.libelle)) {
-        groups[e1.libelle] = [];
-      }
+      if (hasAccessToStructure(e1.libelle)) groups[e1.libelle] = [];
     });
-
     groups["Type de documents non assignés"] = [];
-
     return groups;
   };
 
@@ -299,91 +285,55 @@ export default function DocumentTypeEntitee() {
         t.code.toLowerCase().includes(search) ||
         (t.cote || "").toLowerCase().includes(search) ||
         t.nom.toLowerCase().includes(search);
-
       if (!selectedTypeDoc) return matchesSearch;
-
-      // ✅ Récupérer les IDs depuis les tableaux de relation
-      const e1Ids = (t.entitee_un || []).map((e: any) => String(e.id));
-      const e2Ids = (t.entitee_deux || []).map((e: any) => `E2-${e.id}`);
-      const e3Ids = (t.entitee_trois || []).map((e: any) => `E3-${e.id}`);
-
+      const e1Ids = getEntitiesArray((t as any).entitee_un).map((e: any) => String(e.id));
+      const e2Ids = getEntitiesArray((t as any).entitee_deux).map((e: any) => `E2-${e.id}`);
+      const e3Ids = getEntitiesArray((t as any).entitee_trois).map((e: any) => `E3-${e.id}`);
       const allEntityIds = [...e1Ids, ...e2Ids, ...e3Ids];
-
       return matchesSearch && allEntityIds.includes(selectedTypeDoc);
     });
 
-    // ✅ CRÉER TOUS LES GROUPES VIDES D'ABORD
     const groups: Record<string, TypeDocument[]> = {};
-
     entiteeTrois.forEach((e3) => {
-      if (hasAccessToStructure(e3.libelle)) {
-        groups[e3.libelle] = [];
-      }
+      if (hasAccessToStructure(e3.libelle)) groups[e3.libelle] = [];
     });
-
     entiteeDeux.forEach((e2) => {
-      if (hasAccessToStructure(e2.libelle)) {
-        groups[e2.libelle] = [];
-      }
+      if (hasAccessToStructure(e2.libelle)) groups[e2.libelle] = [];
     });
-
     entiteeUn.forEach((e1) => {
-      if (hasAccessToStructure(e1.libelle)) {
-        groups[e1.libelle] = [];
-      }
+      if (hasAccessToStructure(e1.libelle)) groups[e1.libelle] = [];
     });
 
-    // Groupe pour les non assignés
     const unassignedDocs = filtered.filter(
       (t) =>
-        (!t.entitee_un || t.entitee_un.length === 0) &&
-        (!t.entitee_deux || t.entitee_deux.length === 0) &&
-        (!t.entitee_trois || t.entitee_trois.length === 0),
+        getEntitiesArray((t as any).entitee_un).length === 0 &&
+        getEntitiesArray((t as any).entitee_deux).length === 0 &&
+        getEntitiesArray((t as any).entitee_trois).length === 0,
     );
     if (unassignedDocs.length > 0 || !selectedTypeDoc) {
       groups["Type de documents non assignés"] = unassignedDocs;
     }
 
-    // ✅ Remplir les groupes avec les documents (via les tableaux de relation)
     filtered.forEach((t) => {
       const assignedStructures = new Set<string>();
-
-      // Ajouter les libellés de entiteeTrois
-      if (t.entitee_trois && t.entitee_trois.length > 0) {
-        t.entitee_trois.forEach((e3: any) => {
-          const found = entiteeTrois.find((item) => item.id === e3.id);
-          if (found) assignedStructures.add(found.libelle);
-        });
-      }
-
-      // Ajouter les libellés de entiteeDeux
-      if (t.entitee_deux && t.entitee_deux.length > 0) {
-        t.entitee_deux.forEach((e2: any) => {
-          const found = entiteeDeux.find((item) => item.id === e2.id);
-          if (found) assignedStructures.add(found.libelle);
-        });
-      }
-
-      // Ajouter les libellés de entiteeUn
-      if (t.entitee_un && t.entitee_un.length > 0) {
-        t.entitee_un.forEach((e1: any) => {
-          const found = entiteeUn.find((item) => item.id === e1.id);
-          if (found) assignedStructures.add(found.libelle);
-        });
-      }
-
-      // Si aucune structure assignée, mettre dans "non assignés"
+      getEntitiesArray((t as any).entitee_trois).forEach((e3: any) => {
+        const found = entiteeTrois.find((item) => item.id === e3.id);
+        if (found) assignedStructures.add(found.libelle);
+      });
+      getEntitiesArray((t as any).entitee_deux).forEach((e2: any) => {
+        const found = entiteeDeux.find((item) => item.id === e2.id);
+        if (found) assignedStructures.add(found.libelle);
+      });
+      getEntitiesArray((t as any).entitee_un).forEach((e1: any) => {
+        const found = entiteeUn.find((item) => item.id === e1.id);
+        if (found) assignedStructures.add(found.libelle);
+      });
       if (assignedStructures.size === 0) {
         assignedStructures.add("Type de documents non assignés");
       }
-
-      // Ajouter le document à chaque structure à laquelle il appartient
       assignedStructures.forEach((structureLabel) => {
         if (hasAccessToStructure(structureLabel)) {
-          if (!groups[structureLabel]) {
-            groups[structureLabel] = [];
-          }
-          // Éviter les doublons
+          if (!groups[structureLabel]) groups[structureLabel] = [];
           if (!groups[structureLabel].find((doc) => doc.id === t.id)) {
             groups[structureLabel].push(t);
           }
@@ -398,7 +348,6 @@ export default function DocumentTypeEntitee() {
       });
       return filteredGroups;
     }
-
     return groups;
   };
 
@@ -410,7 +359,6 @@ export default function DocumentTypeEntitee() {
 
   const filteredOptions = useMemo(() => {
     const isAdmin = isUserAdmin(user);
-
     if (isAdmin) {
       return (optionsEntites as EntiteeOption[]).filter((opt) => {
         if (opt.value === null) return true;
@@ -419,9 +367,7 @@ export default function DocumentTypeEntitee() {
         return aUnTitre;
       });
     }
-
     const accessibleEntityIds = new Set();
-
     if (user?.fonction_details?.entitee_un?.id) {
       accessibleEntityIds.add(String(user.fonction_details.entitee_un.id));
     }
@@ -431,7 +377,6 @@ export default function DocumentTypeEntitee() {
     if (user?.fonction_details?.entitee_trois?.id) {
       accessibleEntityIds.add(`E3-${user.fonction_details.entitee_trois.id}`);
     }
-
     user?.agent_access?.forEach((access) => {
       if (access.entitee_un?.id) {
         accessibleEntityIds.add(String(access.entitee_un.id));
@@ -443,7 +388,6 @@ export default function DocumentTypeEntitee() {
         accessibleEntityIds.add(`E3-${access.entitee_trois.id}`);
       }
     });
-
     return (optionsEntites as EntiteeOption[]).filter((opt) => {
       if (opt.value === null) return true;
       const aUnTitre =
@@ -454,22 +398,19 @@ export default function DocumentTypeEntitee() {
   }, [optionsEntites, user]);
 
   const groupedTypes = getGroupedData();
+  const structureNames = Object.keys(groupedTypes);
+  const totalStructures = structureNames.length;
 
   const paginatedStructures = useMemo(() => {
-    const structureNames = Object.keys(groupedTypes);
     const startIndex = (currentStructurePage - 1) * structuresPerPage;
     const endIndex = startIndex + structuresPerPage;
     const paginatedNames = structureNames.slice(startIndex, endIndex);
-
     const paginated: Record<string, TypeDocument[]> = {};
     paginatedNames.forEach((name) => {
       paginated[name] = groupedTypes[name];
     });
-
     return paginated;
   }, [groupedTypes, currentStructurePage, structuresPerPage]);
-
-  const totalStructures = Object.keys(groupedTypes).length;
 
   const getPaginatedDocumentsForStructure = (
     structureName: string,
@@ -479,7 +420,6 @@ export default function DocumentTypeEntitee() {
     const startIndex = (currentInternalPage - 1) * itemsPerPageInternal;
     const endIndex = startIndex + itemsPerPageInternal;
     const paginatedDocs = documents.slice(startIndex, endIndex);
-
     return {
       documents: paginatedDocs,
       totalDocuments: documents.length,
@@ -514,11 +454,8 @@ export default function DocumentTypeEntitee() {
         toast.current?.show({ severity: "success", summary: "Mis à jour" });
       } else {
         let payload: any = { ...formData };
-
-        // ✅ Pour le many-to-many, on passe les IDs dans des tableaux
         if (selectedTypeDoc) {
           if (!selectedTypeDoc.includes("-")) {
-            // EntiteeUn
             payload.entitee_un_ids = [Number(selectedTypeDoc)];
           } else if (selectedTypeDoc.includes("E2-")) {
             const e2Id = Number(selectedTypeDoc.replace("E2-", ""));
@@ -540,7 +477,6 @@ export default function DocumentTypeEntitee() {
             }
           }
         }
-
         await createMutation.mutateAsync(payload);
         toast.current?.show({
           severity: "success",
@@ -565,11 +501,9 @@ export default function DocumentTypeEntitee() {
       rejectClassName:
         "p-button-secondary p-button-outlined p-button-rounded mr-4 p-2",
       style: { width: "450px" },
-
       accept: async () => {
         try {
           await deleteMutation.mutateAsync(id);
-
           toast.current?.show({
             severity: "success",
             summary: "Succès",
@@ -619,17 +553,16 @@ export default function DocumentTypeEntitee() {
       toast.current?.show({ severity: "success", summary: "Pièces ajoutées" });
       setFormPiecesVisible(false);
     } catch (err) {
-      /* erreur */
+      /* ignoré */
     }
   };
 
   const onAddEntityPiece = async (
-    entityType: EntityTypeApi, // ✅ Utiliser EntityTypeApi
+    entityType: EntityTypeApi,
     entityId: number,
     pieceId: number,
   ) => {
     if (!selected?.id) return;
-
     try {
       await addPieceToEntityMutation.mutateAsync({
         typeDocumentId: String(selected.id),
@@ -639,12 +572,10 @@ export default function DocumentTypeEntitee() {
           piece_id: Number(pieceId),
         },
       });
-
       toast.current?.show({
         severity: "success",
         summary: "Pièce ajoutée à l'entité",
       });
-
       await refetch();
     } catch (err) {
       console.error(err);
@@ -657,12 +588,11 @@ export default function DocumentTypeEntitee() {
   };
 
   const onRemoveEntityPiece = async (
-    entityType: EntityTypeApi, // ✅ Utiliser EntityTypeApi
+    entityType: EntityTypeApi,
     entityId: number,
     pieceId: number,
   ) => {
     if (!selected?.id) return;
-
     try {
       await removePieceFromEntityMutation.mutateAsync({
         typeDocumentId: String(selected.id),
@@ -672,12 +602,10 @@ export default function DocumentTypeEntitee() {
           piece_id: Number(pieceId),
         },
       });
-
       toast.current?.show({
         severity: "success",
         summary: "Pièce retirée de l'entité",
       });
-
       await refetch();
     } catch (err) {
       console.error(err);
@@ -689,7 +617,6 @@ export default function DocumentTypeEntitee() {
     }
   };
 
-  // ✅ handleAffectationSubmit (inchangé)
   const handleAffectationSubmit = async (payload: any) => {
     try {
       if (selected?.id) {
@@ -711,16 +638,13 @@ export default function DocumentTypeEntitee() {
   const handleMultipleAffectation = async (typeIds: string[]) => {
     try {
       if (!selectedTypeDoc) return;
-
       let structureData: any = {
         entitee_un_id: null,
         entitee_deux_id: null,
         entitee_trois_id: null,
       };
-
       const [prefix, rawId] = selectedTypeDoc.split("-");
       const targetId = Number(rawId);
-
       if (prefix === "E1") {
         const n1 = entiteeUn.find((x) => x.id === targetId);
         if (n1) structureData.entitee_un_id = n1.id;
@@ -739,9 +663,7 @@ export default function DocumentTypeEntitee() {
           structureData.entitee_trois_id = n3.id;
         }
       }
-
       await multipleAffectationMutation.mutateAsync({ typeIds, structureData });
-
       toast.current?.show({
         severity: "success",
         summary: "Affectation réussie",
@@ -751,46 +673,16 @@ export default function DocumentTypeEntitee() {
     }
   };
 
-  // const handleStructureClick = (structureName: string) => {
-  //   setExpandedStructure(
-  //     expandedStructure === structureName ? null : structureName,
-  //   );
-
-  //   if (structureName !== "Type de documents non assignés") {
-  //     const foundOption = filteredOptions.find(
-  //       (opt) =>
-  //         opt.label?.includes(structureName) ||
-  //         opt.label?.includes(`🏢 ${structureName}`) ||
-  //         opt.label?.includes(`📂 ${structureName}`) ||
-  //         opt.label?.includes(`📄 ${structureName}`),
-  //     );
-
-  //     if (foundOption && foundOption.value !== null) {
-  //       setSelectedAccordionStructure({
-  //         label: foundOption.label,
-  //         value: foundOption.value,
-  //       });
-  //       setSelectedTypeDoc(foundOption.value);
-  //     }
-  //   }
-  // };
-
   const handleStructureClick = (structureName: string) => {
-    setExpandedStructure(
-      expandedStructure === structureName ? null : structureName,
-    );
-
+    setExpandedStructure(expandedStructure === structureName ? null : structureName);
     if (structureName !== "Type de documents non assignés") {
-      // Chercher l'entité correspondante
       let entityId: number | undefined;
-      let entityType: "entiteeUn" | "entiteeDeux" | "entiteeTrois" | undefined;
-
+      let entityType: EntityTypeUI | undefined;
       const foundE3 = entiteeTrois.find((e) => e.libelle === structureName);
       if (foundE3) {
         entityId = foundE3.id;
         entityType = "entiteeTrois";
       }
-
       if (!entityId) {
         const foundE2 = entiteeDeux.find((e) => e.libelle === structureName);
         if (foundE2) {
@@ -798,7 +690,6 @@ export default function DocumentTypeEntitee() {
           entityType = "entiteeDeux";
         }
       }
-
       if (!entityId) {
         const foundE1 = entiteeUn.find((e) => e.libelle === structureName);
         if (foundE1) {
@@ -806,7 +697,6 @@ export default function DocumentTypeEntitee() {
           entityType = "entiteeUn";
         }
       }
-
       if (entityId && entityType) {
         setSelectedAccordionEntity({
           label: structureName,
@@ -814,12 +704,22 @@ export default function DocumentTypeEntitee() {
             entityType === "entiteeUn"
               ? String(entityId)
               : entityType === "entiteeDeux"
-                ? `E2-${entityId}`
-                : `E3-${entityId}`,
+              ? `E2-${entityId}`
+              : `E3-${entityId}`,
           id: entityId,
           type: entityType,
         });
+        setSelectedTypeDoc(
+          entityType === "entiteeUn"
+            ? String(entityId)
+            : entityType === "entiteeDeux"
+            ? `E2-${entityId}`
+            : `E3-${entityId}`,
+        );
       }
+    } else {
+      setSelectedAccordionEntity(null);
+      setSelectedTypeDoc(null);
     }
   };
 
@@ -912,10 +812,8 @@ export default function DocumentTypeEntitee() {
                   currentPage: internalPage,
                   totalPages,
                 } = getPaginatedDocumentsForStructure(structureName, docs);
-
                 const isNonAssigned =
                   structureName === "Type de documents non assignés";
-
                 return (
                   <div
                     key={structureName}
@@ -939,7 +837,7 @@ export default function DocumentTypeEntitee() {
                           className={`p-2 rounded-lg ${
                             expandedStructure === structureName
                               ? "bg-emerald-500 text-white"
-                              : selectedAccordionStructure?.label.includes(
+                              : selectedAccordionStructure?.label?.includes(
                                     structureName,
                                   )
                                 ? "bg-emerald-100 text-emerald-600"
@@ -954,7 +852,7 @@ export default function DocumentTypeEntitee() {
                               className={`font-bold ${
                                 expandedStructure === structureName
                                   ? "text-emerald-800"
-                                  : selectedAccordionStructure?.label.includes(
+                                  : selectedAccordionStructure?.label?.includes(
                                         structureName,
                                       )
                                     ? "text-emerald-700"
@@ -963,8 +861,7 @@ export default function DocumentTypeEntitee() {
                             >
                               {structureName}
                             </h3>
-
-                            {/* ✅ BOUTON GÉRER LES TYPES - maintenant dans une <div> */}
+                            {/* ✅ BOUTON GÉRER LES TYPES */}
                             {!isNonAssigned && (
                               <button
                                 onClick={(e) => {
@@ -975,7 +872,6 @@ export default function DocumentTypeEntitee() {
                                     | "entiteeDeux"
                                     | "entiteeTrois"
                                     | undefined;
-
                                   const foundE3 = entiteeTrois.find(
                                     (e) => e.libelle === structureName,
                                   );
@@ -983,7 +879,6 @@ export default function DocumentTypeEntitee() {
                                     entityId = foundE3.id;
                                     entityTypeValue = "entiteeTrois";
                                   }
-
                                   if (!entityId) {
                                     const foundE2 = entiteeDeux.find(
                                       (e) => e.libelle === structureName,
@@ -993,7 +888,6 @@ export default function DocumentTypeEntitee() {
                                       entityTypeValue = "entiteeDeux";
                                     }
                                   }
-
                                   if (!entityId) {
                                     const foundE1 = entiteeUn.find(
                                       (e) => e.libelle === structureName,
@@ -1003,7 +897,6 @@ export default function DocumentTypeEntitee() {
                                       entityTypeValue = "entiteeUn";
                                     }
                                   }
-
                                   if (entityId && entityTypeValue) {
                                     handleOpenEntiteeTypes(
                                       entityId,
@@ -1018,8 +911,7 @@ export default function DocumentTypeEntitee() {
                                 <Layers size={16} />
                               </button>
                             )}
-
-                            {selectedAccordionStructure?.label.includes(
+                            {selectedAccordionStructure?.label?.includes(
                               structureName,
                             ) && (
                               <span className="inline-flex items-center px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">
@@ -1038,6 +930,7 @@ export default function DocumentTypeEntitee() {
                         <ChevronRight size={20} className="text-slate-400" />
                       )}
                     </div>
+
                     {/* ✅ CONTENU DE L'ACCORDÉON */}
                     {expandedStructure === structureName && (
                       <div className="border-t border-slate-50">
@@ -1103,7 +996,6 @@ export default function DocumentTypeEntitee() {
                                           >
                                             <FilePlus size={25} />
                                           </button>
-
                                           {isNonAssigned && (
                                             <button
                                               onClick={(e) => {
@@ -1138,7 +1030,6 @@ export default function DocumentTypeEntitee() {
                                               <SplinePointer size={25} />
                                             </button>
                                           )}
-
                                           <button
                                             onClick={(e) => {
                                               setEditing(t);
@@ -1150,7 +1041,6 @@ export default function DocumentTypeEntitee() {
                                           >
                                             <Pencil size={25} />
                                           </button>
-
                                           <button
                                             onClick={(e) => {
                                               setSelected(t);
@@ -1162,7 +1052,6 @@ export default function DocumentTypeEntitee() {
                                           >
                                             <Settings size={25} />
                                           </button>
-
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
@@ -1180,11 +1069,10 @@ export default function DocumentTypeEntitee() {
                                 </tbody>
                               </table>
                             </div>
-
-                            {/* ✅ Pagination interne pour cet accordéon */}
+                            {/* ✅ Pagination interne */}
                             {totalPages > 1 && (
                               <div className="border-t border-slate-100 p-4 bg-slate-50/30">
-                                <div className="flex justify-center items-center">
+                                <div className="flex justify-center">
                                   <Pagination
                                     currentPage={internalPage}
                                     totalItems={totalDocuments}
@@ -1201,7 +1089,6 @@ export default function DocumentTypeEntitee() {
                             )}
                           </>
                         ) : (
-                          /* ✅ Message quand l'entité existe mais n'a pas de documents */
                           <div className="text-center py-8">
                             <FileText
                               size={32}
@@ -1213,7 +1100,6 @@ export default function DocumentTypeEntitee() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                // Ouvrir le formulaire de création pré-rempli
                                 setEditing(null);
                                 setFormVisible(true);
                               }}
@@ -1230,7 +1116,6 @@ export default function DocumentTypeEntitee() {
                 );
               },
             )}
-
             {totalStructures > structuresPerPage && (
               <div className="mt-8 flex justify-center pt-4 border-t border-slate-200">
                 <div className="flex flex-col items-center gap-2">
@@ -1265,23 +1150,13 @@ export default function DocumentTypeEntitee() {
         onHide={() => setDetailsVisible(false)}
         type={selected}
       />
-      
       <DocumentTypeMetaForm
         visible={metaVisible}
         onHide={() => setMetaVisible(false)}
         onSubmit={handleMetaSubmit}
         type={selected}
       />
-      {/* <TypeDocumentAjoutPieces
-        visible={formPiecesVisible}
-        onHide={() => setFormPiecesVisible(false)}
-        onSubmit={onAddPieces}
-        initial={selected}
-        title={"Pièces à fournir"}
-        pieces={pieces}
-      /> */}
-
-      {/* ✅ Remplacer le bloc des modals pièces */}
+      {/* ✅ Choix du modal selon le type d’accordéon */}
       {!expandedStructure ||
       expandedStructure === "Type de documents non assignés" ? (
         <TypeDocumentAjoutPieces
@@ -1297,15 +1172,30 @@ export default function DocumentTypeEntitee() {
           visible={formPiecesVisible}
           onHide={() => setFormPiecesVisible(false)}
           onSubmit={onAddPieces}
-          onAddEntityPiece={onAddEntityPiece}
-          onRemoveEntityPiece={onRemoveEntityPiece}
-          entityType={convertEntityType(selectedAccordionEntity?.type)}
+          onAddEntityPiece={(entityType, entityId, pieceId) =>
+            onAddEntityPiece(
+              entityType as EntityTypeApi,
+              entityId,
+              pieceId,
+            )
+          }
+          onRemoveEntityPiece={(entityType, entityId, pieceId) =>
+            onRemoveEntityPiece(
+              entityType as EntityTypeApi,
+              entityId,
+              pieceId,
+            )
+          }
+          entityType={
+            selectedAccordionEntity
+              ? mapToLegacyEntityType(convertEntityType(selectedAccordionEntity.type))
+              : "direction"
+          }
           entityId={selectedAccordionEntity?.id || 0}
           initial={selected}
           pieces={pieces}
         />
       )}
-
       <DocumentTypeAffectationForm
         visible={affectationFormVisible}
         onHide={() => setAffectationFormVisible(false)}
@@ -1313,7 +1203,6 @@ export default function DocumentTypeEntitee() {
         initial={selected}
         title={`Affectation : ${selected?.nom}`}
       />
-
       <DocumentTypeAffectAndForm
         visible={formVisible}
         onHide={() => {

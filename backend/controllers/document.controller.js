@@ -13,7 +13,6 @@ const {
   sequelize,
   PieceValue,
   PieceMetaField,
-  DocumentEntity,
   Agent,
   EntityCustomField,
   EntityCustomFieldValue,
@@ -32,42 +31,46 @@ exports.create = async (req, res) => {
 
   try {
     const { type_document_id, values, piece_values, entities } = req.body;
-    const currentUser = req.user.id;
-
-    if (!type_document_id) {
-      return res
-        .status(400)
-        .json({ message: "Le type de document est requis" });
-    }
 
     const currentUser = req.user.id;
     const currentUserData = await Agent.findByPk(currentUser);
+
+    if (!type_document_id) {
+      return res.status(400).json({
+        message: "Le type de document est requis",
+      });
+    }
 
     logger.info("📄 Tentative de création d'un document", {
       userId: currentUser,
       type_document_id,
       values,
     });
+
     console.log("🔍 values reçues:", values);
     console.log("🔍 type de values:", typeof values);
-    console.log("🔍 clés:", Object.keys(values));
-    console.log("🔍 nom:", currentUserData.nom);
-    console.log("🔍 prénom:", currentUserData.prenom);
+    console.log("🔍 clés:", values ? Object.keys(values) : []);
+    console.log("🔍 nom:", currentUserData?.nom);
+    console.log("🔍 prénom:", currentUserData?.prenom);
 
     // 1. Créer le document
-    const doc = await Document.create({ type_document_id }, { transaction: t });
-
-    // 2. LIAISON DOCUMENT → ENTITÉ
-    await DocumentEntity.create(
-      {
-        document_id: doc.id,
-        entity_type: entity.entity_type,
-        entity_id: entity.entity_id,
-      },
+    const doc = await Document.create(
+      { type_document_id },
       { transaction: t }
     );
 
-    // 2. Associer les pièces du type
+    // 2. LIAISON DOCUMENT → ENTITÉS (corrigé)
+    if (entities && Array.isArray(entities) && entities.length > 0) {
+      const entityRows = entities.map((entity) => ({
+        document_id: doc.id,
+        entity_type: entity.entity_type,
+        entity_id: entity.entity_id,
+      }));
+
+      await DocumentEntity.bulkCreate(entityRows, { transaction: t });
+    }
+
+    // 3. Associer les pièces du type
     const typeDocumentPieces = await TypeDocumentPieces.findAll({
       where: { document_type_id: type_document_id },
       transaction: t,
@@ -79,22 +82,27 @@ exports.create = async (req, res) => {
         piece_id: tp.piece_id,
         disponible: false,
       }));
+
       await DocumentPieces.bulkCreate(pieceRows, { transaction: t });
     }
 
-    // 3. Meta values du document
+    // 4. Meta values du document
     if (values && Object.keys(values).length > 0) {
-      const metaRows = Object.entries(values).map(([meta_field_id, value]) => ({
-        document_id: doc.id,
-        meta_field_id: parseInt(meta_field_id),
-        value: value.toString(),
-      }));
+      const metaRows = Object.entries(values).map(
+        ([meta_field_id, value]) => ({
+          document_id: doc.id,
+          meta_field_id: parseInt(meta_field_id),
+          value: value?.toString() || "",
+        })
+      );
+
       await DocumentValue.bulkCreate(metaRows, { transaction: t });
     }
 
     // 5. Valeurs des métadonnées des pièces
     if (piece_values && Object.keys(piece_values).length > 0) {
       const pieceValueRows = [];
+
       for (const [pieceId, metaFields] of Object.entries(piece_values)) {
         if (metaFields && typeof metaFields === "object") {
           for (const [metaFieldId, value] of Object.entries(metaFields)) {
@@ -103,38 +111,44 @@ exports.create = async (req, res) => {
                 document_id: doc.id,
                 piece_id: parseInt(pieceId),
                 piece_meta_field_id: parseInt(metaFieldId),
-                value: value?.toString() || null,
+                value: value.toString(),
               });
             }
           }
         }
       }
+
       if (pieceValueRows.length > 0) {
         await PieceValue.bulkCreate(pieceValueRows, { transaction: t });
       }
     }
 
+    // Commit transaction
     await t.commit();
 
     logger.info("✅ Document créé avec succès", {
       documentId: doc.id,
       type_document_id,
-      userId: req.user?.id,
+      userId: currentUser,
       duration: Date.now() - startTime,
     });
 
-    // Journalisation dans l'historique
+    // Historique
     await HistoriqueService.logCreate(req, "document", doc);
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Document créé avec succès",
       id: doc.id,
       type_document_id: doc.type_document_id,
     });
   } catch (e) {
     if (t) await t.rollback();
+
     console.error("❌ Erreur create document:", e);
-    res.status(500).json({ message: e.message });
+
+    return res.status(500).json({
+      message: e.message,
+    });
   }
 };
 

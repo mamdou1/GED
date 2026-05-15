@@ -1,22 +1,52 @@
 import { useEffect, useState, useRef } from "react";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
-import { Save, Layers, Tag, Plus } from "lucide-react";
+import { Save, Plus, FileText } from "lucide-react";
 import { Dropdown } from "primereact/dropdown";
-import { InputSwitch } from "primereact/inputswitch";
 import { Toast } from "primereact/toast";
-import { uploadDocumentFile } from "../../api/ulpoald";
 import { Calendar } from "primereact/calendar";
 import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
-import { MetaField } from "../../interfaces";
+import { InputSwitch } from "primereact/inputswitch";
+import api from "../../api/axios";
 
-// ✅ Définir le type correctement
+interface MetaField {
+  id: number;
+  name: string;
+  label: string;
+  field_type: string;
+  required: boolean;
+  position: number;
+  options?: any;
+  placeholder?: string;
+  description?: string;
+  source?: "base" | "custom";
+  hidden?: boolean;
+}
+
 interface DocumentPayload {
   type_document_id: number | null;
   values: Record<string, string>;
+  entities?: any[];
   id?: number;
 }
+
+// Configuration des types d'entités
+const ENTITY_TYPE_MAP: Record<string, string> = {
+  entiteeun: "EntiteeUn",
+  entiteedoux: "EntiteeDeux",
+  entiteetrois: "EntiteeTrois",
+};
+
+// Normaliser le type d'entité pour l'API
+const normalizeEntityType = (type: string): string => {
+  const mapping: Record<string, string> = {
+    entiteeun: "EntiteeUn",
+    entiteedoux: "EntiteeDeux",
+    entiteetrois: "EntiteeTrois",
+  };
+  return mapping[type?.toLowerCase()] || type;
+};
 
 export default function DocumentForm({
   visible,
@@ -26,6 +56,7 @@ export default function DocumentForm({
   documentType,
   selectedTypeId,
   editingDoc,
+  preselectedEntity,
 }: any) {
   const [values, setValues] = useState<Record<string, any>>({});
   const [documentType_id, setDocumentType_id] = useState<number | null>(null);
@@ -33,9 +64,60 @@ export default function DocumentForm({
   const [loading, setLoading] = useState(false);
   const toast = useRef<Toast>(null);
 
+  const isEntityPreselected =
+    preselectedEntity?.entity_id && preselectedEntity?.entity_id > 0;
+  const effectiveEntityType = isEntityPreselected
+    ? ENTITY_TYPE_MAP[preselectedEntity.entity_type?.toLowerCase()] ||
+      preselectedEntity.entity_type
+    : null;
+  const effectiveEntityId = isEntityPreselected
+    ? preselectedEntity.entity_id
+    : null;
+
+  // ✅ Charger TOUS les champs (base + personnalisés) pour l'entité
+  const loadEntityMetaFields = async (typeId: number) => {
+    if (!effectiveEntityType || !effectiveEntityId) {
+      await loadBaseMetaFields(typeId);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const normalizedType = normalizeEntityType(effectiveEntityType);
+      const response = await api.get(
+        `/meta-fields/${typeId}/entity/${normalizedType}/${effectiveEntityId}/all`
+      );
+      const fields = response.data.data || [];
+      console.log("📋 Champs chargés pour l'entité:", fields);
+      setMetaFields(fields);
+    } catch (error) {
+      console.error("Erreur chargement champs personnalisés:", error);
+      await loadBaseMetaFields(typeId);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ Charger uniquement les champs de base (fallback)
+  const loadBaseMetaFields = async (typeId: number) => {
+    setLoading(true);
+    try {
+      const response = await api.get(`/meta-fields/${typeId}`);
+      const fields = response.data.data || response.data || [];
+      console.log("📋 Champs de base chargés:", fields);
+      setMetaFields(fields);
+    } catch (error) {
+      console.error("Erreur chargement champs de base:", error);
+      setMetaFields([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Charger les données du document à éditer
   useEffect(() => {
     if (!visible) return;
+
     if (editingDoc) {
       setDocumentType_id(editingDoc.type_document_id);
       const initialValues: Record<string, any> = {};
@@ -46,36 +128,20 @@ export default function DocumentForm({
         initialValues[v.entity_custom_field_id] = v.value;
       });
       setValues(initialValues);
-    } else {
-      setValues({});
+      return;
     }
+
+    setValues({});
   }, [visible, editingDoc]);
 
   useEffect(() => {
     if (selectedTypeId && !editingDoc) setDocumentType_id(selectedTypeId);
   }, [selectedTypeId, editingDoc]);
 
+  // ✅ Charger les champs quand le type change
   useEffect(() => {
-    // Seulement en mode création
-    if (!visible || editingDoc) return;
-
-    // Vérifier qu'une entité a été pré-sélectionnée
-    if (
-      preselectedEntity &&
-      preselectedEntity.entity_type &&
-      preselectedEntity.entity_id
-    ) {
-      console.log("✅ Entité pré-sélectionnée :", preselectedEntity);
-
-      // Si vous voulez juste stocker l'information, ce useEffect suffit.
-      // handleSubmit utilisera ensuite :
-      // - effectiveEntityType
-      // - effectiveEntityId
-    }
-  }, [visible, preselectedEntity, editingDoc]);
-
-  useEffect(() => {
-    if (documentType_id) loadEntityMetaFields(documentType_id);
+    if (!documentType_id) return;
+    loadEntityMetaFields(documentType_id);
   }, [documentType_id, effectiveEntityType, effectiveEntityId]);
 
   const renderField = (field: MetaField) => {
@@ -96,21 +162,24 @@ export default function DocumentForm({
         );
       case "NUMBER":
         return (
-          <input
-            type="number"
-            value={value}
-            onChange={(e) => setValues({ ...values, [field.id]: e.target.value })}
+          <InputNumber
+            value={value ? Number(value) : null}
+            onValueChange={(e) => setValues({ ...values, [field.id]: e.value })}
             placeholder={field.placeholder || `Entrez ${field.label.toLowerCase()}...`}
-            className="w-full bg-white border border-emerald-100 p-3 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
+            className="w-full"
+            inputClassName="w-full bg-white border border-emerald-100 p-3 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
           />
         );
       case "DATE":
         return (
-          <input
-            type="date"
-            value={value}
-            onChange={(e) => setValues({ ...values, [field.id]: e.target.value })}
-            className="w-full bg-white border border-emerald-100 p-3 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
+          <Calendar
+            value={value ? new Date(value) : null}
+            onChange={(e) => setValues({ ...values, [field.id]: e.value ? e.value.toISOString().split("T")[0] : "" })}
+            dateFormat="dd/mm/yy"
+            className="w-full"
+            inputClassName="w-full bg-white border border-emerald-100 p-3 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
+            placeholder="Sélectionner une date"
+            showIcon
           />
         );
       case "BOOLEAN":
@@ -149,8 +218,7 @@ export default function DocumentForm({
         );
       default:
         return (
-          <input
-            type="text"
+          <InputText
             value={value}
             onChange={(e) => setValues({ ...values, [field.id]: e.target.value })}
             placeholder={field.placeholder || `Entrez ${field.label.toLowerCase()}...`}
@@ -161,35 +229,57 @@ export default function DocumentForm({
   };
 
   const handleSubmit = async () => {
-    // Vérifie que tous les champs required ont une valeur
-    const missing = metaFields.filter((f) => f.required && !values[f.id]);
+    if (!documentType_id) {
+      toast.current?.show({
+        severity: "warn",
+        summary: "Type manquant",
+        detail: "Veuillez sélectionner un type de document",
+      });
+      return;
+    }
+
+    const visibleRequiredFields = metaFields.filter(
+      (f) => f.required && f.hidden !== true
+    );
+    const missing = visibleRequiredFields.filter((f) => {
+      const val = values[f.id];
+      return val === undefined || val === null || val === "";
+    });
 
     if (missing.length > 0) {
       toast.current?.show({
         severity: "warn",
         summary: "Champs manquants",
-        detail: "Veuillez remplir tous les champs obligatoires !",
+        detail: `Veuillez remplir: ${missing.map((f) => f.label).join(", ")}`,
       });
       return;
     }
+
     try {
       const valuesObject: Record<string, string> = {};
       for (const field of metaFields) {
         const fieldValue = values[field.id];
-
-        // Ne pas inclure les fichiers dans le payload JSON
-        if (fieldValue && !(fieldValue instanceof File)) {
-          valuesObject[field.id] = fieldValue.toString();
+        if (fieldValue !== undefined && fieldValue !== null && fieldValue !== "") {
+          if (!(fieldValue instanceof File)) {
+            valuesObject[field.id] = fieldValue.toString();
+          }
         }
       }
 
-      // ✅ Le payload a maintenant la structure attendue par le backend
       const payload: DocumentPayload = {
         type_document_id: documentType_id,
         values: valuesObject,
       };
 
-      // ✅ Ajouter l'id si on est en mode édition
+      if (effectiveEntityType && effectiveEntityId) {
+        payload.entities = [
+          {
+            entity_type: effectiveEntityType,
+            entity_id: effectiveEntityId,
+          },
+        ];
+      }
+
       if (editingDoc?.id) {
         payload.id = editingDoc.id;
       }
@@ -197,20 +287,25 @@ export default function DocumentForm({
       console.log("📦 Payload envoyé:", payload);
 
       const result = await onSubmit(payload);
-      console.log("✅ Document sauvegardé:", result);
 
-      // Uploader les fichiers séparément
+      // Upload des fichiers
       const fileUploads = [];
       for (const [fieldId, value] of Object.entries(values)) {
         if (value instanceof File) {
           const docId = editingDoc?.id || result?.id;
           if (docId) {
-            fileUploads.push(uploadDocumentFile(String(docId), fieldId, value));
+            const formData = new FormData();
+            formData.append("file", value);
+            formData.append("meta_field_id", fieldId);
+            fileUploads.push(
+              api.post(`/documents/${docId}/files`, formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+              })
+            );
           }
         }
       }
 
-      // Attendre que tous les fichiers soient uploadés
       if (fileUploads.length > 0) {
         await Promise.all(fileUploads);
       }
@@ -230,22 +325,10 @@ export default function DocumentForm({
       toast.current?.show({
         severity: "error",
         summary: "Erreur",
-        detail: error.message || "Impossible d’enregistrer le document",
+        detail: error.response?.data?.message || "Impossible d'enregistrer le document",
       });
     }
   };
-
-  const getEntityLabel = () => {
-    if (!effectiveEntityType || !effectiveEntityId) return null;
-    const entities = entityData[effectiveEntityType] || [];
-    const entity = entities.find((e: any) => e.id === effectiveEntityId);
-    return entity?.libelle || preselectedEntity?.entity_label || null;
-  };
-
-  // Récupérer l'icône de l'entité
-  const EntityIcon = effectiveEntityType
-    ? ENTITY_CONFIG[effectiveEntityType]?.icon
-    : null;
 
   return (
     <>

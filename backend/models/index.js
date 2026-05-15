@@ -69,6 +69,7 @@ db.PiecesFile = require("./PicesFile.model")(sequelize, DataTypes);
 db.PieceValue = require("./PieceValue.model")(sequelize, DataTypes);
 db.PieceMetaField = require("./PieceMetaField.model")(sequelize, DataTypes);
 db.PiecesFichier = require("./PiecesFichier.model")(sequelize, DataTypes);
+db.EntityTypeDocumentPiece = require("./EntityTypeDocumentPiece.model")(sequelize, DataTypes);
 
 
 

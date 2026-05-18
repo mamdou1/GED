@@ -69,10 +69,10 @@ db.PiecesFile = require("./PicesFile.model")(sequelize, DataTypes);
 db.PieceValue = require("./PieceValue.model")(sequelize, DataTypes);
 db.PieceMetaField = require("./PieceMetaField.model")(sequelize, DataTypes);
 db.PiecesFichier = require("./PiecesFichier.model")(sequelize, DataTypes);
-db.EntityTypeDocumentPiece = require("./EntityTypeDocumentPiece.model")(sequelize, DataTypes);
-
-
-
+db.EntityTypeDocumentPiece = require("./EntityTypeDocumentPiece.model")(
+  sequelize,
+  DataTypes,
+);
 
 //Models pour les courriers
 
@@ -93,6 +93,15 @@ db.DestinataireExterne = require("./DestinataireExterne.model")(
   DataTypes,
 );
 
+// =====================
+// 🔹 NOUVEAUX MODÈLES pour la personnalisation par entité
+// =====================
+db.MetaFieldOverride = require("./MetaFieldOverride")(sequelize, DataTypes);
+db.EntityCustomField = require("./EntityCustomField")(sequelize, DataTypes);
+db.EntityCustomFieldValue = require("./EntityCustomFieldValue")(
+  sequelize,
+  DataTypes,
+);
 
 // 🔹 Appel des associations
 Object.keys(db).forEach((modelName) => {

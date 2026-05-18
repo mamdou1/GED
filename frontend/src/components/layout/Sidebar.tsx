@@ -33,7 +33,7 @@ import {
   Plus,
 } from "lucide-react";
 
-import logo from "../../assets/digidoc1.png";
+import logo from "../../assets/soliged-1.png";
 import profil from "../../assets/homme.jpg";
 import { Link, useLocation } from "react-router-dom";
 import { createContext, useContext, useState, useMemo } from "react";

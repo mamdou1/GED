@@ -54,10 +54,7 @@ exports.create = async (req, res) => {
     console.log("🔍 prénom:", currentUserData?.prenom);
 
     // 1. Créer le document
-    const doc = await Document.create(
-      { type_document_id },
-      { transaction: t }
-    );
+    const doc = await Document.create({ type_document_id }, { transaction: t });
 
     // 2. LIAISON DOCUMENT → ENTITÉS (corrigé)
     if (entities && Array.isArray(entities) && entities.length > 0) {
@@ -88,13 +85,11 @@ exports.create = async (req, res) => {
 
     // 4. Meta values du document
     if (values && Object.keys(values).length > 0) {
-      const metaRows = Object.entries(values).map(
-        ([meta_field_id, value]) => ({
-          document_id: doc.id,
-          meta_field_id: parseInt(meta_field_id),
-          value: value?.toString() || "",
-        })
-      );
+      const metaRows = Object.entries(values).map(([meta_field_id, value]) => ({
+        document_id: doc.id,
+        meta_field_id: parseInt(meta_field_id),
+        value: value?.toString() || "",
+      }));
 
       await DocumentValue.bulkCreate(metaRows, { transaction: t });
     }
@@ -166,6 +161,12 @@ exports.getAll = async (req, res) => {
 
     const data = await Document.findAll({
       include: [
+        {
+          model: DocumentEntity,
+          as: "entities", // ← Vérifiez que cet alias correspond au modèle
+          required: false, // ← AJOUTEZ CECI pour ne pas exclure les docs sans entité
+          where: undefined, // ← Pas de filtre par défaut
+        },
         {
           model: Pieces,
           as: "pieces",
@@ -482,7 +483,8 @@ exports.uploadDocumentFiles = async (req, res) => {
         .replace(/^.*uploads\//, "uploads/");
 
       const fileName = file.filename || path.basename(file.path);
-      const document_value_id = documentValueIds.length > 0 ? documentValueIds[0] : null;
+      const document_value_id =
+        documentValueIds.length > 0 ? documentValueIds[0] : null;
 
       const docFichier = await DocumentFichier.create(
         {
@@ -495,7 +497,7 @@ exports.uploadDocumentFiles = async (req, res) => {
           new_file_name: fileName,
           mode: "INDIVIDUEL",
         },
-        { transaction: t }
+        { transaction: t },
       );
 
       uploadedFiles.push(docFichier);
@@ -573,7 +575,7 @@ exports.uploadPieceFile = async (req, res) => {
           original_name: file.originalname,
           mode: "INDIVIDUEL",
         },
-        { transaction: t }
+        { transaction: t },
       );
 
       uploadedFiles.push(docFichier);
@@ -646,7 +648,7 @@ exports.uploadLotUniqueWithPieces = async (req, res) => {
               original_name: file.originalname,
               mode: "LOT_UNIQUE",
             },
-            { transaction: t }
+            { transaction: t },
           );
 
           const [docPiece, created] = await DocumentPieces.findOrCreate({
@@ -675,7 +677,7 @@ exports.uploadLotUniqueWithPieces = async (req, res) => {
             original_name: file.originalname,
             mode: "LOT_UNIQUE",
           },
-          { transaction: t }
+          { transaction: t },
         );
         uploadedFiles.push(docFichier);
       }

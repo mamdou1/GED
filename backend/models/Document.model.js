@@ -24,12 +24,12 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "type_document_id",
       as: "typeDocument",
     });
-    
+
     Document.hasMany(models.DocumentValue, {
       foreignKey: "document_id",
       as: "values",
     });
-    
+
     Document.belongsTo(models.Box, {
       foreignKey: "box_id",
       as: "box",
@@ -45,6 +45,17 @@ module.exports = (sequelize, DataTypes) => {
     Document.belongsTo(models.Agent, {
       foreignKey: "agent_id",
       as: "agent",
+    });
+
+    // models/Document.model.js - Ajouter cette relation
+    Document.hasMany(models.EntityCustomFieldValue, {
+      foreignKey: "document_id",
+      as: "customFieldValues",
+    });
+
+    Document.hasMany(models.DocumentEntity, {
+      foreignKey: "document_id",
+      as: "entities", // ← C'est cet alias qui est utilisé
     });
   };
 

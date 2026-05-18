@@ -121,6 +121,64 @@ export default function DocumentPage() {
     entity_label: string;
   } | null>(null);
 
+  const [metaFieldsByType, setMetaFieldsByType] = useState<
+    Record<number, any[]>
+  >({});
+
+  // ✅ AJOUTER ce useEffect
+  useEffect(() => {
+    const loadMetaFieldsForType = async (typeId: number) => {
+      if (!metaFieldsByType[typeId]) {
+        try {
+          const response = await api.get(`/meta-fields/${typeId}`);
+          setMetaFieldsByType((prev) => ({
+            ...prev,
+            [typeId]: response.data.data || response.data || [],
+          }));
+        } catch (error) {
+          console.error("Erreur chargement metaFields:", error);
+          setMetaFieldsByType((prev) => ({
+            ...prev,
+            [typeId]: [],
+          }));
+        }
+      }
+    };
+
+    if (expandedType) {
+      loadMetaFieldsForType(expandedType);
+    }
+
+    if (documentType_id) {
+      loadMetaFieldsForType(documentType_id);
+    }
+  }, [expandedType, documentType_id]);
+
+  // ✅ AJOUTER CE LOG pour déboguer
+  useEffect(() => {
+    if (allDocs.length > 0) {
+      console.log("📊 allDocs chargés:", allDocs.length);
+      console.log("🔍 Premier document:", {
+        id: allDocs[0]?.id,
+        type_document_id: allDocs[0]?.type_document_id,
+        values: allDocs[0]?.values,
+        entities: allDocs[0]?.entities,
+        typeDocument: allDocs[0]?.typeDocument,
+      });
+    }
+    if (types.length > 0) {
+      console.log("📋 Types chargés:", types.length);
+      console.log("🔍 Premier type:", {
+        id: types[0]?.id,
+        nom: types[0]?.nom,
+        entitee_un: types[0]?.entitee_un,
+        entitee_deux: types[0]?.entitee_deux,
+        entitee_trois: types[0]?.entitee_trois,
+      });
+    }
+    console.log("🏢 Entités chargées:", entitees.length);
+  }, [allDocs, types, entitees]);
+
   useEffect(() => {
     if (formVisible && pendingTypeId) {
       setDocumentType_id(pendingTypeId);
@@ -251,8 +309,12 @@ export default function DocumentPage() {
     const entityType = getUserFonctionEntityType();
     const entityId = getUserFonctionEntityId();
     if (!entityType || !entityId) return null;
-    const entitee = entitees.find(e => e.id === entityId && e.type === entityType);
-    return entitee ? { id: entityId, type: entityType, label: entitee.libelle } : null;
+    const entitee = entitees.find(
+      (e) => e.id === entityId && e.type === entityType,
+    );
+    return entitee
+      ? { id: entityId, type: entityType, label: entitee.libelle }
+      : null;
   };
 
   // ✅ PLUS BESOIN DE LA FONCTION load() NI DE useEffect !
@@ -740,7 +802,6 @@ export default function DocumentPage() {
                   </button>
 
                   {/* TYPES DE DOCUMENTS DE L'ENTITÉ - garde ton code existant */}
-                  {/* TYPES DE DOCUMENTS DE L'ENTITÉ */}
                   {isExpanded && (
                     <div className="border-t border-slate-100 p-5 space-y-3 bg-slate-50/30">
                       {entiteeTypes.length > 0 ? (
@@ -766,6 +827,34 @@ export default function DocumentPage() {
 
                             return hasCorrectType && hasCorrectEntity;
                           });
+
+                          // ✅ LOG DE DÉBUGAGE
+                          console.log(
+                            `🔍 Type "${type.nom}" (ID:${type.id}) dans entité "${entiteeItem.libelle}" (ID:${entiteeItem.id}, type:${entiteeItem.type}):`,
+                          );
+                          console.log(
+                            `   - typeDocs trouvés: ${typeDocs.length}`,
+                          );
+                          if (typeDocs.length > 0) {
+                            console.log(`   - Premier doc:`, {
+                              id: typeDocs[0].id,
+                              type_document_id: typeDocs[0].type_document_id,
+                              entities: typeDocs[0].entities,
+                            });
+                          } else {
+                            console.log(
+                              `   - allDocs filtrés par type:`,
+                              allDocs.filter(
+                                (d) => d.type_document_id === type.id,
+                              ).length,
+                            );
+                            console.log(
+                              `   - allDocs avec entities:`,
+                              allDocs.filter((d) => d.entities?.length > 0)
+                                .length,
+                            );
+                          }
+
                           const currentPageForType = getCurrentPageForType(
                             type.id,
                           );
@@ -829,7 +918,11 @@ export default function DocumentPage() {
                                       setPendingTypeId(type.id);
                                       setEditingDoc(null);
                                       // ✅ AJOUT : stocker l'entité courante
-                                      setCurrentEntityForForm({ id: entiteeItem.id, type: entiteeItem.type, label: entiteeItem.libelle });
+                                      setCurrentEntityForForm({
+                                        id: entiteeItem.id,
+                                        type: entiteeItem.type,
+                                        label: entiteeItem.libelle,
+                                      });
                                       setFormVisible(true);
                                     }}
                                     className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"
@@ -863,7 +956,13 @@ export default function DocumentPage() {
                                               <th className="p-3 text-[11px] font-black text-emerald-800 uppercase tracking-widest w-24">
                                                 Réf.
                                               </th>
-                                              {metaFields.map((m) => (
+                                              {(
+                                                metaFieldsByType[
+                                                  expandedType ||
+                                                    documentType_id ||
+                                                    0
+                                                ] || metaFields
+                                              ).map((m) => (
                                                 <th
                                                   key={m.id}
                                                   className="p-3 text-[11px] font-black text-emerald-800 uppercase tracking-widest"
@@ -871,6 +970,7 @@ export default function DocumentPage() {
                                                   {m.label}
                                                 </th>
                                               ))}
+
                                               <th className="p-3 text-[11px] font-black text-emerald-800 uppercase tracking-widest text-center">
                                                 Actions
                                               </th>
@@ -895,7 +995,13 @@ export default function DocumentPage() {
                                                     )}
                                                   </span>
                                                 </td>
-                                                {metaFields.map((m) => {
+                                                {(
+                                                  metaFieldsByType[
+                                                    expandedType ||
+                                                      documentType_id ||
+                                                      0
+                                                  ] || metaFields
+                                                ).map((m) => {
                                                   const value =
                                                     doc.values?.find(
                                                       (v: any) =>
@@ -930,7 +1036,14 @@ export default function DocumentPage() {
                                                           type.id,
                                                         );
                                                         // ✅ AJOUT : stocker l'entité courante
-                                                        setCurrentEntityForForm({ id: entiteeItem.id, type: entiteeItem.type, label: entiteeItem.libelle });
+                                                        setCurrentEntityForForm(
+                                                          {
+                                                            id: entiteeItem.id,
+                                                            type: entiteeItem.type,
+                                                            label:
+                                                              entiteeItem.libelle,
+                                                          },
+                                                        );
                                                         setFormVisible(true);
                                                       }}
                                                       className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
@@ -1007,7 +1120,11 @@ export default function DocumentPage() {
                                         onClick={() => {
                                           setDocumentType_id(type.id);
                                           // ✅ AJOUT : stocker l'entité courante
-                                          setCurrentEntityForForm({ id: entiteeItem.id, type: entiteeItem.type, label: entiteeItem.libelle });
+                                          setCurrentEntityForForm({
+                                            id: entiteeItem.id,
+                                            type: entiteeItem.type,
+                                            label: entiteeItem.libelle,
+                                          });
                                           setFormVisible(true);
                                         }}
                                         className="mt-3 text-sm bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition-all"
@@ -1222,7 +1339,11 @@ export default function DocumentPage() {
                                       setPendingTypeId(type.id);
                                       setEditingDoc(null);
                                       // ✅ AJOUT : stocker l'entité courante
-                                      setCurrentEntityForForm({ id: entiteeItem.id, type: entiteeItem.type, label: entiteeItem.libelle });
+                                      setCurrentEntityForForm({
+                                        id: entiteeItem.id,
+                                        type: entiteeItem.type,
+                                        label: entiteeItem.libelle,
+                                      });
                                       setFormVisible(true);
                                     }}
                                     className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"
@@ -1323,7 +1444,14 @@ export default function DocumentPage() {
                                                           type.id,
                                                         );
                                                         // ✅ AJOUT : stocker l'entité courante
-                                                        setCurrentEntityForForm({ id: entiteeItem.id, type: entiteeItem.type, label: entiteeItem.libelle });
+                                                        setCurrentEntityForForm(
+                                                          {
+                                                            id: entiteeItem.id,
+                                                            type: entiteeItem.type,
+                                                            label:
+                                                              entiteeItem.libelle,
+                                                          },
+                                                        );
                                                         setFormVisible(true);
                                                       }}
                                                       className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
@@ -1400,7 +1528,11 @@ export default function DocumentPage() {
                                         onClick={() => {
                                           setDocumentType_id(type.id);
                                           // ✅ AJOUT : stocker l'entité courante
-                                          setCurrentEntityForForm({ id: entiteeItem.id, type: entiteeItem.type, label: entiteeItem.libelle });
+                                          setCurrentEntityForForm({
+                                            id: entiteeItem.id,
+                                            type: entiteeItem.type,
+                                            label: entiteeItem.libelle,
+                                          });
                                           setFormVisible(true);
                                         }}
                                         className="mt-3 text-sm bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition-all"
@@ -1631,8 +1763,10 @@ export default function DocumentPage() {
                                           setEditingDoc(doc);
                                           setPendingTypeId(type.id);
                                           // ✅ AJOUT : récupérer l'entité de la fonction courante
-                                          const entity = getCurrentFonctionEntity();
-                                          if (entity) setCurrentEntityForForm(entity);
+                                          const entity =
+                                            getCurrentFonctionEntity();
+                                          if (entity)
+                                            setCurrentEntityForForm(entity);
                                           setFormVisible(true);
                                         }}
                                         className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
@@ -1812,6 +1946,10 @@ export default function DocumentPage() {
         documentType={types}
         selectedTypeId={documentType_id}
         editingDoc={editingDoc}
+        preselectedEntity={activeEntity}
+        entitee_un={entitees.filter((e) => e.type === "un")}
+        entitee_deux={entitees.filter((e) => e.type === "deux")}
+        entitee_trois={entitees.filter((e) => e.type === "trois")}
       />
       <DocumentDetails
         visible={detailsVisible}

@@ -27,15 +27,17 @@ interface MetaField {
 interface DocumentPayload {
   type_document_id: number | null;
   values: Record<string, string>;
-  entities?: any[];
+  piece_values?: Record<string, any>;
+  entities?: DocumentEntityPayload[];
+  defaultEntityType?: string;
   id?: number;
 }
 
 // Configuration des types d'entités
 const ENTITY_TYPE_MAP: Record<string, string> = {
-  entiteeun: "EntiteeUn",
-  entiteedoux: "EntiteeDeux",
-  entiteetrois: "EntiteeTrois",
+  entitee_un: "entitee_un",
+  entitee_deux: "entitee_deux",
+  entitee_trois: "entitee_trois",
 };
 
 // Normaliser le type d'entité pour l'API
@@ -56,6 +58,10 @@ export default function DocumentForm({
   documentType,
   selectedTypeId,
   editingDoc,
+  entitee_un = [],
+  entitee_deux = [],
+  entitee_trois = [],
+  defaultEntityType,
   preselectedEntity,
 }: any) {
   const [values, setValues] = useState<Record<string, any>>({});
@@ -67,9 +73,9 @@ export default function DocumentForm({
   const isEntityPreselected =
     preselectedEntity?.entity_id && preselectedEntity?.entity_id > 0;
   const effectiveEntityType = isEntityPreselected
-    ? ENTITY_TYPE_MAP[preselectedEntity.entity_type?.toLowerCase()] ||
+    ? ENTITY_TYPE_MAP[preselectedEntity.entity_type] ||
       preselectedEntity.entity_type
-    : null;
+    : defaultEntityType;
   const effectiveEntityId = isEntityPreselected
     ? preselectedEntity.entity_id
     : null;
@@ -85,7 +91,7 @@ export default function DocumentForm({
     try {
       const normalizedType = normalizeEntityType(effectiveEntityType);
       const response = await api.get(
-        `/meta-fields/${typeId}/entity/${normalizedType}/${effectiveEntityId}/all`
+        `/meta-fields/${typeId}/entity/${normalizedType}/${effectiveEntityId}/all`,
       );
       const fields = response.data.data || [];
       console.log("📋 Champs chargés pour l'entité:", fields);
@@ -154,8 +160,12 @@ export default function DocumentForm({
         return (
           <textarea
             value={value}
-            onChange={(e) => setValues({ ...values, [field.id]: e.target.value })}
-            placeholder={field.placeholder || `Entrez ${field.label.toLowerCase()}...`}
+            onChange={(e) =>
+              setValues({ ...values, [field.id]: e.target.value })
+            }
+            placeholder={
+              field.placeholder || `Entrez ${field.label.toLowerCase()}...`
+            }
             className="w-full bg-white border border-emerald-100 p-3 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
             rows={field.field_type === "TEXTAREA" ? 4 : 2}
           />
@@ -165,7 +175,9 @@ export default function DocumentForm({
           <InputNumber
             value={value ? Number(value) : null}
             onValueChange={(e) => setValues({ ...values, [field.id]: e.value })}
-            placeholder={field.placeholder || `Entrez ${field.label.toLowerCase()}...`}
+            placeholder={
+              field.placeholder || `Entrez ${field.label.toLowerCase()}...`
+            }
             className="w-full"
             inputClassName="w-full bg-white border border-emerald-100 p-3 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
           />
@@ -174,7 +186,12 @@ export default function DocumentForm({
         return (
           <Calendar
             value={value ? new Date(value) : null}
-            onChange={(e) => setValues({ ...values, [field.id]: e.value ? e.value.toISOString().split("T")[0] : "" })}
+            onChange={(e) =>
+              setValues({
+                ...values,
+                [field.id]: e.value ? e.value.toISOString().split("T")[0] : "",
+              })
+            }
             dateFormat="dd/mm/yy"
             className="w-full"
             inputClassName="w-full bg-white border border-emerald-100 p-3 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
@@ -197,7 +214,9 @@ export default function DocumentForm({
         return (
           <select
             value={value}
-            onChange={(e) => setValues({ ...values, [field.id]: e.target.value })}
+            onChange={(e) =>
+              setValues({ ...values, [field.id]: e.target.value })
+            }
             className="w-full bg-white border border-emerald-100 p-3 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
           >
             <option value="">Sélectionnez...</option>
@@ -212,7 +231,9 @@ export default function DocumentForm({
         return (
           <input
             type="file"
-            onChange={(e) => setValues({ ...values, [field.id]: e.target.files?.[0] })}
+            onChange={(e) =>
+              setValues({ ...values, [field.id]: e.target.files?.[0] })
+            }
             className="w-full bg-white border border-emerald-100 p-2 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
           />
         );
@@ -220,8 +241,12 @@ export default function DocumentForm({
         return (
           <InputText
             value={value}
-            onChange={(e) => setValues({ ...values, [field.id]: e.target.value })}
-            placeholder={field.placeholder || `Entrez ${field.label.toLowerCase()}...`}
+            onChange={(e) =>
+              setValues({ ...values, [field.id]: e.target.value })
+            }
+            placeholder={
+              field.placeholder || `Entrez ${field.label.toLowerCase()}...`
+            }
             className="w-full bg-white border border-emerald-100 p-3 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
           />
         );
@@ -238,8 +263,17 @@ export default function DocumentForm({
       return;
     }
 
+    if (!effectiveEntityType || !effectiveEntityId) {
+      toast.current?.show({
+        severity: "warn",
+        summary: "Entité manquante",
+        detail: "Veuillez sélectionner une entité",
+      });
+      return;
+    }
+
     const visibleRequiredFields = metaFields.filter(
-      (f) => f.required && f.hidden !== true
+      (f) => f.required && f.hidden !== true,
     );
     const missing = visibleRequiredFields.filter((f) => {
       const val = values[f.id];
@@ -259,26 +293,39 @@ export default function DocumentForm({
       const valuesObject: Record<string, string> = {};
       for (const field of metaFields) {
         const fieldValue = values[field.id];
-        if (fieldValue !== undefined && fieldValue !== null && fieldValue !== "") {
+        if (
+          fieldValue !== undefined &&
+          fieldValue !== null &&
+          fieldValue !== ""
+        ) {
           if (!(fieldValue instanceof File)) {
             valuesObject[field.id] = fieldValue.toString();
           }
         }
       }
 
+      const mapEntityType = (type: string): string => {
+        const mapping: Record<string, string> = {
+          entiteeUn: "entitee_un",
+          entiteeDeux: "entitee_deux",
+          entiteeTrois: "entitee_trois",
+          entitee_un: "entitee_un",
+          entitee_deux: "entitee_deux",
+          entitee_trois: "entitee_trois",
+        };
+        return mapping[type] || type;
+      };
+
       const payload: DocumentPayload = {
         type_document_id: documentType_id,
         values: valuesObject,
-      };
-
-      if (effectiveEntityType && effectiveEntityId) {
-        payload.entities = [
+        entities: [
           {
-            entity_type: effectiveEntityType,
+            entity_type: mapEntityType(effectiveEntityType),
             entity_id: effectiveEntityId,
           },
-        ];
-      }
+        ],
+      };
 
       if (editingDoc?.id) {
         payload.id = editingDoc.id;
@@ -300,7 +347,7 @@ export default function DocumentForm({
             fileUploads.push(
               api.post(`/documents/${docId}/files`, formData, {
                 headers: { "Content-Type": "multipart/form-data" },
-              })
+              }),
             );
           }
         }
@@ -325,7 +372,9 @@ export default function DocumentForm({
       toast.current?.show({
         severity: "error",
         summary: "Erreur",
-        detail: error.response?.data?.message || "Impossible d'enregistrer le document",
+        detail:
+          error.response?.data?.message ||
+          "Impossible d'enregistrer le document",
       });
     }
   };
@@ -336,10 +385,16 @@ export default function DocumentForm({
       <Dialog
         header={
           <div className="flex items-center gap-3 text-emerald-950">
-            <div className="p-2 bg-emerald-600 rounded-lg text-white"><Plus size={18} /></div>
-            <span className="font-black tracking-tight">{editingDoc ? "Modifier le document" : "Nouveau document"}</span>
+            <div className="p-2 bg-emerald-600 rounded-lg text-white">
+              <Plus size={18} />
+            </div>
+            <span className="font-black tracking-tight">
+              {editingDoc ? "Modifier le document" : "Nouveau document"}
+            </span>
             {isEntityPreselected && (
-              <p className="text-xs text-emerald-600 mt-1 font-medium ml-12">Pour : {preselectedEntity?.entity_label}</p>
+              <p className="text-xs text-emerald-600 mt-1 font-medium ml-12">
+                Pour : {preselectedEntity?.entity_label}
+              </p>
             )}
           </div>
         }
@@ -349,7 +404,11 @@ export default function DocumentForm({
         className="rounded-3xl overflow-hidden"
         footer={
           <div className="flex justify-end gap-3 p-4 bg-emerald-50/30">
-            <Button label="Annuler" onClick={onHide} className="p-button-text text-emerald-600 font-bold" />
+            <Button
+              label="Annuler"
+              onClick={onHide}
+              className="p-button-text text-emerald-600 font-bold"
+            />
             <Button
               label={editingDoc ? "Modifier" : "Enregistrer"}
               icon={<Save size={18} className="mr-2" />}
@@ -384,28 +443,39 @@ export default function DocumentForm({
           {loading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
-              <p className="text-sm text-slate-400 mt-2">Chargement des champs...</p>
+              <p className="text-sm text-slate-400 mt-2">
+                Chargement des champs...
+              </p>
             </div>
-          ) : metaFields.filter(f => !f.hidden).length > 0 ? (
+          ) : metaFields.filter((f) => !f.hidden).length > 0 ? (
             <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-2">
-              <p className="text-[10px] font-black text-emerald-800/40 uppercase tracking-widest flex items-center gap-2">
+              <div className="text-[10px] font-black text-emerald-800/40 uppercase tracking-widest flex items-center gap-2">
                 <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
                 Champs du document ({metaFields.length})
-              </p>
+              </div>
+
               <div className="grid grid-cols-1 gap-4">
-                {metaFields.map(field => {
+                {metaFields.map((field) => {
                   if (field.hidden) return null;
                   return (
                     <div key={field.id} className="flex flex-col gap-2">
                       <label className="text-xs font-bold text-emerald-900 ml-1 flex items-center gap-2">
                         {field.label}
-                        {field.required && <span className="text-red-500 text-xs">*</span>}
+                        {field.required && (
+                          <span className="text-red-500 text-xs">*</span>
+                        )}
                         {field.source === "custom" && (
-                          <span className="text-[9px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full">Personnalisé</span>
+                          <span className="text-[9px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full">
+                            Personnalisé
+                          </span>
                         )}
                       </label>
                       {renderField(field)}
-                      {field.description && <p className="text-xs text-slate-400 ml-1">{field.description}</p>}
+                      {field.description && (
+                        <p className="text-xs text-slate-400 ml-1">
+                          {field.description}
+                        </p>
+                      )}
                     </div>
                   );
                 })}
@@ -414,13 +484,20 @@ export default function DocumentForm({
           ) : documentType_id ? (
             <div className="text-center py-12 bg-emerald-50/20 rounded-xl border border-dashed border-emerald-200">
               <FileText size={48} className="mx-auto text-emerald-300 mb-4" />
-              <p className="text-emerald-600 text-sm">Aucun champ configuré pour ce type de document</p>
-              <p className="text-xs text-emerald-400 mt-1">Vous pouvez ajouter des champs personnalisés depuis la gestion des champs</p>
+              <p className="text-emerald-600 text-sm">
+                Aucun champ configuré pour ce type de document
+              </p>
+              <p className="text-xs text-emerald-400 mt-1">
+                Vous pouvez ajouter des champs personnalisés depuis la gestion
+                des champs
+              </p>
             </div>
           ) : (
             <div className="text-center py-12 bg-emerald-50/20 rounded-xl border border-dashed border-emerald-200">
               <FileText size={48} className="mx-auto text-emerald-300 mb-4" />
-              <p className="text-emerald-600 text-sm">Sélectionnez d'abord un type de document</p>
+              <p className="text-emerald-600 text-sm">
+                Sélectionnez d'abord un type de document
+              </p>
             </div>
           )}
         </div>

@@ -49,9 +49,6 @@ import { useAuth } from "../../context/AuthContext";
 import EntiteeAjoutTypeDocument from "./EntiteeAjoutTypeDocument";
 import TypeDocumentAjoutPiecesEntytee from "./TypeDocumentAjoutPiecesEntytee";
 
-// ✅ Import du composant de gestion des champs personnalisés
-import EntityFieldManager from "./EntityFieldManager";
-
 // Types pour les entités (UI et API)
 type EntityTypeUI = "entiteeUn" | "entiteeDeux" | "entiteeTrois";
 type EntityTypeApi = "entitee_un" | "entitee_deux" | "entitee_trois";
@@ -1055,28 +1052,6 @@ export default function DocumentTypeEntitee() {
                                           >
                                             <Settings size={25} />
                                           </button>
-                                          {/* ✅ NOUVEAU BOUTON : Personnalisation par entité */}
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setSelected(t);
-                                              // Déterminer le type d'entité
-                                              let entityType = "EntiteeUn";
-                                              if (t.entitee_trois_id) {
-                                                entityType = "EntiteeTrois";
-                                              } else if (t.entitee_deux_id) {
-                                                entityType = "EntiteeDeux";
-                                              } else if (t.entitee_un_id) {
-                                                entityType = "EntiteeUn";
-                                              }
-                                              setSelectedEntityType(entityType);
-                                              setEntityFieldManagerVisible(true);
-                                            }}
-                                            className="p-2 text-purple-500 hover:bg-purple-50 rounded-lg"
-                                            title="Personnaliser les champs pour cette entité"
-                                          >
-                                            <Settings size={25} />
-                                          </button>
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
@@ -1264,30 +1239,6 @@ export default function DocumentTypeEntitee() {
             }}
           />
         )}
-
-      {/* ✅ MODAL GESTION DES CHAMPS PERSONNALISÉS PAR ENTITÉ */}
-      <EntityFieldManager
-        visible={entityFieldManagerVisible}
-        onHide={() => setEntityFieldManagerVisible(false)}
-        typeDocumentId={selected?.id}
-        entityType={selectedEntityType}
-        entityId={
-          selected?.entitee_trois_id ||
-          selected?.entitee_deux_id ||
-          selected?.entitee_un_id ||
-          0
-        }
-        typeDocumentName={selected?.nom}
-        entityName={
-          selected?.entitee_trois?.libelle ||
-          selected?.entitee_deux?.libelle ||
-          selected?.entitee_un?.libelle ||
-          "Entité"
-        }
-        onRefresh={() => {
-          refetch();
-        }}
-      />
     </Layout>
   );
 }

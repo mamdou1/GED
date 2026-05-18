@@ -1,4 +1,5 @@
 // controllers/document.controller.js
+const db = require("../models");
 const {
   Document,
   DocumentValue,
@@ -10,14 +11,14 @@ const {
   DocumentPieces,
   Pieces,
   PiecesFichier,
-  sequelize,
   PieceValue,
   PieceMetaField,
   Agent,
   EntityCustomField,
   EntityCustomFieldValue,
-  DocumentEntity,
-} = require("../models");
+  sequelize,
+} = db;
+
 const buildAccessWhere = require("../utils/buildAccessWhere.utils");
 const path = require("path");
 const logger = require("../config/logger.config");
@@ -59,16 +60,16 @@ exports.create = async (req, res) => {
       { transaction: t }
     );
 
-    // 2. LIAISON DOCUMENT → ENTITÉS (corrigé)
-    if (entities && Array.isArray(entities) && entities.length > 0) {
-      const entityRows = entities.map((entity) => ({
-        document_id: doc.id,
-        entity_type: entity.entity_type,
-        entity_id: entity.entity_id,
-      }));
-
-      await DocumentEntity.bulkCreate(entityRows, { transaction: t });
-    }
+    // 2. LIAISON DOCUMENT → ENTITÉS (si nécessaire, adapter selon votre structure)
+    // Si vous avez une table pivot DocumentEntity, décommentez et créez l'association
+    // if (entities && Array.isArray(entities) && entities.length > 0) {
+    //   const entityRows = entities.map((entity) => ({
+    //     document_id: doc.id,
+    //     entity_type: entity.entity_type,
+    //     entity_id: entity.entity_id,
+    //   }));
+    //   await DocumentEntity.bulkCreate(entityRows, { transaction: t });
+    // }
 
     // 3. Associer les pièces du type
     const typeDocumentPieces = await TypeDocumentPieces.findAll({
@@ -82,7 +83,6 @@ exports.create = async (req, res) => {
         piece_id: tp.piece_id,
         disponible: false,
       }));
-
       await DocumentPieces.bulkCreate(pieceRows, { transaction: t });
     }
 
@@ -95,7 +95,6 @@ exports.create = async (req, res) => {
           value: value?.toString() || "",
         })
       );
-
       await DocumentValue.bulkCreate(metaRows, { transaction: t });
     }
 
@@ -123,7 +122,6 @@ exports.create = async (req, res) => {
       }
     }
 
-    // Commit transaction
     await t.commit();
 
     logger.info("✅ Document créé avec succès", {
@@ -133,7 +131,6 @@ exports.create = async (req, res) => {
       duration: Date.now() - startTime,
     });
 
-    // Historique
     await HistoriqueService.logCreate(req, "document", doc);
 
     return res.status(201).json({
@@ -143,12 +140,8 @@ exports.create = async (req, res) => {
     });
   } catch (e) {
     if (t) await t.rollback();
-
     console.error("❌ Erreur create document:", e);
-
-    return res.status(500).json({
-      message: e.message,
-    });
+    return res.status(500).json({ message: e.message });
   }
 };
 
@@ -162,35 +155,46 @@ exports.getAll = async (req, res) => {
       query: req.query,
     });
 
-    const { entity_type, entity_id } = req.query;
+    const includes = [];
 
-    const data = await Document.findAll({
-      include: [
-        {
-          model: Pieces,
-          as: "pieces",
-          attributes: ["id", "libelle", "code_pieces"],
-        },
-        {
-          model: TypeDocument,
-          as: "typeDocument",
-          include: [{ model: MetaField, as: "metaFields" }],
-        },
-        {
-          model: DocumentValue,
-          as: "values",
-          include: [
-            { model: MetaField, as: "metaField" },
-            { model: DocumentFile, as: "files" },
-          ],
-        },
-        {
-          model: EntityCustomFieldValue,
-          as: "customFieldValues",
-          include: [{ model: EntityCustomField, as: "customField" }],
-        },
-      ],
-    });
+    if (db.Pieces) {
+      includes.push({
+        model: db.Pieces,
+        as: "pieces",
+        attributes: ["id", "libelle", "code_pieces"],
+      });
+    }
+
+    if (db.TypeDocument && db.MetaField) {
+      includes.push({
+        model: db.TypeDocument,
+        as: "typeDocument",
+        include: [{ model: db.MetaField, as: "metaFields" }],
+      });
+    }
+
+    if (db.DocumentValue && db.MetaField && db.DocumentFile) {
+      includes.push({
+        model: db.DocumentValue,
+        as: "values",
+        include: [
+          { model: db.MetaField, as: "metaField" },
+          { model: db.DocumentFile, as: "files" },
+        ],
+      });
+    }
+
+    if (db.EntityCustomFieldValue && db.EntityCustomField) {
+      includes.push({
+        model: db.EntityCustomFieldValue,
+        as: "customFieldValues",
+        include: [{ model: db.EntityCustomField, as: "customField" }],
+      });
+    }
+
+    // DocumentEntity est supprimé car non associé
+
+    const data = await Document.findAll({ include: includes });
 
     logger.info("✅ Documents récupérés", {
       count: data.length,
@@ -198,7 +202,6 @@ exports.getAll = async (req, res) => {
       duration: Date.now() - startTime,
     });
 
-    // Journalisation dans l'historique pour les GET avec sidebar
     if (req.headers["x-sidebar-navigation"] === "true") {
       await HistoriqueService.log({
         agent_id: req.user?.id || null,
@@ -237,46 +240,37 @@ exports.getById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    logger.debug("🔍 Recherche d'un document par ID", {
-      documentId: id,
-      userId: req.user?.id,
-    });
+    const includes = [
+      {
+        model: db.TypeDocument,
+        as: "typeDocument",
+        include: [{ model: db.MetaField, as: "metaFields" }],
+      },
+      {
+        model: db.DocumentValue,
+        as: "values",
+        include: [
+          { model: db.MetaField, as: "metaField" },
+          { model: db.DocumentFile, as: "file" },
+        ],
+      },
+      {
+        model: db.EntityCustomFieldValue,
+        as: "customFieldValues",
+        include: [{ model: db.EntityCustomField, as: "customField" }],
+      },
+      {
+        model: db.Pieces,
+        as: "pieces",
+        attributes: ["id", "libelle", "code_pieces"],
+        through: {
+          model: db.DocumentPieces,
+          attributes: ["disponible"],
+        },
+      },
+    ];
 
-    const data = await Document.findByPk(id, {
-      include: [
-        {
-          model: TypeDocument,
-          as: "typeDocument",
-          include: [{ model: MetaField, as: "metaFields" }],
-        },
-        {
-          model: DocumentValue,
-          as: "values",
-          include: [
-            { model: MetaField, as: "metaField" },
-            { model: DocumentFile, as: "file" },
-          ],
-        },
-        {
-          model: EntityCustomFieldValue,
-          as: "customFieldValues",
-          include: [{ model: EntityCustomField, as: "customField" }],
-        },
-        {
-          model: Pieces,
-          as: "pieces",
-          attributes: ["id", "libelle", "code_pieces"],
-          through: {
-            model: DocumentPieces,
-            attributes: ["disponible"],
-          },
-        },
-        {
-          model: DocumentEntity,
-          as: "entities",
-        },
-      ],
-    });
+    const data = await Document.findByPk(id, { include: includes });
 
     if (!data) {
       logger.warn("⚠️ Document non trouvé", {
@@ -337,9 +331,9 @@ exports.update = async (req, res) => {
 
     const oldDoc = await Document.findByPk(id, {
       include: [
-        { model: DocumentValue, as: "values" },
-        { model: EntityCustomFieldValue, as: "customFieldValues" },
-        { model: Agent, as: "agent" },
+        { model: db.DocumentValue, as: "values" },
+        { model: db.EntityCustomFieldValue, as: "customFieldValues" },
+        { model: db.Agent, as: "agent" },
       ],
     });
 
@@ -354,7 +348,6 @@ exports.update = async (req, res) => {
     const { values } = req.body;
 
     if (values && typeof values === "object") {
-      // Mise à jour des champs de base
       for (const [metaFieldId, value] of Object.entries(values)) {
         const existingValue = await DocumentValue.findOne({
           where: {
@@ -377,8 +370,8 @@ exports.update = async (req, res) => {
 
     const updatedDoc = await Document.findByPk(id, {
       include: [
-        { model: DocumentValue, as: "values" },
-        { model: EntityCustomFieldValue, as: "customFieldValues" },
+        { model: db.DocumentValue, as: "values" },
+        { model: db.EntityCustomFieldValue, as: "customFieldValues" },
       ],
     });
 

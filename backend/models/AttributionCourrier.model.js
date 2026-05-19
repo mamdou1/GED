@@ -13,6 +13,9 @@ module.exports = (sequelize, DataTypes) => {
       commentaire: DataTypes.TEXT,
       date_attribution: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
       est_transfert: { type: DataTypes.BOOLEAN, defaultValue: false },
+      // Ajoute ces champs fantômes pour que Sequelice les ignore
+      attribue_par_id: { type: DataTypes.VIRTUAL },
+      attribue_a_id: { type: DataTypes.VIRTUAL },
     },
     { tableName: "attribution_courrier", underscored: true, timestamps: true }
   );

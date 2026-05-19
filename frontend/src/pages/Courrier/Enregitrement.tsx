@@ -24,6 +24,7 @@ import { useCourriers } from "../../hooks/useCourriers";
 // Composants
 import CourrierForm from "./CourrierForm";
 import CourrierDetails from "./CourrierDetails";
+import { getCourrierById } from "../../api/courrier"; // ✅ IMPORT AJOUTÉ
 
 interface Courrier {
   idcourrier: number;
@@ -34,7 +35,7 @@ interface Courrier {
   expediteur?: string;
   destinataire?: string;
   date_reception?: string;
-  motif_rejet?: string; // ✅ Ajout du motif de rejet
+  motif_rejet?: string;
 }
 
 export default function Enregitrement() {
@@ -54,7 +55,28 @@ export default function Enregitrement() {
   const [editCourrier, setEditCourrier] = useState<Courrier | null>(null);
   const [query, setQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const itemsPerPage = 9;
+
+  // ✅ NOUVELLE FONCTION : Ouvre les détails avec appel API
+  const handleViewDetail = async (courrier: Courrier) => {
+    try {
+      setIsLoadingDetails(true);
+      const details = await getCourrierById(courrier.idcourrier);
+      setSelectedCourrier(details);
+    } catch (err: any) {
+      console.error("Erreur chargement détails:", err);
+      toast.current?.show({
+        severity: "error",
+        summary: "Erreur",
+        detail: err.message || "Impossible de charger les détails du courrier",
+      });
+      // Fallback : utiliser les données de la liste
+      setSelectedCourrier(courrier);
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
 
   const filteredData = useMemo(() => {
     return allCourriers.filter((c: Courrier) =>
@@ -94,6 +116,7 @@ export default function Enregitrement() {
       rejectLabel: "Annuler",
       acceptClassName: "p-button-danger",
       accept: async () => {
+        // TODO: Appeler l'API de suppression
         toast.current?.show({
           severity: "success",
           summary: "Supprimé",
@@ -218,7 +241,7 @@ export default function Enregitrement() {
                   <tr
                     key={c.idcourrier}
                     className="cursor-pointer hover:bg-emerald-50/30 transition-all group"
-                    onClick={() => setSelectedCourrier(c)}
+                    onClick={() => handleViewDetail(c)}
                   >
                     <td className="px-6 py-4">
                       <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100">
@@ -255,7 +278,7 @@ export default function Enregitrement() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedCourrier(c);
+                            handleViewDetail(c);
                           }}
                           className="p-3 text-slate-400 hover:text-emerald-600 hover:bg-white hover:shadow-md rounded-xl transition-all"
                           title="Voir détails"
@@ -327,6 +350,7 @@ export default function Enregitrement() {
         mode={editCourrier ? "edit" : "add"}
       />
 
+      {/* Modale Détails */}
       <CourrierDetails
         visible={!!selectedCourrier}
         onHide={() => setSelectedCourrier(null)}

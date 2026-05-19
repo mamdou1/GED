@@ -9,6 +9,7 @@ import {
   removePiecesFromTypeDocument,
   addPieceToEntityTypeDocument,
   removePieceFromEntityTypeDocument,
+  getEffectivePiecesForEntity,
 } from "../api/typeDocument";
 import { createMetaField, updateMetaField } from "../api/metaField";
 import { getPieces } from "../api/pieces";
@@ -43,6 +44,12 @@ export const entiteeKeys = {
   trois: ["entiteeTrois"] as const,
 };
 
+export const effectivePiecesKeys = {
+  all: ["effectivePieces"] as const,
+  detail: (typeDocumentId: string, entityType: string, entityId: number) =>
+    [...effectivePiecesKeys.all, typeDocumentId, entityType, entityId] as const,
+};
+
 // =============================================
 // 2. HOOKS DE LECTURE (QUERIES)
 // =============================================
@@ -52,9 +59,10 @@ export const useTypeDocuments = () => {
   return useQuery({
     queryKey: typeDocumentKeys.lists(),
     queryFn: async () => {
+      // ✅ CORRECTION : getTypeDocuments retourne directement le tableau
       const res = await getTypeDocuments();
-      const typesData = res.typeDocument || res;
-      return Array.isArray(typesData) ? typesData : [];
+      // res est maintenant directement un tableau de TypeDocument
+      return Array.isArray(res) ? res : [];
     },
   });
 };
@@ -122,23 +130,27 @@ export const useInitialData = () => {
     typesQuery.isLoading || piecesQuery.isLoading || entitees.isLoading;
   const error = typesQuery.error || piecesQuery.error || entitees.error;
 
+  // Log pour debug
+  console.log("🔍 useInitialData (types) - typesQuery.data:", typesQuery.data);
+  console.log("🔍 useInitialData (types) - types length:", typesQuery.data?.length);
+
   // Créer les options d'entités pour le dropdown
   const optionsEntites = [
     { label: "Tous les profils", value: null },
     ...(entitees.entiteeUn || []).map((x: any) => ({
       label: `🏢 ${x.libelle}`,
       value: String(x.id),
-      titre: x.titre, // ✅ AJOUTER cette ligne
+      titre: x.titre,
     })),
     ...(entitees.entiteeDeux || []).map((x: any) => ({
       label: `📂 ${x.libelle}`,
       value: `E2-${x.id}`,
-      titre: x.titre, // ✅ AJOUTER cette ligne
+      titre: x.titre,
     })),
     ...(entitees.entiteeTrois || []).map((x: any) => ({
       label: `📄 ${x.libelle}`,
       value: `E3-${x.id}`,
-      titre: x.titre, // ✅ AJOUTER cette ligne
+      titre: x.titre,
     })),
   ];
 
@@ -269,6 +281,7 @@ export const useMultipleAffectation = () => {
   });
 };
 
+// Récupérer les pièces effectives pour une entité
 export const useEffectivePiecesForEntity = (
   typeDocumentId: string,
   entityType: string,
@@ -278,10 +291,11 @@ export const useEffectivePiecesForEntity = (
     queryKey: effectivePiecesKeys.detail(typeDocumentId, entityType, entityId),
     queryFn: () =>
       getEffectivePiecesForEntity(typeDocumentId, entityType, entityId),
-    enabled: !!typeDocumentId && !!entityType && !!entityId, // évite les appels inutiles
+    enabled: !!typeDocumentId && !!entityType && !!entityId,
   });
 };
 
+// Ajouter une pièce spécifique à une entité
 export const useAddPieceToEntityTypeDocument = () => {
   const queryClient = useQueryClient();
 
@@ -299,13 +313,11 @@ export const useAddPieceToEntityTypeDocument = () => {
     }) => addPieceToEntityTypeDocument(typeDocumentId, payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: typeDocumentKeys.lists() });
-
       queryClient.invalidateQueries({
         queryKey: typeDocumentKeys.detail(parseInt(variables.typeDocumentId)),
       });
-
       queryClient.invalidateQueries({
-        queryKey: ["effectivePieces"],
+        queryKey: effectivePiecesKeys.all,
       });
     },
     onError: (error: any) => {
@@ -332,13 +344,11 @@ export const useRemovePieceFromEntityTypeDocument = () => {
     }) => removePieceFromEntityTypeDocument(typeDocumentId, payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: typeDocumentKeys.lists() });
-
       queryClient.invalidateQueries({
         queryKey: typeDocumentKeys.detail(parseInt(variables.typeDocumentId)),
       });
-
       queryClient.invalidateQueries({
-        queryKey: ["effectivePieces"],
+        queryKey: effectivePiecesKeys.all,
       });
     },
     onError: (error: any) => {

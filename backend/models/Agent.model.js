@@ -85,6 +85,21 @@ module.exports = (sequelize, DataTypes) => {
       as: "document",
     });
 
+    Agent.hasMany(models.TraitementCourrier, {
+      foreignKey: "agent_id",
+      as: "traitements_courrier",
+    });
+
+    Agent.hasMany(models.AttributionCourrier, {
+      foreignKey: "attribue_par_id",
+      as: "attributions_effectuees",
+    });
+
+    Agent.hasMany(models.AttributionCourrier, {
+      foreignKey: "attribue_a_id",
+      as: "attributions_recues",
+    });
+
     // Agent.belongsToMany(models.Permission, {
     //   through: "agent_permissions",
     //   foreignKey: "agent_id",

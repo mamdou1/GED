@@ -90,11 +90,15 @@ function LocationModal({ visible, onHide, doc }: any) {
     if (!trave) return result;
     result.trave = trave.code;
     if (!trave.rayon_id) return result;
-    const rayon = allRayons.find((r) => Number(r.id) === Number(trave.rayon_id));
+    const rayon = allRayons.find(
+      (r) => Number(r.id) === Number(trave.rayon_id),
+    );
     if (!rayon) return result;
     result.rayon = rayon.code;
     if (!rayon.salle_id) return result;
-    const salle = allSalles.find((s) => Number(s.id) === Number(rayon.salle_id));
+    const salle = allSalles.find(
+      (s) => Number(s.id) === Number(rayon.salle_id),
+    );
     if (!salle) return result;
     result.salle = salle.libelle;
     if (!salle.site_id) return result;
@@ -145,7 +149,9 @@ function LocationModal({ visible, onHide, doc }: any) {
       header={
         <div className="flex items-center gap-2">
           <MapPin size={18} className="text-emerald-600" />
-          <span className="font-black text-emerald-900">Emplacement du document</span>
+          <span className="font-black text-emerald-900">
+            Emplacement du document
+          </span>
         </div>
       }
       visible={visible}
@@ -157,10 +163,17 @@ function LocationModal({ visible, onHide, doc }: any) {
         <div className="bg-emerald-50 p-4 rounded-xl">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-black text-emerald-500 uppercase">Document</p>
-              <p className="font-bold text-emerald-900">#{String(doc.id).padStart(4, "0")}</p>
+              <p className="text-[10px] font-black text-emerald-500 uppercase">
+                Document
+              </p>
+              <p className="font-bold text-emerald-900">
+                #{String(doc.id).padStart(4, "0")}
+              </p>
             </div>
-            <Badge value={doc.typeDocument?.nom || "Non classé"} severity="info" />
+            <Badge
+              value={doc.typeDocument?.nom || "Non classé"}
+              severity="info"
+            />
           </div>
         </div>
 
@@ -171,47 +184,85 @@ function LocationModal({ visible, onHide, doc }: any) {
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">📍 Localisation physique</p>
+            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">
+              📍 Localisation physique
+            </p>
             {location.site && (
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                <div className="p-2 bg-blue-100 rounded-lg text-blue-600"><Building2 size={16} /></div>
-                <div><p className="text-[10px] text-slate-400 uppercase">Site</p><p className="font-bold text-slate-700">{location.site}</p></div>
+                <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                  <Building2 size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase">Site</p>
+                  <p className="font-bold text-slate-700">{location.site}</p>
+                </div>
               </div>
             )}
             {location.salle && (
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                <div className="p-2 bg-purple-100 rounded-lg text-purple-600"><FolderTree size={16} /></div>
-                <div><p className="text-[10px] text-slate-400 uppercase">Salle</p><p className="font-bold text-slate-700">{location.salle}</p></div>
+                <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+                  <FolderTree size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase">Salle</p>
+                  <p className="font-bold text-slate-700">{location.salle}</p>
+                </div>
               </div>
             )}
             {location.rayon && (
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                <div className="p-2 bg-amber-100 rounded-lg text-amber-600"><Layers size={16} /></div>
-                <div><p className="text-[10px] text-slate-400 uppercase">Rayon</p><p className="font-bold text-slate-700">{location.rayon}</p></div>
+                <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
+                  <Layers size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase">Rayon</p>
+                  <p className="font-bold text-slate-700">{location.rayon}</p>
+                </div>
               </div>
             )}
             {location.trave && (
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600"><GitMerge size={16} /></div>
-                <div><p className="text-[10px] text-slate-400 uppercase">Travée</p><p className="font-bold text-slate-700">{location.trave}</p></div>
+                <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                  <GitMerge size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase">Travée</p>
+                  <p className="font-bold text-slate-700">{location.trave}</p>
+                </div>
               </div>
             )}
             <div className="border-t border-emerald-100 pt-3">
               <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl">
-                <div className="p-2 bg-emerald-200 rounded-lg text-emerald-700"><Box size={16} /></div>
+                <div className="p-2 bg-emerald-200 rounded-lg text-emerald-700">
+                  <Box size={16} />
+                </div>
                 <div className="flex-1">
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="text-[10px] text-emerald-500 uppercase">Box</p>
-                      <p className="font-bold text-emerald-900">{location.box}</p>
-                      <p className="text-xs text-emerald-600 font-mono">{location.boxCode}</p>
+                      <p className="text-[10px] text-emerald-500 uppercase">
+                        Box
+                      </p>
+                      <p className="font-bold text-emerald-900">
+                        {location.box}
+                      </p>
+                      <p className="text-xs text-emerald-600 font-mono">
+                        {location.boxCode}
+                      </p>
                     </div>
-                    {location.typeDocument && <Badge value={location.typeDocument} severity="info" className="text-xs" />}
+                    {location.typeDocument && (
+                      <Badge
+                        value={location.typeDocument}
+                        severity="info"
+                        className="text-xs"
+                      />
+                    )}
                   </div>
                   <div className="mt-3 space-y-1">
                     <div className="flex justify-between text-xs">
                       <span className="text-emerald-600">Occupation</span>
-                      <span className="font-bold text-emerald-800">{location.currentCount}/{location.capaciteMax}</span>
+                      <span className="font-bold text-emerald-800">
+                        {location.currentCount}/{location.capaciteMax}
+                      </span>
                     </div>
                     <div className="w-full bg-emerald-200 rounded-full h-1.5">
                       <div
@@ -221,7 +272,9 @@ function LocationModal({ visible, onHide, doc }: any) {
                     </div>
                   </div>
                   <div className="mt-3">
-                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold ${getStatusColor(location.status).bg} ${getStatusColor(location.status).text}`}>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold ${getStatusColor(location.status).bg} ${getStatusColor(location.status).text}`}
+                    >
                       {getStatusColor(location.status).icon}
                       {location.status === "LIBRE" && "Libre"}
                       {location.status === "OCCUPE" && "Occupé"}
@@ -259,15 +312,23 @@ function LocationBadge({ doc, onClick }: { doc: any; onClick: () => void }) {
     if (!box) return `Box #${doc.box_id}`;
     let path = box.libelle;
     if (box.trave_id) {
-      const trave = allTraves.find((t) => Number(t.id) === Number(box.trave_id));
+      const trave = allTraves.find(
+        (t) => Number(t.id) === Number(box.trave_id),
+      );
       if (trave) {
         path = `${trave.code} → ${path}`;
         if (trave.rayon_id) {
-          const rayon = allRayons.find((r) => Number(r.id) === Number(trave.rayon_id));
+          const rayon = allRayons.find(
+            (r) => Number(r.id) === Number(trave.rayon_id),
+          );
           if (rayon?.salle_id) {
-            const salle = allSalles.find((s) => Number(s.id) === Number(rayon.salle_id));
+            const salle = allSalles.find(
+              (s) => Number(s.id) === Number(rayon.salle_id),
+            );
             if (salle?.site_id) {
-              const site = allSites.find((s) => Number(s.id) === Number(salle.site_id));
+              const site = allSites.find(
+                (s) => Number(s.id) === Number(salle.site_id),
+              );
               if (site) path = `${site.nom} → ${path}`;
             }
           }
@@ -278,7 +339,10 @@ function LocationBadge({ doc, onClick }: { doc: any; onClick: () => void }) {
   };
   return (
     <button
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
       className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-medium hover:bg-emerald-200 transition-all max-w-[200px] truncate"
       title="Voir l'emplacement détaillé"
     >
@@ -322,7 +386,7 @@ export default function Recherche() {
 
   const [selectedFields, setSelectedFields] = useState<number[]>([]);
   const [searchValues, setSearchValues] = useState<{ [key: number]: string }>(
-    {}
+    {},
   );
   const [loading, setLoading] = useState(false);
   const [loadingTypes, setLoadingTypes] = useState(false);
@@ -473,12 +537,23 @@ export default function Recherche() {
   // Chargement initial
   useEffect(() => {
     const loadData = async () => {
-      const [resDocs, resTypes] = await Promise.all([
-        getDocuments(),
-        getTypeDocuments(),
-      ]);
-      setDocs(resDocs);
-      setTypes(resTypes.typeDocument);
+      try {
+        const [resDocs, resTypes] = await Promise.all([
+          getDocuments(),
+          getTypeDocuments(),
+        ]);
+        setDocs(Array.isArray(resDocs) ? resDocs : []);
+        // ✅ CORRECTION : getTypeDocuments retourne directement un tableau
+        if (Array.isArray(resTypes)) {
+          setTypes(resTypes);
+        } else {
+          setTypes([]);
+        }
+      } catch (error) {
+        console.error("Erreur chargement initial:", error);
+        setDocs([]);
+        setTypes([]);
+      }
     };
     loadData();
   }, []);
@@ -488,7 +563,8 @@ export default function Recherche() {
     const options: { label: string; value: NiveauType }[] = [];
     if (isUserAdmin(user)) {
       if (titres.niveau1) options.push({ label: titres.niveau1, value: "un" });
-      if (titres.niveau2) options.push({ label: titres.niveau2, value: "deux" });
+      if (titres.niveau2)
+        options.push({ label: titres.niveau2, value: "deux" });
       if (titres.niveau3)
         options.push({ label: titres.niveau3, value: "trois" });
       return options;
@@ -557,7 +633,7 @@ export default function Recherche() {
         const fields = await getAllFieldsForEntity(
           documentType_id,
           entityTypeMap[selectedNiveau],
-          selectedEntitee
+          selectedEntitee,
         );
         setMetaFields(fields.filter((f: any) => !f.hidden));
         setSelectedFields([]);
@@ -574,7 +650,7 @@ export default function Recherche() {
 
   const toggleField = (id: number) => {
     setSelectedFields((prev) =>
-      prev.includes(id) ? prev.filter((fid) => fid !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((fid) => fid !== id) : [...prev, id],
     );
   };
 
@@ -594,7 +670,7 @@ export default function Recherche() {
 
   const paginated = filtered.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   const getSearchInterface = () => {
@@ -659,8 +735,8 @@ export default function Recherche() {
                 !selectedNiveau
                   ? "Choisissez d'abord un niveau"
                   : entiteeOptions.length === 0
-                  ? "Aucune structure accessible"
-                  : "Sélectionner une structure"
+                    ? "Aucune structure accessible"
+                    : "Sélectionner une structure"
               }
               className="w-full border-none shadow-none bg-emerald-50/50 rounded-xl"
               optionLabel="label"
@@ -807,14 +883,16 @@ export default function Recherche() {
                     </td>
                     {metaFields.map((m) => {
                       const value = d.values?.find(
-                        (v: any) => v.metaField?.id === m.id
+                        (v: any) => v.metaField?.id === m.id,
                       )?.value;
                       return (
                         <td
                           key={m.id}
                           className="p-5 text-sm text-emerald-900 font-medium"
                         >
-                          {value || <span className="text-emerald-200">---</span>}
+                          {value || (
+                            <span className="text-emerald-200">---</span>
+                          )}
                         </td>
                       );
                     })}
@@ -859,7 +937,10 @@ export default function Recherche() {
                 ))
               ) : documentType_id ? (
                 <tr>
-                  <td colSpan={metaFields.length + 3} className="p-20 text-center">
+                  <td
+                    colSpan={metaFields.length + 3}
+                    className="p-20 text-center"
+                  >
                     <div className="inline-flex p-6 bg-emerald-50 rounded-full mb-4 text-emerald-200">
                       <FileText size={48} />
                     </div>

@@ -200,16 +200,6 @@ class CourrierService {
           attributes: ["idpiece_jointe", "nom_fichier", "fichier_url"],
         },
         {
-          model: AttributionCourrier,
-          as: "attributions",
-          separate: true,
-        },
-        {
-          model: TraitementCourrier,
-          as: "historique_traitements",
-          separate: true,
-        },
-        {
           model: AuditCourrier,
           as: "audit",
           separate: true,
@@ -261,98 +251,79 @@ class CourrierService {
   }
   // backend/services/CourrierService.js
 
-  // ===================== GET BY ID =====================
   static async getById(idcourrier, reqUser) {
-    try {
-      const entitee_id = reqUser.entitee_un_id;
-      if (!entitee_id) throw new Error("Utilisateur sans direction");
+  try {
+    const entitee_id = reqUser.entitee_un_id;
+    if (!entitee_id) throw new Error("Utilisateur sans direction");
 
-      const courrier = await Courrier.findByPk(idcourrier, {
-        include: [
-          { model: Agent, as: "createur" },
-          { model: Agent, as: "destinataire_agent" },
-          { model: Agent, as: "attribue_par" },
-          { model: Agent, as: "traite_par" },
-          { model: Agent, as: "modifie_par" },
-          { model: Expediteur, as: "expediteur_details" },
-          { model: DestinataireExterne, as: "destinataire_externe" },
-          {
-            model: PieceJointe,
-            as: "pieces_jointes",
-            attributes: ["idpiece_jointe", "nom_fichier", "fichier_url"],
-          },
-          {
-            model: AttributionCourrier,
-            as: "attributions",
-            include: [
-              {
-                model: Agent,
-                as: "attribue_par",
-                attributes: ["id", "nom", "prenom"],
-              },
-              {
-                model: Agent,
-                as: "attribue_a",
-                attributes: ["id", "nom", "prenom"],
-              },
-            ],
-          },
-          {
-            model: TraitementCourrier,
-            as: "historique_traitements",
-            include: [
-              {
-                model: Agent,
-                as: "agent",
-                attributes: ["id", "nom", "prenom"],
-              },
-            ],
-          },
-          {
-            model: AuditCourrier,
-            as: "audit",
-            include: [
-              {
-                model: Agent,
-                as: "agent",
-                attributes: ["id", "nom", "prenom"],
-              },
-            ],
-          },
-        ],
-        order: [
-          [{ model: AuditCourrier, as: "audit" }, "createdAt", "DESC"],
-          [
-            { model: AttributionCourrier, as: "attributions" },
-            "createdAt",
-            "DESC",
-          ],
-          [
-            { model: TraitementCourrier, as: "historique_traitements" },
-            "createdAt",
-            "DESC",
-          ],
-        ],
-      });
+    // 1. Récupérer le courrier SANS les associations problématiques
+    const courrier = await Courrier.findByPk(idcourrier, {
+      include: [
+        { model: Agent, as: "createur" },
+        { model: Agent, as: "destinataire_agent" },
+        { model: Agent, as: "attribue_par" },
+        { model: Agent, as: "traite_par" },
+        { model: Agent, as: "modifie_par" },
+        { model: Expediteur, as: "expediteur_details" },
+        { model: DestinataireExterne, as: "destinataire_externe" },
+        {
+          model: PieceJointe,
+          as: "pieces_jointes",
+          attributes: ["idpiece_jointe", "nom_fichier", "fichier_url"],
+        },
+      ],
+    });
 
-      if (!courrier) throw new Error("Courrier non trouvé");
-      if (courrier.entitee_id !== entitee_id)
-        throw new Error("Accès refusé : direction différente");
+    if (!courrier) throw new Error("Courrier non trouvé");
+    if (courrier.entitee_id !== entitee_id) throw new Error("Accès refusé : direction différente");
 
-      const estCreateur = courrier.agent_id === reqUser.id;
-      const estDestinataire = courrier.destinataire_idagent === reqUser.id;
-      const peutVoirCourrierEntiteeUn = reqUser.peutVoirCourrierEntiteeUn;
+    const estCreateur = courrier.agent_id === reqUser.id;
+    const estDestinataire = courrier.destinataire_idagent === reqUser.id;
+    const peutVoirCourrierEntiteeUn = reqUser.peutVoirCourrierEntiteeUn;
 
-      if (!peutVoirCourrierEntiteeUn && !estCreateur && !estDestinataire) {
-        throw new Error("Accès refusé : ce courrier ne vous est pas attribué");
-      }
-
-      return courrier;
-    } catch (error) {
-      logger.error("Erreur getById:", error);
-      throw error;
+    if (!peutVoirCourrierEntiteeUn && !estCreateur && !estDestinataire) {
+      throw new Error("Accès refusé : ce courrier ne vous est pas attribué");
     }
+
+    // 2. Récupérer les attributions avec leurs agents (requête séparée)
+    const attributions = await AttributionCourrier.findAll({
+      where: { courrier_id: idcourrier },
+      include: [
+        { model: Agent, as: "attribue_par", attributes: ["id", "nom", "prenom"] },
+        { model: Agent, as: "attribue_a", attributes: ["id", "nom", "prenom"] },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    // 3. Récupérer les traitements avec leurs agents (requête séparée)
+    const traitements = await TraitementCourrier.findAll({
+      where: { courrier_id: idcourrier },
+      include: [
+        { model: Agent, as: "agent", attributes: ["id", "nom", "prenom"] },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    // 4. Récupérer l'audit avec ses agents (requête séparée)
+    const audit = await AuditCourrier.findAll({
+      where: { courrier_id: idcourrier },
+      include: [
+        { model: Agent, as: "agent", attributes: ["id", "nom", "prenom"] },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    // 5. Attacher les données au courrier
+    courrier.dataValues.attributions = attributions;
+    courrier.dataValues.historique_traitements = traitements;
+    courrier.dataValues.audit = audit;
+
+    return courrier;
+  } catch (error) {
+    logger.error("Erreur getById:", error);
+    throw error;
   }
+}
 
   // ===================== CREATE =====================
   static async create(data, agentId, reqUser) {
@@ -431,7 +402,7 @@ class CourrierService {
         where: {
           entitee_id,
           destinataire_idagent: agentId,
-          statut: { [Op.in]: ["ATTRIBUE", "EN_COURS", "VALIDE"] },
+          statut: { [Op.in]: ["ATTRIBUE", "EN_COURS", "VALIDE", "TRAITE"] },
         },
         include: [
           {

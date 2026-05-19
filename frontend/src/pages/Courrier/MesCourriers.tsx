@@ -1,4 +1,3 @@
-// src/pages/Courrier/MesCourriers.tsx
 import React, { useState, useRef, useMemo } from "react";
 import Layout from "../../components/layout/Layoutt";
 import { Toast } from "primereact/toast";
@@ -21,6 +20,7 @@ import { useMesAttribues } from "../../hooks/useCourriers";
 // Composants
 import CourrierDetails from "./CourrierDetails";
 import TraitementCourrierModal from "./TraitementCourrierModal";
+import { getCourrierById } from "../../api/courrier"; // ✅ IMPORT AJOUTÉ
 
 interface Courrier {
   idcourrier: number;
@@ -47,16 +47,39 @@ export default function MesCourriers() {
   const [selectedCourrier, setSelectedCourrier] = useState<Courrier | null>(
     null,
   );
-  const [detailsVisible, setDetailsVisible] = useState(false); // ✅ État pour la visibilité
+  const [detailsVisible, setDetailsVisible] = useState(false);
   const [showTraitement, setShowTraitement] = useState(false);
   const [courrierToTraiter, setCourrierToTraiter] = useState<Courrier | null>(
     null,
   );
   const [query, setQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const itemsPerPage = 9;
 
-  // Filtrage
+  // ✅ NOUVELLE FONCTION : Ouvre les détails avec appel API
+  const handleViewDetail = async (courrier: Courrier) => {
+    try {
+      setIsLoadingDetails(true);
+      const details = await getCourrierById(courrier.idcourrier);
+      setSelectedCourrier(details);
+      setDetailsVisible(true);
+    } catch (err: any) {
+      console.error("Erreur chargement détails:", err);
+      toast.current?.show({
+        severity: "error",
+        summary: "Erreur",
+        detail: err.message || "Impossible de charger les détails du courrier",
+      });
+      // Fallback : utiliser les données de la liste
+      setSelectedCourrier(courrier);
+      setDetailsVisible(true);
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
+  // ✅ Afficher TOUS les courriers (sans filtre par statut)
   const filteredData = useMemo(() => {
     return mesCourriers.filter((c: Courrier) =>
       `${c.reference || ""} ${c.objet || ""} ${c.statut || ""}`
@@ -75,11 +98,6 @@ export default function MesCourriers() {
     setShowTraitement(true);
   };
 
-  const handleViewDetail = (courrier: Courrier) => {
-    setSelectedCourrier(courrier);
-    setDetailsVisible(true); // ✅ Ouvrir la modale
-  };
-
   const handleTraitementComplete = () => {
     setShowTraitement(false);
     setCourrierToTraiter(null);
@@ -89,6 +107,26 @@ export default function MesCourriers() {
       summary: "Succès",
       detail: "Traitement enregistré avec succès",
     });
+  };
+
+  // ✅ Fonction pour obtenir la sévérité du statut
+  const getStatutSeverity = (statut: string) => {
+    if (statut === "TRAITE") return "success";
+    if (statut === "EN_COURS") return "warning";
+    if (statut === "ATTRIBUE") return "info";
+    if (statut === "VALIDE") return "info";
+    if (statut === "REJETE") return "danger";
+    return "warning";
+  };
+
+  // ✅ Fonction pour obtenir le libellé du statut
+  const getStatutLabel = (statut: string) => {
+    if (statut === "TRAITE") return "Traité";
+    if (statut === "EN_COURS") return "En cours";
+    if (statut === "ATTRIBUE") return "Attribué";
+    if (statut === "VALIDE") return "Validé";
+    if (statut === "REJETE") return "Rejeté";
+    return statut || "En attente";
   };
 
   // ✅ Gestion du chargement
@@ -139,7 +177,7 @@ export default function MesCourriers() {
               Mes Courriers
             </h1>
             <p className="text-slate-500 font-medium">
-              Courriers qui me sont attribués • À traiter
+              Courriers attribués • En cours et traités
             </p>
           </div>
         </div>
@@ -199,14 +237,17 @@ export default function MesCourriers() {
                     />
                   </td>
                   <td className="px-6 py-4">
-                    <Tag value={c.statut || "En attente"} severity="warning" />
+                    <Tag 
+                      value={getStatutLabel(c.statut)} 
+                      severity={getStatutSeverity(c.statut)} 
+                    />
                   </td>
                   <td className="px-6 py-4">
                     <div
                       className="flex items-center justify-center gap-2"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {/* ✅ Bouton Voir détails */}
+                      {/* Bouton Voir détails */}
                       <button
                         onClick={() => handleViewDetail(c)}
                         className="p-3 text-slate-400 hover:text-emerald-600 hover:bg-white hover:shadow-md rounded-xl transition-all"
@@ -215,10 +256,8 @@ export default function MesCourriers() {
                         <Eye size={20} />
                       </button>
 
-                      {/* ✅ Bouton Traiter (visible pour les statuts traitables) */}
-                      {(c.statut === "ATTRIBUE" ||
-                        c.statut === "EN_COURS" ||
-                        c.statut === "VALIDE") && (
+                      {/* Bouton Traiter - visible pour les statuts non traités */}
+                      {c.statut !== "TRAITE" && (
                         <button
                           onClick={() => handleTraiter(c)}
                           className="p-3 text-slate-400 hover:text-green-600 hover:bg-white hover:shadow-md rounded-xl transition-all"
@@ -259,7 +298,7 @@ export default function MesCourriers() {
         </div>
       )}
 
-      {/* ✅ Modale Détails avec CourrierDetails */}
+      {/* Modale Détails avec chargement */}
       <CourrierDetails
         visible={detailsVisible}
         onHide={() => {

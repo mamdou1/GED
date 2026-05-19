@@ -39,6 +39,7 @@ import {
 // Composants
 import CourrierDetails from "./CourrierDetails";
 import api from "../../api/axios";
+import { getCourrierById } from "../../api/courrier"; // ✅ IMPORT AJOUTÉ
 
 // Types
 interface Courrier {
@@ -72,7 +73,6 @@ interface AttributionItem {
   commentaire: string;
 }
 
-// ✅ AJOUTER CETTE INTERFACE
 interface Agent {
   id: number;
   nom: string;
@@ -111,6 +111,7 @@ export default function CourrierPage() {
   const [currentCourrierId, setCurrentCourrierId] = useState<number | null>(
     null,
   );
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
   // Attribution multiple
   const [attributionItems, setAttributionItems] = useState<AttributionItem[]>(
@@ -137,6 +138,27 @@ export default function CourrierPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
 
+  // ✅ NOUVELLE FONCTION : Ouvre les détails avec appel API
+  const handleOpenDetails = async (courrier: Courrier) => {
+    try {
+      setIsLoadingDetails(true);
+      // Appel API pour récupérer les détails complets
+      const details = await getCourrierById(courrier.idcourrier);
+      setSelectedCourrier(details);
+    } catch (err: any) {
+      console.error("Erreur chargement détails:", err);
+      toast.current?.show({
+        severity: "error",
+        summary: "Erreur",
+        detail: err.message || "Impossible de charger les détails du courrier",
+      });
+      // Fallback : utiliser les données de la liste
+      setSelectedCourrier(courrier);
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
   const getEntiteeDisplayName = (e: EntiteeOption): string => {
     if (e.libelle && e.libelle.trim()) return e.libelle;
     if (e.titre && e.titre.trim()) return e.titre;
@@ -144,7 +166,6 @@ export default function CourrierPage() {
     return `Service ${e.id}`;
   };
 
-  // ✅ Préparer les options des agents pour les MultiSelect
   const getAgentOptions = (agents: any[]) => {
     return agents.map((agent) => ({
       id: agent.id,
@@ -155,8 +176,6 @@ export default function CourrierPage() {
     }));
   };
 
-  // ✅ Filtrer les agents par service sélectionné (utilisation de useMemo pour performance)
-  // ✅ Filtrer les agents par service sélectionné (utilisation de useMemo pour performance)
   const filteredAgents = React.useMemo(() => {
     if (selectedServices.length === 0) {
       return agentsWithService;
@@ -164,7 +183,6 @@ export default function CourrierPage() {
     const serviceIds = selectedServices.map((s) => s.id);
     return agentsWithService.filter((agent) => {
       const agentServiceId = agent.fonction_details?.entitee_deux_id;
-      // ✅ Correction : Vérifier que agentServiceId n'est pas null/undefined avant includes
       return (
         agentServiceId !== null &&
         agentServiceId !== undefined &&
@@ -172,12 +190,12 @@ export default function CourrierPage() {
       );
     });
   }, [selectedServices, agentsWithService]);
-  // Charger les données
+
   useEffect(() => {
     const fetchAgents = async () => {
       try {
         const response = await api.get("/user");
-        let agents: Agent[] = []; // ✅ Ajouter le type
+        let agents: Agent[] = [];
         if (response.data.success) {
           agents = response.data.data || [];
         } else if (Array.isArray(response.data)) {
@@ -186,18 +204,13 @@ export default function CourrierPage() {
           agents = [];
         }
 
-        // Séparer les agents avec service et les agents de direction
         const withService = agents.filter(
-          (
-            agent: Agent, // ✅ Ajouter le type
-          ) =>
+          (agent: Agent) =>
             agent.fonction_details?.entitee_deux_id !== null &&
             agent.fonction_details?.entitee_deux_id !== undefined,
         );
         const direction = agents.filter(
-          (
-            agent: Agent, // ✅ Ajouter le type
-          ) =>
+          (agent: Agent) =>
             (!agent.fonction_details?.entitee_deux_id ||
               agent.fonction_details?.entitee_deux_id === null) &&
             (!agent.fonction_details?.entitee_trois_id ||
@@ -255,7 +268,6 @@ export default function CourrierPage() {
     currentPage * itemsPerPage,
   );
 
-  // Actions
   const handleValider = async (courrier: Courrier) => {
     try {
       await validerMutation.mutateAsync(courrier.idcourrier);
@@ -397,7 +409,6 @@ export default function CourrierPage() {
 
     setAttributionItems([...attributionItems, newItem]);
 
-    // Réinitialiser
     setCurrentItem({
       id: "",
       type: "entiteeDeux",
@@ -597,7 +608,7 @@ export default function CourrierPage() {
                 <tr
                   key={c.idcourrier}
                   className="cursor-pointer hover:bg-emerald-50/30 transition-all group"
-                  onClick={() => setSelectedCourrier(c)}
+                  onClick={() => handleOpenDetails(c)} // ✅ MODIFIÉ
                 >
                   <td className="px-6 py-4">
                     <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100">
@@ -621,7 +632,7 @@ export default function CourrierPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedCourrier(c);
+                          handleOpenDetails(c); // ✅ MODIFIÉ
                         }}
                         className="p-3 text-slate-400 hover:text-emerald-600 hover:bg-white hover:shadow-md rounded-xl transition-all"
                         title="Voir détails"
@@ -652,7 +663,7 @@ export default function CourrierPage() {
                           </button>
                         </>
                       )}
-                      {c.statut === "VALIDE" && (
+                      {(c.statut === "VALIDÉ" || c.statut === "VALIDE") && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -679,10 +690,7 @@ export default function CourrierPage() {
               ))
             ) : (
               <tr>
-                <td
-                  colSpan={5}
-                  className="px-6 py-16 text-center text-slate-500"
-                >
+                <td colSpan={5} className="px-6 py-16 text-center text-slate-500">
                   Aucun courrier trouvé.
                 </td>
               </tr>
@@ -835,7 +843,6 @@ export default function CourrierPage() {
               </h4>
             </div>
 
-            {/* Radio Buttons */}
             <div className="flex gap-6 flex-wrap p-3 bg-white rounded-xl border border-slate-100">
               <label className="flex items-center gap-2 cursor-pointer">
                 <RadioButton
@@ -893,7 +900,6 @@ export default function CourrierPage() {
               </label>
             </div>
 
-            {/* Sélection des Services */}
             {currentItem.type === "entiteeDeux" && (
               <div className="space-y-2">
                 <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
@@ -916,7 +922,6 @@ export default function CourrierPage() {
               </div>
             )}
 
-            {/* Filtrage par Service pour les Agents */}
             {currentItem.type === "agent" && (
               <>
                 <div className="space-y-2">
@@ -966,7 +971,6 @@ export default function CourrierPage() {
               </>
             )}
 
-            {/* Agents de Direction */}
             {currentItem.type === "direction" && (
               <div className="space-y-2">
                 <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
@@ -989,7 +993,6 @@ export default function CourrierPage() {
               </div>
             )}
 
-            {/* Date limite */}
             <div className="space-y-2">
               <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                 📅 Date limite
@@ -1011,7 +1014,6 @@ export default function CourrierPage() {
               />
             </div>
 
-            {/* Instructions */}
             <div className="space-y-2">
               <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                 📝 Instructions
@@ -1030,7 +1032,6 @@ export default function CourrierPage() {
               />
             </div>
 
-            {/* Commentaire */}
             <div className="space-y-2">
               <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                 💬 Commentaire
@@ -1110,11 +1111,27 @@ export default function CourrierPage() {
       </Dialog>
 
       {/* Modale détails */}
-      <CourrierDetails
-        visible={!!selectedCourrier}
-        onHide={() => setSelectedCourrier(null)}
-        courrier={selectedCourrier}
-      />
+      {isLoadingDetails ? (
+        <Dialog
+          visible={true}
+          onHide={() => {}}
+          header="Chargement..."
+          style={{ width: "400px" }}
+          className="rounded-2xl"
+          closable={false}
+        >
+          <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+          </div>
+        </Dialog>
+      ) : (
+        <CourrierDetails
+          visible={!!selectedCourrier}
+          onHide={() => setSelectedCourrier(null)}
+          courrier={selectedCourrier}
+          onRefresh={refetch}
+        />
+      )}
     </Layout>
   );
 }

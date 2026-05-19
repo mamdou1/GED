@@ -1,4 +1,3 @@
-// hooks/useDocuments.ts
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getDocuments,
@@ -72,8 +71,10 @@ export const useTypeDocuments = () => {
   return useQuery({
     queryKey: typeDocumentKeys.lists(),
     queryFn: async () => {
-      const res = await getTypeDocuments();
-      return res.typeDocument || [];
+      // ✅ CORRECTION : getTypeDocuments retourne directement le tableau maintenant
+      const data = await getTypeDocuments();
+      console.log("📊 useTypeDocuments - data reçues:", data);
+      return Array.isArray(data) ? data : [];
     },
   });
 };
@@ -160,6 +161,10 @@ export const useInitialData = () => {
   const isLoading =
     documentsQuery.isLoading || typesQuery.isLoading || entitees.isLoading;
   const error = documentsQuery.error || typesQuery.error || entitees.error;
+
+  // ✅ Log pour debug
+  console.log("🔍 useInitialData - typesQuery.data:", typesQuery.data);
+  console.log("🔍 useInitialData - documentsQuery.data:", documentsQuery.data);
 
   return {
     documents: documentsQuery.data || [],

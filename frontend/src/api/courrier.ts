@@ -38,7 +38,10 @@ export const attribuerCourrier = async (id: number, payload: any) => {
 };
 
 // Attribution à une entité
-export const attribuerCourrierAEntite = async (id: number, payload: { entiteeId: number; entiteeType: string; motif?: string }) => {
+export const attribuerCourrierAEntite = async (
+  id: number,
+  payload: { entiteeId: number; entiteeType: string; motif?: string },
+) => {
   const { data } = await api.post(`/courrier/${id}/attribuer-entite`, payload);
   return data;
 };
@@ -53,14 +56,28 @@ export const transfererCourrier = async (id: number, payload: any) => {
   return data;
 };
 
-// ⭐ MODIFIER cette fonction existante (utiliser la nouvelle route)
 export const addPiecesJointes = async (id: number, files: File[]) => {
+  console.log(
+    "📡 addPiecesJointes - URL:",
+    `/courrier-files/courrier/${id}/files`,
+  );
+  console.log("📡 addPiecesJointes - Nombre de fichiers:", files.length);
+
   const formData = new FormData();
-  files.forEach(file => formData.append("files", file));
-  
-  const { data } = await api.post(`/courrier-files/courrier/${id}/files`, formData, {
-    headers: { "Content-Type": "multipart/form-data" },
+  files.forEach((file) => {
+    console.log("   - Ajout fichier:", file.name, file.type, file.size);
+    formData.append("files", file);
   });
+
+  const { data } = await api.post(
+    `/courrier-files/courrier/${id}/files`,
+    formData,
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+    },
+  );
+
+  console.log("📡 addPiecesJointes - Réponse:", data);
   return data;
 };
 
@@ -68,22 +85,32 @@ export const addPiecesJointes = async (id: number, files: File[]) => {
 
 // Récupérer toutes les pièces jointes d'un courrier
 export const getPiecesJointes = async (courrierId: number) => {
-  const { data } = await api.get(`/courrier-files/courrier/${courrierId}/files`);
+  const { data } = await api.get(
+    `/courrier-files/courrier/${courrierId}/files`,
+  );
   return data;
 };
 
 // Supprimer une pièce jointe
 export const deletePieceJointe = async (courrierId: number, fileId: number) => {
-  const { data } = await api.delete(`/courrier-files/courrier/${courrierId}/file/${fileId}`);
+  const { data } = await api.delete(
+    `/courrier-files/courrier/${courrierId}/file/${fileId}`,
+  );
   return data;
 };
 
 // Télécharger une pièce jointe
-export const downloadPieceJointe = async (fileId: number, fileName?: string) => {
-  const response = await api.get(`/courrier-files/courrier/file/${fileId}/download`, {
-    responseType: "blob",
-  });
-  
+export const downloadPieceJointe = async (
+  fileId: number,
+  fileName?: string,
+) => {
+  const response = await api.get(
+    `/courrier-files/courrier/file/${fileId}/download`,
+    {
+      responseType: "blob",
+    },
+  );
+
   // Créer un lien de téléchargement
   const url = window.URL.createObjectURL(new Blob([response.data]));
   const link = document.createElement("a");
@@ -93,7 +120,7 @@ export const downloadPieceJointe = async (fileId: number, fileName?: string) => 
   link.click();
   link.remove();
   window.URL.revokeObjectURL(url);
-  
+
   return response;
 };
 

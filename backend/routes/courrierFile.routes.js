@@ -6,14 +6,17 @@ const controller = require("../controllers/courrierFile.controller");
 
 // Routes pour les fichiers des courriers
 router.post(
-  "/courrier/:courrierId/files",
+  "/courrier/:courrierId/files", // URL: /courrier-files/courrier/123/files
   upload.array("files", 10),
-  controller.uploadCourrierFiles
+  controller.uploadCourrierFiles,
 );
 
 router.get("/courrier/:courrierId/files", controller.getCourrierFiles);
 
-router.delete("/courrier/:courrierId/file/:fileId", controller.deleteCourrierFile);
+router.delete(
+  "/courrier/:courrierId/file/:fileId",
+  controller.deleteCourrierFile,
+);
 
 router.get("/courrier/file/:fileId/download", controller.downloadCourrierFile);
 

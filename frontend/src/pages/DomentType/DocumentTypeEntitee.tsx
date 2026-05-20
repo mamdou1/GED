@@ -57,15 +57,10 @@ type EntityTypeUI = "entiteeUn" | "entiteeDeux" | "entiteeTrois";
 type EntityTypeApi = "entitee_un" | "entitee_deux" | "entitee_trois";
 // ✅ CORRECTION : Utiliser les mêmes valeurs que dans TypeDocumentAjoutPiecesEntytee
 type LegacyEntityType =
-  |
   | "direction"
- 
   | "sous_direction"
- 
   | "division"
- 
   | "section"
- 
   | "service";
 
 export default function DocumentTypeEntitee() {
@@ -103,8 +98,10 @@ export default function DocumentTypeEntitee() {
   const [affectationFormVisible, setAffectationFormVisible] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [metaVisible, setMetaVisible] = useState(false);
-  const [entityFieldManagerVisible, setEntityFieldManagerVisible] = useState(false);
-  const [selectedEntityType, setSelectedEntityType] = useState<string>("EntiteeUn");
+  const [entityFieldManagerVisible, setEntityFieldManagerVisible] =
+    useState(false);
+  const [selectedEntityType, setSelectedEntityType] =
+    useState<string>("EntiteeUn");
   const [query, setQuery] = useState("");
   const [formPiecesVisible, setFormPiecesVisible] = useState(false);
   const [selectedTypeDoc, setSelectedTypeDoc] = useState<string | null>(null);
@@ -223,22 +220,6 @@ export default function DocumentTypeEntitee() {
       ids.deux.add(user.fonction_details.entitee_deux.id);
     if (user.fonction_details?.entitee_trois?.id)
       ids.trois.add(user.fonction_details.entitee_trois.id);
-      return {
-        un: new Set<number>(),
-        deux: new Set<number>(),
-        trois: new Set<number>(),
-      };
-    const ids = {
-      un: new Set<number>(),
-      deux: new Set<number>(),
-      trois: new Set<number>(),
-    };
-    if (user.fonction_details?.entitee_un?.id)
-      ids.un.add(user.fonction_details.entitee_un.id);
-    if (user.fonction_details?.entitee_deux?.id)
-      ids.deux.add(user.fonction_details.entitee_deux.id);
-    if (user.fonction_details?.entitee_trois?.id)
-      ids.trois.add(user.fonction_details.entitee_trois.id);
     user.agent_access?.forEach((access) => {
       if (access.entitee_un?.id) ids.un.add(access.entitee_un.id);
       if (access.entitee_deux?.id) ids.deux.add(access.entitee_deux.id);
@@ -332,23 +313,24 @@ export default function DocumentTypeEntitee() {
     let filtered = accessibleTypes;
     if (query) {
       const search = query.toLowerCase();
-      const matchesSearch =
-        t.code.toLowerCase().includes(search) ||
-        //(t.cote || "").toLowerCase().includes(search) ||
-        t.nom.toLowerCase().includes(search);
-      if (!selectedTypeDoc) return matchesSearch;
-      const e1Ids = getEntitiesArray((t as any).entitee_un).map((e: any) =>
-        String(e.id),
-      );
-      const e2Ids = getEntitiesArray((t as any).entitee_deux).map(
-        (e: any) => `E2-${e.id}`,
-      );
-      const e3Ids = getEntitiesArray((t as any).entitee_trois).map(
-        (e: any) => `E3-${e.id}`,
-      );
-      const allEntityIds = [...e1Ids, ...e2Ids, ...e3Ids];
-      return matchesSearch && allEntityIds.includes(selectedTypeDoc);
-    });
+      filtered = accessibleTypes.filter((t) => {
+        const matchesSearch =
+          t.code.toLowerCase().includes(search) ||
+          t.nom.toLowerCase().includes(search);
+        if (!selectedTypeDoc) return matchesSearch;
+        const e1Ids = getEntitiesArray((t as any).entitee_un).map((e: any) =>
+          String(e.id),
+        );
+        const e2Ids = getEntitiesArray((t as any).entitee_deux).map(
+          (e: any) => `E2-${e.id}`,
+        );
+        const e3Ids = getEntitiesArray((t as any).entitee_trois).map(
+          (e: any) => `E3-${e.id}`,
+        );
+        const allEntityIds = [...e1Ids, ...e2Ids, ...e3Ids];
+        return matchesSearch && allEntityIds.includes(selectedTypeDoc);
+      });
+    }
 
     const groups: Record<string, TypeDocument[]> = {};
 
@@ -362,7 +344,7 @@ export default function DocumentTypeEntitee() {
     entiteeUn.forEach((e1) => {
       if (hasAccessToStructure(e1.libelle)) groups[e1.libelle] = [];
     });
-    
+
     // ✅ Ajouter "Tous les types de documents" comme catégorie virtuelle
     groups["Tous les types de documents"] = [];
 
@@ -414,7 +396,7 @@ export default function DocumentTypeEntitee() {
       });
       return filteredGroups;
     }
-    
+
     console.log(
       "🔍 TYPES:",
       types.map((t) => ({

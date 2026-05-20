@@ -1,12 +1,12 @@
 // src/hooks/useCourriers.ts
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  getCourriers, 
-  getCourrierById, 
-  getMesAttribues, 
-  createCourrier, 
-  validerCourrier, 
-  rejeterCourrier, 
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  getCourriers,
+  getCourrierById,
+  getMesAttribues,
+  createCourrier,
+  validerCourrier,
+  rejeterCourrier,
   attribuerCourrier,
   attribuerCourrierAEntite,
   traiterCourrier,
@@ -14,15 +14,15 @@ import {
   getPiecesJointes,
   deletePieceJointe,
   downloadPieceJointe,
-  deleteCourrier
-} from '../api/courrier';
-import api from '../api/axios';
-import { Courrier, CourrierCreatePayload } from '../interfaces/courrier';
+  deleteCourrier,
+} from "../api/courrier";
+import api from "../api/axios";
+import { Courrier, CourrierCreatePayload } from "../interfaces/courrier";
 
 // Hook principal pour récupérer tous les courriers (avec filtres)
 export const useCourriers = (filters = {}) => {
   return useQuery({
-    queryKey: ['courriers', filters],
+    queryKey: ["courriers", filters],
     queryFn: () => getCourriers(filters),
     staleTime: 1000 * 60 * 5,
   });
@@ -31,7 +31,7 @@ export const useCourriers = (filters = {}) => {
 // Hook pour les courriers attribués à l'utilisateur connecté
 export const useMesAttribues = () => {
   return useQuery({
-    queryKey: ['mesAttribues'],
+    queryKey: ["mesAttribues"],
     queryFn: getMesAttribues,
   });
 };
@@ -39,7 +39,7 @@ export const useMesAttribues = () => {
 // Hook pour un courrier par ID
 export const useCourrierById = (id: number) => {
   return useQuery({
-    queryKey: ['courrier', id],
+    queryKey: ["courrier", id],
     queryFn: () => getCourrierById(id),
     enabled: !!id,
   });
@@ -48,7 +48,7 @@ export const useCourrierById = (id: number) => {
 // ⭐ NOUVEAU: Hook pour récupérer les pièces jointes
 export const usePiecesJointes = (courrierId: number) => {
   return useQuery({
-    queryKey: ['piecesJointes', courrierId],
+    queryKey: ["piecesJointes", courrierId],
     queryFn: () => getPiecesJointes(courrierId),
     enabled: !!courrierId,
   });
@@ -60,8 +60,8 @@ export const useCreateCourrier = () => {
   return useMutation({
     mutationFn: (payload: CourrierCreatePayload) => createCourrier(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courriers'] });
-      queryClient.invalidateQueries({ queryKey: ['mesAttribues'] });
+      queryClient.invalidateQueries({ queryKey: ["courriers"] });
+      queryClient.invalidateQueries({ queryKey: ["mesAttribues"] });
     },
   });
 };
@@ -72,7 +72,7 @@ export const useValiderCourrier = () => {
   return useMutation({
     mutationFn: (id: number) => validerCourrier(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courriers'] });
+      queryClient.invalidateQueries({ queryKey: ["courriers"] });
     },
   });
 };
@@ -81,9 +81,10 @@ export const useValiderCourrier = () => {
 export const useRejeterCourrier = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, motif }: { id: number; motif: string }) => rejeterCourrier(id, motif),
+    mutationFn: ({ id, motif }: { id: number; motif: string }) =>
+      rejeterCourrier(id, motif),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courriers'] });
+      queryClient.invalidateQueries({ queryKey: ["courriers"] });
     },
   });
 };
@@ -92,10 +93,11 @@ export const useRejeterCourrier = () => {
 export const useAttribuerCourrier = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: any }) => attribuerCourrier(id, payload),
+    mutationFn: ({ id, payload }: { id: number; payload: any }) =>
+      attribuerCourrier(id, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courriers'] });
-      queryClient.invalidateQueries({ queryKey: ['mesAttribues'] });
+      queryClient.invalidateQueries({ queryKey: ["courriers"] });
+      queryClient.invalidateQueries({ queryKey: ["mesAttribues"] });
     },
   });
 };
@@ -104,11 +106,16 @@ export const useAttribuerCourrier = () => {
 export const useAttribuerCourrierAEntite = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: { entiteeId: number; entiteeType: string; motif?: string } }) => 
-      attribuerCourrierAEntite(id, payload),
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: number;
+      payload: { entiteeId: number; entiteeType: string; motif?: string };
+    }) => attribuerCourrierAEntite(id, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courriers'] });
-      queryClient.invalidateQueries({ queryKey: ['mesAttribues'] });
+      queryClient.invalidateQueries({ queryKey: ["courriers"] });
+      queryClient.invalidateQueries({ queryKey: ["mesAttribues"] });
     },
   });
 };
@@ -117,10 +124,11 @@ export const useAttribuerCourrierAEntite = () => {
 export const useTraiterCourrier = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: any }) => traiterCourrier(id, payload),
+    mutationFn: ({ id, payload }: { id: number; payload: any }) =>
+      traiterCourrier(id, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courriers'] });
-      queryClient.invalidateQueries({ queryKey: ['mesAttribues'] });
+      queryClient.invalidateQueries({ queryKey: ["courriers"] });
+      queryClient.invalidateQueries({ queryKey: ["mesAttribues"] });
     },
   });
 };
@@ -129,10 +137,20 @@ export const useTraiterCourrier = () => {
 export const useAddPiecesJointes = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, files }: { id: number; files: File[] }) => addPiecesJointes(id, files),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['courrier', variables.id] });
-      queryClient.invalidateQueries({ queryKey: ['piecesJointes', variables.id] });
+    mutationFn: ({ id, files }: { id: number; files: File[] }) => {
+      console.log("📤 useAddPiecesJointes - Appel API pour courrier:", id);
+      console.log("📤 Nombre de fichiers:", files.length);
+      return addPiecesJointes(id, files);
+    },
+    onSuccess: (data, variables) => {
+      console.log("✅ useAddPiecesJointes - Succès:", data);
+      queryClient.invalidateQueries({ queryKey: ["courrier", variables.id] });
+      queryClient.invalidateQueries({
+        queryKey: ["piecesJointes", variables.id],
+      });
+    },
+    onError: (error) => {
+      console.error("❌ useAddPiecesJointes - Erreur:", error);
     },
   });
 };
@@ -141,11 +159,20 @@ export const useAddPiecesJointes = () => {
 export const useDeletePieceJointe = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ courrierId, fileId }: { courrierId: number; fileId: number }) => 
-      deletePieceJointe(courrierId, fileId),
+    mutationFn: ({
+      courrierId,
+      fileId,
+    }: {
+      courrierId: number;
+      fileId: number;
+    }) => deletePieceJointe(courrierId, fileId),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['piecesJointes', variables.courrierId] });
-      queryClient.invalidateQueries({ queryKey: ['courrier', variables.courrierId] });
+      queryClient.invalidateQueries({
+        queryKey: ["piecesJointes", variables.courrierId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["courrier", variables.courrierId],
+      });
     },
   });
 };
@@ -153,7 +180,7 @@ export const useDeletePieceJointe = () => {
 // ⭐ NOUVEAU: Téléchargement d'une pièce jointe
 export const useDownloadPieceJointe = () => {
   return useMutation({
-    mutationFn: ({ fileId, fileName }: { fileId: number; fileName?: string }) => 
+    mutationFn: ({ fileId, fileName }: { fileId: number; fileName?: string }) =>
       downloadPieceJointe(fileId, fileName),
   });
 };
@@ -164,8 +191,8 @@ export const useDeleteCourrier = () => {
   return useMutation({
     mutationFn: (id: number) => deleteCourrier(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courriers'] });
-      queryClient.invalidateQueries({ queryKey: ['mesAttribues'] });
+      queryClient.invalidateQueries({ queryKey: ["courriers"] });
+      queryClient.invalidateQueries({ queryKey: ["mesAttribues"] });
     },
   });
 };
@@ -177,8 +204,8 @@ export const useAttribuerMultiple = () => {
     mutationFn: ({ id, attributions }: { id: number; attributions: any[] }) =>
       api.post(`/courrier/${id}/attribuer-multiple`, { attributions }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['courriers'] });
-      queryClient.invalidateQueries({ queryKey: ['mesAttribues'] });
+      queryClient.invalidateQueries({ queryKey: ["courriers"] });
+      queryClient.invalidateQueries({ queryKey: ["mesAttribues"] });
     },
   });
 };

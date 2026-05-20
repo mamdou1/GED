@@ -1,17 +1,12 @@
 // src/pages/courriers/CourrierPage.tsx
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState } from "react";
 import Layout from "../../components/layout/Layoutt";
 import { Toast } from "primereact/toast";
-import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
-import { InputTextarea } from "primereact/inputtextarea";
 import { Tag } from "primereact/tag";
 import Pagination from "../../components/layout/Pagination";
 import { confirmDialog } from "primereact/confirmdialog";
 import { Dialog } from "primereact/dialog";
-import { Calendar } from "primereact/calendar";
-import { MultiSelect } from "primereact/multiselect";
-import { RadioButton } from "primereact/radiobutton";
 import {
   FileText,
   Search,
@@ -21,27 +16,22 @@ import {
   RefreshCw,
   CheckCircle,
   UserPlus,
-  X,
-  AlertCircle,
-  Building2,
-  Users,
 } from "lucide-react";
 
 // Hooks TanStack Query
 import {
   useCourriers,
   useValiderCourrier,
-  useRejeterCourrier,
   useDeleteCourrier,
-  useAttribuerMultiple,
 } from "../../hooks/useCourriers";
 
-// Composants
+// Composants & API
 import CourrierDetails from "./CourrierDetails";
-import api from "../../api/axios";
-import { getCourrierById } from "../../api/courrier"; // ✅ IMPORT AJOUTÉ
+import CourrierAttribuer from "./CourrierAttribuer";
+import CourrierRejeter from "./CourrierRejeter";
+import { getCourrierById } from "../../api/courrier";
 
-// Types
+// Types principaux
 interface Courrier {
   idcourrier: number;
   reference: string;
@@ -53,208 +43,55 @@ interface Courrier {
   date_reception?: string;
 }
 
-interface EntiteeOption {
-  id: number;
-  titre?: string;
-  libelle?: string;
-  code?: string;
-  nom?: string;
-}
-
-interface AttributionItem {
-  id: string;
-  type: "agent" | "entiteeDeux" | "direction";
-  entiteeDeuxIds: number[];
-  agentIds: number[];
-  agentNoms: string[];
-  entiteeNoms: string[];
-  date_limite_traitement: Date | null;
-  instructions: string;
-  commentaire: string;
-}
-
-interface Agent {
-  id: number;
-  nom: string;
-  prenom: string;
-  email: string;
-  fonction_details?: {
-    entitee_deux_id?: number | null;
-    entitee_trois_id?: number | null;
-  };
-}
-
 export default function CourrierPage() {
   const toast = useRef<Toast>(null);
 
-  // Queries
+  // Queries & Mutations
   const {
     data: allCourriers = [],
     isLoading,
     error,
     refetch,
   } = useCourriers({});
-
-  // Mutations
   const validerMutation = useValiderCourrier();
-  const rejeterMutation = useRejeterCourrier();
-  const attribuerMultipleMutation = useAttribuerMultiple();
   const deleteMutation = useDeleteCourrier();
 
-  // États UI
+  // États UI fondamentaux
   const [selectedCourrier, setSelectedCourrier] = useState<Courrier | null>(
     null,
   );
   const [showAttribution, setShowAttribution] = useState(false);
   const [showRejet, setShowRejet] = useState(false);
-  const [rejetMotif, setRejetMotif] = useState("");
   const [currentCourrierId, setCurrentCourrierId] = useState<number | null>(
     null,
   );
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
-  // Attribution multiple
-  const [attributionItems, setAttributionItems] = useState<AttributionItem[]>(
-    [],
-  );
-  const [currentItem, setCurrentItem] = useState<AttributionItem>({
-    id: "",
-    type: "entiteeDeux",
-    entiteeDeuxIds: [],
-    agentIds: [],
-    agentNoms: [],
-    entiteeNoms: [],
-    date_limite_traitement: null,
-    instructions: "",
-    commentaire: "",
-  });
-
-  const [agentsList, setAgentsList] = useState<Agent[]>([]);
-  const [agentsWithService, setAgentsWithService] = useState<Agent[]>([]);
-  const [agentsDirection, setAgentsDirection] = useState<Agent[]>([]);
-  const [entiteesDeuxList, setEntiteesDeuxList] = useState<EntiteeOption[]>([]);
-  const [selectedServices, setSelectedServices] = useState<EntiteeOption[]>([]);
+  // Recherche & Pagination
   const [query, setQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
 
-  // ✅ NOUVELLE FONCTION : Ouvre les détails avec appel API
+  // Récupération des détails d'un courrier au clic
   const handleOpenDetails = async (courrier: Courrier) => {
     try {
       setIsLoadingDetails(true);
-      // Appel API pour récupérer les détails complets
       const details = await getCourrierById(courrier.idcourrier);
       setSelectedCourrier(details);
     } catch (err: any) {
-      console.error("Erreur chargement détails:", err);
+      console.error("Erreur lors du chargement des détails :", err);
       toast.current?.show({
         severity: "error",
         summary: "Erreur",
         detail: err.message || "Impossible de charger les détails du courrier",
       });
-      // Fallback : utiliser les données de la liste
       setSelectedCourrier(courrier);
     } finally {
       setIsLoadingDetails(false);
     }
   };
 
-  const getEntiteeDisplayName = (e: EntiteeOption): string => {
-    if (e.libelle && e.libelle.trim()) return e.libelle;
-    if (e.titre && e.titre.trim()) return e.titre;
-    if (e.code && e.code.trim()) return e.code;
-    return `Service ${e.id}`;
-  };
-
-  const getAgentOptions = (agents: any[]) => {
-    return agents.map((agent) => ({
-      id: agent.id,
-      label:
-        `${agent.nom || ""} ${agent.prenom || ""}`.trim() ||
-        agent.email ||
-        `Agent ${agent.id}`,
-    }));
-  };
-
-  const filteredAgents = React.useMemo(() => {
-    if (selectedServices.length === 0) {
-      return agentsWithService;
-    }
-    const serviceIds = selectedServices.map((s) => s.id);
-    return agentsWithService.filter((agent) => {
-      const agentServiceId = agent.fonction_details?.entitee_deux_id;
-      return (
-        agentServiceId !== null &&
-        agentServiceId !== undefined &&
-        serviceIds.includes(agentServiceId)
-      );
-    });
-  }, [selectedServices, agentsWithService]);
-
-  useEffect(() => {
-    const fetchAgents = async () => {
-      try {
-        const response = await api.get("/user");
-        let agents: Agent[] = [];
-        if (response.data.success) {
-          agents = response.data.data || [];
-        } else if (Array.isArray(response.data)) {
-          agents = response.data;
-        } else {
-          agents = [];
-        }
-
-        const withService = agents.filter(
-          (agent: Agent) =>
-            agent.fonction_details?.entitee_deux_id !== null &&
-            agent.fonction_details?.entitee_deux_id !== undefined,
-        );
-        const direction = agents.filter(
-          (agent: Agent) =>
-            (!agent.fonction_details?.entitee_deux_id ||
-              agent.fonction_details?.entitee_deux_id === null) &&
-            (!agent.fonction_details?.entitee_trois_id ||
-              agent.fonction_details?.entitee_trois_id === null),
-        );
-
-        setAgentsList(agents);
-        setAgentsWithService(withService);
-        setAgentsDirection(direction);
-      } catch (err) {
-        console.error("Erreur chargement agents", err);
-        setAgentsList([]);
-        setAgentsWithService([]);
-        setAgentsDirection([]);
-      }
-    };
-
-    const fetchEntiteesDeux = async () => {
-      try {
-        const response = await api.get("/entiteeDeux");
-        let data = [];
-        if (response.data.success && Array.isArray(response.data.data)) {
-          data = response.data.data;
-        } else if (Array.isArray(response.data)) {
-          data = response.data;
-        } else if (
-          response.data.entiteeDeux &&
-          Array.isArray(response.data.entiteeDeux)
-        ) {
-          data = response.data.entiteeDeux;
-        } else {
-          data = [];
-        }
-        setEntiteesDeuxList(data);
-      } catch (err) {
-        console.error("Erreur chargement entiteesDeux", err);
-        setEntiteesDeuxList([]);
-      }
-    };
-
-    fetchAgents();
-    fetchEntiteesDeux();
-  }, []);
-
+  // Filtrage intelligent basé sur la recherche
   const filteredData = React.useMemo(() => {
     return allCourriers.filter((c: Courrier) =>
       `${c.reference || ""} ${c.objet || ""} ${c.type || ""}`
@@ -263,288 +100,110 @@ export default function CourrierPage() {
     );
   }, [allCourriers, query]);
 
-  const paginated = filteredData.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  );
+  // Données paginées
+  const paginatedData = React.useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredData.slice(start, start + itemsPerPage);
+  }, [filteredData, currentPage]);
 
+  // Validation rapide
   const handleValider = async (courrier: Courrier) => {
     try {
       await validerMutation.mutateAsync(courrier.idcourrier);
       toast.current?.show({
         severity: "success",
-        summary: "Validé",
-        detail: "Courrier validé avec succès",
+        summary: "Succès",
+        detail: "Le courrier a été validé avec succès",
       });
       refetch();
     } catch (err: any) {
       toast.current?.show({
         severity: "error",
-        summary: "Erreur",
-        detail: err.message || "Échec de la validation",
+        summary: "Échec de la validation",
+        detail: err.message || "Une erreur est survenue",
       });
     }
   };
 
-  const handleOpenRejet = (courrier: Courrier) => {
-    setCurrentCourrierId(courrier.idcourrier);
-    setRejetMotif("");
-    setShowRejet(true);
-  };
-
-  const handleSubmitRejet = async () => {
-    if (!rejetMotif.trim()) {
-      toast.current?.show({
-        severity: "warn",
-        summary: "Motif requis",
-        detail: "Veuillez indiquer le motif du rejet",
-      });
-      return;
-    }
-
-    try {
-      await rejeterMutation.mutateAsync({
-        id: currentCourrierId!,
-        motif: rejetMotif,
-      });
-      toast.current?.show({
-        severity: "success",
-        summary: "Rejeté",
-        detail: "Courrier rejeté avec succès",
-      });
-      setShowRejet(false);
-      setRejetMotif("");
-      refetch();
-    } catch (err: any) {
-      toast.current?.show({
-        severity: "error",
-        summary: "Erreur",
-        detail: err.message,
-      });
-    }
-  };
-
-  const handleOpenAttribution = (courrier: Courrier) => {
-    setCurrentCourrierId(courrier.idcourrier);
-    setAttributionItems([]);
-    setCurrentItem({
-      id: "",
-      type: "entiteeDeux",
-      entiteeDeuxIds: [],
-      agentIds: [],
-      agentNoms: [],
-      entiteeNoms: [],
-      date_limite_traitement: null,
-      instructions: "",
-      commentaire: "",
-    });
-    setSelectedServices([]);
-    setShowAttribution(true);
-  };
-
-  const addAttributionItem = () => {
-    if (currentItem.type === "agent" && currentItem.agentIds.length === 0) {
-      toast.current?.show({
-        severity: "warn",
-        summary: "Champ requis",
-        detail: "Veuillez sélectionner au moins un agent",
-      });
-      return;
-    }
-    if (currentItem.type === "direction" && currentItem.agentIds.length === 0) {
-      toast.current?.show({
-        severity: "warn",
-        summary: "Champ requis",
-        detail: "Veuillez sélectionner au moins un agent de la direction",
-      });
-      return;
-    }
-    if (
-      currentItem.type === "entiteeDeux" &&
-      currentItem.entiteeDeuxIds.length === 0
-    ) {
-      toast.current?.show({
-        severity: "warn",
-        summary: "Champ requis",
-        detail: "Veuillez sélectionner au moins un service",
-      });
-      return;
-    }
-
-    let entiteeNoms: string[] = [];
-    if (
-      currentItem.type === "entiteeDeux" &&
-      currentItem.entiteeDeuxIds.length > 0
-    ) {
-      entiteeNoms = currentItem.entiteeDeuxIds.map((id) => {
-        const entitee = entiteesDeuxList.find((e) => e.id === id);
-        return getEntiteeDisplayName(entitee || { id });
-      });
-    }
-
-    let agentNoms: string[] = [];
-    if (
-      (currentItem.type === "agent" || currentItem.type === "direction") &&
-      currentItem.agentIds.length > 0
-    ) {
-      agentNoms = currentItem.agentIds.map((id) => {
-        const agent = agentsList.find((a) => a.id === id);
-        return agent
-          ? `${agent.nom || ""} ${agent.prenom || ""}`.trim()
-          : `Agent ${id}`;
-      });
-    }
-
-    const newItem: AttributionItem = {
-      id: Date.now().toString(),
-      type: currentItem.type,
-      entiteeDeuxIds: [...currentItem.entiteeDeuxIds],
-      agentIds: [...currentItem.agentIds],
-      agentNoms: agentNoms,
-      entiteeNoms: entiteeNoms,
-      date_limite_traitement: currentItem.date_limite_traitement,
-      instructions: currentItem.instructions,
-      commentaire: currentItem.commentaire,
-    };
-
-    setAttributionItems([...attributionItems, newItem]);
-
-    setCurrentItem({
-      id: "",
-      type: "entiteeDeux",
-      entiteeDeuxIds: [],
-      agentIds: [],
-      agentNoms: [],
-      entiteeNoms: [],
-      date_limite_traitement: null,
-      instructions: "",
-      commentaire: "",
-    });
-    setSelectedServices([]);
-  };
-
-  const removeAttributionItem = (id: string) => {
-    setAttributionItems(attributionItems.filter((item) => item.id !== id));
-  };
-
-  const submitMultipleAttributions = async () => {
-    if (attributionItems.length === 0) {
-      toast.current?.show({
-        severity: "warn",
-        summary: "Aucune attribution",
-        detail: "Ajoutez au moins une attribution",
-      });
-      return;
-    }
-
-    try {
-      const attributions: any[] = [];
-
-      for (const item of attributionItems) {
-        if (item.type === "agent" || item.type === "direction") {
-          for (const agentId of item.agentIds) {
-            attributions.push({
-              type: "agent",
-              id: agentId,
-              date_limite_traitement:
-                item.date_limite_traitement?.toISOString(),
-              instructions: item.instructions,
-              commentaire: item.commentaire,
-            });
-          }
-        } else if (item.type === "entiteeDeux") {
-          for (const serviceId of item.entiteeDeuxIds) {
-            attributions.push({
-              type: "entiteeDeux",
-              id: serviceId,
-              commentaire: item.commentaire,
-            });
-          }
-        }
-      }
-
-      console.log("📤 Envoi attributions multiples:", attributions);
-
-      const response = await attribuerMultipleMutation.mutateAsync({
-        id: currentCourrierId!,
-        attributions: attributions,
-      });
-
-      toast.current?.show({
-        severity: "success",
-        summary: "Attribué",
-        detail:
-          response.data?.message ||
-          `${attributions.length} attribution(s) effectuée(s)`,
-      });
-      setShowAttribution(false);
-      setAttributionItems([]);
-      refetch();
-    } catch (err: any) {
-      console.error("❌ Erreur:", err.response?.data);
-      toast.current?.show({
-        severity: "error",
-        summary: "Erreur",
-        detail: err.response?.data?.message || err.message,
-      });
-    }
-  };
-
+  // Suppression avec boite de dialogue de confirmation native PrimeReact
   const handleDelete = (id: number) => {
     confirmDialog({
-      message: "Supprimer définitivement ce courrier ?",
-      header: "Confirmation",
+      message:
+        "Êtes-vous sûr de vouloir supprimer définitivement ce courrier ?",
+      header: "Confirmation de suppression",
       icon: "pi pi-exclamation-triangle",
       acceptLabel: "Supprimer",
       rejectLabel: "Annuler",
-      acceptClassName: "p-button-danger",
+      acceptClassName: "p-button-danger rounded-xl",
+      rejectClassName: "p-button-text rounded-xl text-slate-600",
       accept: async () => {
         try {
           await deleteMutation.mutateAsync(id);
           toast.current?.show({
             severity: "success",
             summary: "Supprimé",
-            detail: "Courrier supprimé",
+            detail: "Le courrier a bien été retiré du système",
           });
           refetch();
         } catch (err: any) {
           toast.current?.show({
             severity: "error",
             summary: "Erreur",
-            detail: err.message,
+            detail: err.message || "Impossible de supprimer le courrier",
           });
         }
       },
     });
   };
 
+  // Badge couleur dynamique en fonction du statut réel
+  const getStatusSeverity = (statut: string) => {
+    switch (statut?.toUpperCase()) {
+      case "VALIDE":
+      case "VALIDÉ":
+        return "success";
+      case "REJETE":
+      case "REJETÉ":
+        return "danger";
+      case "EN_ATTENTE":
+      default:
+        return "warning";
+    }
+  };
+
+  // Gestion des états d'erreur réseau / API
   if (error) {
     return (
       <Layout>
-        <div className="flex flex-col items-center justify-center h-96 text-center px-6">
-          <XCircle size={72} className="text-red-500 mb-6" />
-          <h2 className="text-2xl font-bold text-slate-800 mb-3">
-            Erreur de chargement
+        <div className="flex flex-col items-center justify-center h-[50vh] text-center px-6">
+          <XCircle size={64} className="text-rose-500 mb-4 animate-bounce" />
+          <h2 className="text-xl font-bold text-slate-800 mb-2">
+            Erreur de récupération
           </h2>
-          <p className="text-slate-600 mb-8 max-w-md">
-            {error.message || "Impossible de charger les courriers."}
+          <p className="text-slate-500 mb-6 max-w-sm text-sm">
+            {error.message || "La connexion avec le serveur a échoué."}
           </p>
-          <Button
-            label="Réessayer"
-            icon={<RefreshCw size={20} className="mr-2" />}
+          <button
             onClick={() => refetch()}
-            className="bg-emerald-600 hover:bg-emerald-700 px-6 py-3"
-          />
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-5 py-2.5 rounded-xl transition-all shadow-md active:scale-95"
+          >
+            <RefreshCw size={18} />
+            Réessayer
+          </button>
         </div>
       </Layout>
     );
   }
 
+  // Loader global de la page
   if (isLoading) {
     return (
       <Layout>
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+        <div className="flex flex-col gap-2 justify-center items-center h-[60vh]">
+          <div className="animate-spin rounded-full h-10 w-10 border-4 border-slate-200 border-b-emerald-600"></div>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Chargement de la base...
+          </p>
         </div>
       </Layout>
     );
@@ -554,33 +213,34 @@ export default function CourrierPage() {
     <Layout>
       <Toast ref={toast} />
 
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      {/* Section En-tête */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-4">
-          <div className="bg-emerald-600 p-3 rounded-2xl text-white shadow-lg shadow-emerald-100">
-            <FileText size={28} />
+          <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-3 rounded-2xl text-white shadow-md shadow-emerald-100">
+            <FileText size={26} />
           </div>
           <div>
-            <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
               Gestion des Courriers
             </h1>
-            <p className="text-slate-500 font-medium">
-              Validation, rejet et attribution multiple
+            <p className="text-sm text-slate-500 font-medium">
+              Pilotez la validation, le rejet et le routage de vos flux
+              documentaires
             </p>
           </div>
         </div>
       </div>
 
-      {/* Recherche */}
+      {/* Barre de Recherche épurée */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6">
-        <div className="relative group max-w-md w-full">
+        <div className="relative max-w-md w-full">
           <Search
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors"
-            size={20}
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+            size={18}
           />
           <InputText
-            className="w-full pl-12 pr-4 py-3 bg-slate-50 border-slate-200 rounded-xl focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none"
-            placeholder="Rechercher par référence ou objet..."
+            className="w-full pl-11 pr-4 py-2.5 bg-slate-50/60 border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none text-sm placeholder:text-slate-400"
+            placeholder="Filtrer par référence ou par objet..."
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -590,117 +250,122 @@ export default function CourrierPage() {
         </div>
       </div>
 
-      {/* Tableau */}
+      {/* Liste / Tableau principal */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-widest">
-              <th className="px-6 py-4">Référence</th>
-              <th className="px-6 py-4">Objet</th>
-              <th className="px-6 py-4">Type</th>
-              <th className="px-6 py-4">Statut</th>
-              <th className="px-6 py-4 text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-50">
-            {paginated.length > 0 ? (
-              paginated.map((c: Courrier) => (
-                <tr
-                  key={c.idcourrier}
-                  className="cursor-pointer hover:bg-emerald-50/30 transition-all group"
-                  onClick={() => handleOpenDetails(c)} // ✅ MODIFIÉ
-                >
-                  <td className="px-6 py-4">
-                    <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100">
-                      {c.reference}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 font-semibold text-slate-700 line-clamp-2">
-                    {c.objet}
-                  </td>
-                  <td className="px-6 py-4">
-                    <Tag
-                      value={c.type === "ARRIVE" ? "Arrivé" : "Départ"}
-                      severity={c.type === "ARRIVE" ? "success" : "info"}
-                    />
-                  </td>
-                  <td className="px-6 py-4">
-                    <Tag value={c.statut || "En attente"} severity="warning" />
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenDetails(c); // ✅ MODIFIÉ
-                        }}
-                        className="p-3 text-slate-400 hover:text-emerald-600 hover:bg-white hover:shadow-md rounded-xl transition-all"
-                        title="Voir détails"
-                      >
-                        <Eye size={20} />
-                      </button>
-                      {c.statut === "EN_ATTENTE" && (
-                        <>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleValider(c);
-                            }}
-                            className="p-3 text-slate-400 hover:text-green-600 hover:bg-white hover:shadow-md rounded-xl transition-all"
-                            title="Valider"
-                          >
-                            <CheckCircle size={20} />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenRejet(c);
-                            }}
-                            className="p-3 text-slate-400 hover:text-red-600 hover:bg-white hover:shadow-md rounded-xl transition-all"
-                            title="Rejeter"
-                          >
-                            <XCircle size={20} />
-                          </button>
-                        </>
-                      )}
-                      {(c.statut === "VALIDÉ" || c.statut === "VALIDE") && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[700px]">
+            <thead>
+              <tr className="bg-slate-50/70 border-b border-slate-100 text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                <th className="px-6 py-4 w-[20%]">Référence</th>
+                <th className="px-6 py-4 w-[45%]">Objet</th>
+                <th className="px-6 py-4 w-[15%]">Type</th>
+                <th className="px-6 py-4 w-[10%]">Statut</th>
+                <th className="px-6 py-4 w-[10%] text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-sm">
+              {paginatedData.length > 0 ? (
+                paginatedData.map((c: Courrier) => (
+                  <tr
+                    key={c.idcourrier}
+                    className="hover:bg-slate-50/50 transition-colors"
+                  >
+                    <td className="px-6 py-4 font-medium">
+                      <span className="font-mono font-bold text-xs text-emerald-700 bg-emerald-50/60 px-2.5 py-1 rounded-lg border border-emerald-100/50">
+                        {c.reference}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 font-medium text-slate-700 max-w-xs truncate">
+                      {c.objet}
+                    </td>
+                    <td className="px-6 py-4">
+                      <Tag
+                        value={c.type === "ARRIVE" ? "Arrivé" : "Départ"}
+                        severity={c.type === "ARRIVE" ? "success" : "info"}
+                        className="rounded-md font-medium text-xs px-2.5 py-0.5"
+                      />
+                    </td>
+                    <td className="px-6 py-4">
+                      <Tag
+                        value={c.statut || "En attente"}
+                        severity={getStatusSeverity(c.statut)}
+                        className="rounded-md font-medium text-xs px-2.5 py-0.5"
+                      />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-center gap-1">
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenAttribution(c);
-                          }}
-                          className="p-3 text-slate-400 hover:text-blue-600 hover:bg-white hover:shadow-md rounded-xl transition-all"
-                          title="Attribuer"
+                          onClick={() => handleOpenDetails(c)}
+                          className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                          title="Consulter les détails"
                         >
-                          <UserPlus size={20} />
+                          <Eye size={18} />
                         </button>
-                      )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(c.idcourrier);
-                        }}
-                        className="p-3 text-slate-400 hover:text-red-500 hover:bg-white hover:shadow-md rounded-xl transition-all"
-                      >
-                        <Trash2 size={20} />
-                      </button>
-                    </div>
+
+                        {c.statut === "EN_ATTENTE" && (
+                          <>
+                            <button
+                              onClick={() => handleValider(c)}
+                              className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                              title="Valider le courrier"
+                            >
+                              <CheckCircle size={18} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setCurrentCourrierId(c.idcourrier);
+                                setShowRejet(true);
+                              }}
+                              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                              title="Rejeter le courrier"
+                            >
+                              <XCircle size={18} />
+                            </button>
+                          </>
+                        )}
+
+                        {(c.statut?.toUpperCase() === "VALIDÉ" ||
+                          c.statut?.toUpperCase() === "VALIDE") && (
+                          <button
+                            onClick={() => {
+                              setCurrentCourrierId(c.idcourrier);
+                              setShowAttribution(true);
+                            }}
+                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Assigner / Attribuer"
+                          >
+                            <UserPlus size={18} />
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => handleDelete(c.idcourrier)}
+                          className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Supprimer"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-6 py-12 text-center text-slate-400 font-medium"
+                  >
+                    Aucun document ne correspond à vos critères.
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={5} className="px-6 py-16 text-center text-slate-500">
-                  Aucun courrier trouvé.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Pagination */}
-      <div className="mt-6">
+      {/* Pagination autonome */}
+      <div className="mt-5">
         <Pagination
           currentPage={currentPage}
           itemsPerPage={itemsPerPage}
@@ -709,429 +374,62 @@ export default function CourrierPage() {
         />
       </div>
 
-      {/* MODALE D'ATTRIBUTION MULTIPLE */}
-      <Dialog
-        visible={showAttribution}
-        onHide={() => {
-          setShowAttribution(false);
-          setAttributionItems([]);
-        }}
-        header={
-          <div className="flex items-center gap-2 text-slate-800 font-bold">
-            <div className="bg-emerald-100 p-2 rounded-lg">
-              <UserPlus size={18} className="text-emerald-600" />
-            </div>
-            <span>Attribuer le courrier (multiple)</span>
-          </div>
-        }
-        style={{ width: "800px" }}
-        className="rounded-2xl overflow-hidden shadow-2xl"
-        draggable={false}
-        footer={
-          <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
-            <Button
-              label="Annuler"
-              icon={<X size={16} className="mr-2" />}
-              onClick={() => {
-                setShowAttribution(false);
-                setAttributionItems([]);
-              }}
-              className="p-button-text text-slate-500 font-bold hover:bg-slate-100 px-4 py-2 rounded-xl transition-all"
-            />
-            <Button
-              label="Ajouter"
-              icon={<UserPlus size={16} className="mr-2" />}
-              onClick={addAttributionItem}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white border-none px-6 py-2 rounded-xl shadow-lg shadow-blue-200 transition-all font-bold"
-            />
-            <Button
-              label={`Attribuer (${attributionItems.length})`}
-              icon={<CheckCircle size={16} className="mr-2" />}
-              onClick={submitMultipleAttributions}
-              disabled={attributionItems.length === 0}
-              className="bg-emerald-700 hover:bg-emerald-800 text-white border-none px-6 py-2 rounded-xl shadow-lg shadow-emerald-200 transition-all font-bold"
-            />
-          </div>
-        }
-      >
-        <div className="space-y-6 pt-2">
-          {/* Liste des attributions en attente */}
-          {attributionItems.length > 0 && (
-            <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <Users size={14} className="text-emerald-500" />
-                Attributions à envoyer ({attributionItems.length})
-              </label>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {attributionItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100"
-                  >
-                    <div className="flex-1">
-                      {item.type === "agent" ? (
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            <Users size={16} className="text-blue-600" />
-                            <span className="text-sm font-medium text-slate-700">
-                              Agents ({item.agentNoms.length}):
-                            </span>
-                          </div>
-                          <div className="text-xs text-slate-600 ml-6">
-                            {item.agentNoms.join(", ")}
-                          </div>
-                        </div>
-                      ) : item.type === "direction" ? (
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            <Users size={16} className="text-emerald-600" />
-                            <span className="text-sm font-medium text-slate-700">
-                              Agents Direction ({item.agentNoms.length}):
-                            </span>
-                          </div>
-                          <div className="text-xs text-slate-600 ml-6">
-                            {item.agentNoms.join(", ")}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            <Building2 size={16} className="text-purple-600" />
-                            <span className="text-sm font-medium text-slate-700">
-                              Services ({item.entiteeNoms.length}):
-                            </span>
-                          </div>
-                          <div className="text-xs text-slate-600 ml-6">
-                            {item.entiteeNoms.join(", ")}
-                          </div>
-                        </div>
-                      )}
-                      {item.date_limite_traitement && (
-                        <p className="text-xs text-slate-500 mt-1 ml-6">
-                          📅 Date limite:{" "}
-                          {item.date_limite_traitement.toLocaleString()}
-                        </p>
-                      )}
-                      {item.instructions && (
-                        <p className="text-xs text-slate-400 mt-1 ml-6">
-                          📝 Instructions: {item.instructions.substring(0, 50)}
-                          ...
-                        </p>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => removeAttributionItem(item.id)}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                      title="Supprimer"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Formulaire d'ajout */}
-          <div className="space-y-5 p-5 bg-slate-50/80 rounded-2xl border border-slate-100">
-            <div className="flex items-center gap-2">
-              <div className="bg-emerald-100 p-1.5 rounded-lg">
-                <UserPlus size={14} className="text-emerald-600" />
-              </div>
-              <h4 className="font-bold text-slate-700 text-sm">
-                Ajouter une attribution
-              </h4>
-            </div>
-
-            <div className="flex gap-6 flex-wrap p-3 bg-white rounded-xl border border-slate-100">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <RadioButton
-                  value="entiteeDeux"
-                  onChange={(e) => {
-                    setCurrentItem({
-                      ...currentItem,
-                      type: e.value,
-                      entiteeDeuxIds: [],
-                      agentIds: [],
-                    });
-                    setSelectedServices([]);
-                  }}
-                  checked={currentItem.type === "entiteeDeux"}
-                />
-                <span className="text-sm font-medium text-slate-600">
-                  Services
-                </span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <RadioButton
-                  value="agent"
-                  onChange={(e) => {
-                    setCurrentItem({
-                      ...currentItem,
-                      type: e.value,
-                      entiteeDeuxIds: [],
-                      agentIds: [],
-                    });
-                    setSelectedServices([]);
-                  }}
-                  checked={currentItem.type === "agent"}
-                />
-                <span className="text-sm font-medium text-slate-600">
-                  Agents
-                </span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <RadioButton
-                  value="direction"
-                  onChange={(e) => {
-                    setCurrentItem({
-                      ...currentItem,
-                      type: e.value,
-                      entiteeDeuxIds: [],
-                      agentIds: [],
-                    });
-                    setSelectedServices([]);
-                  }}
-                  checked={currentItem.type === "direction"}
-                />
-                <span className="text-sm font-medium text-slate-600">
-                  Agents Direction
-                </span>
-              </label>
-            </div>
-
-            {currentItem.type === "entiteeDeux" && (
-              <div className="space-y-2">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <Building2 size={14} className="text-emerald-500" /> Services
-                  *
-                </label>
-                <MultiSelect
-                  value={currentItem.entiteeDeuxIds}
-                  options={entiteesDeuxList}
-                  optionLabel="libelle"
-                  optionValue="id"
-                  onChange={(e) => {
-                    setCurrentItem({ ...currentItem, entiteeDeuxIds: e.value });
-                  }}
-                  placeholder="Sélectionner un ou plusieurs services"
-                  className="w-full"
-                  filter
-                  display="chip"
-                />
-              </div>
-            )}
-
-            {currentItem.type === "agent" && (
-              <>
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <Building2 size={14} className="text-emerald-500" /> Filtrer
-                    par service
-                  </label>
-                  <MultiSelect
-                    value={selectedServices}
-                    options={entiteesDeuxList}
-                    optionLabel="libelle"
-                    optionValue="id"
-                    onChange={(e) => {
-                      setSelectedServices(e.value);
-                      setCurrentItem((prev) => ({ ...prev, agentIds: [] }));
-                    }}
-                    placeholder="Filtrer les agents par service"
-                    className="w-full"
-                    filter
-                    display="chip"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <Users size={14} className="text-emerald-500" /> Agents *
-                  </label>
-                  <MultiSelect
-                    value={currentItem.agentIds}
-                    options={getAgentOptions(filteredAgents)}
-                    optionLabel="label"
-                    optionValue="id"
-                    onChange={(e) => {
-                      setCurrentItem({ ...currentItem, agentIds: e.value });
-                    }}
-                    placeholder="Sélectionner un ou plusieurs agents"
-                    className="w-full"
-                    filter
-                    display="chip"
-                  />
-                  <div className="text-xs text-slate-500 mt-1">
-                    {filteredAgents.length} agent(s) disponible(s)
-                    {selectedServices.length > 0 &&
-                      ` pour ${selectedServices.length} service(s) sélectionné(s)`}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {currentItem.type === "direction" && (
-              <div className="space-y-2">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <Users size={14} className="text-emerald-500" /> Agents de la
-                  direction *
-                </label>
-                <MultiSelect
-                  value={currentItem.agentIds}
-                  options={getAgentOptions(agentsDirection)}
-                  optionLabel="label"
-                  optionValue="id"
-                  onChange={(e) => {
-                    setCurrentItem({ ...currentItem, agentIds: e.value });
-                  }}
-                  placeholder="Sélectionner un ou plusieurs agents de la direction"
-                  className="w-full"
-                  filter
-                  display="chip"
-                />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                📅 Date limite
-              </label>
-              <Calendar
-                value={currentItem.date_limite_traitement}
-                onChange={(e) => {
-                  const newDate = Array.isArray(e.value) ? e.value[0] : e.value;
-                  setCurrentItem({
-                    ...currentItem,
-                    date_limite_traitement: newDate || null,
-                  });
-                }}
-                showTime
-                hourFormat="24"
-                dateFormat="dd/mm/yy"
-                placeholder="JJ/MM/AAAA HH:MM"
-                className="w-full"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                📝 Instructions
-              </label>
-              <InputTextarea
-                value={currentItem.instructions}
-                onChange={(e) =>
-                  setCurrentItem({
-                    ...currentItem,
-                    instructions: e.target.value,
-                  })
-                }
-                placeholder="Instructions pour cette attribution"
-                rows={3}
-                className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                💬 Commentaire
-              </label>
-              <InputText
-                value={currentItem.commentaire}
-                onChange={(e) =>
-                  setCurrentItem({
-                    ...currentItem,
-                    commentaire: e.target.value,
-                  })
-                }
-                placeholder="Commentaire optionnel"
-                className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20"
-              />
-            </div>
-          </div>
-        </div>
-      </Dialog>
-
-      {/* MODALE DE REJET */}
-      <Dialog
-        visible={showRejet}
-        onHide={() => setShowRejet(false)}
-        header={
-          <div className="flex items-center gap-2 text-slate-800 font-bold">
-            <div className="bg-red-100 p-2 rounded-lg">
-              <XCircle size={18} className="text-red-600" />
-            </div>
-            <span>Rejeter le courrier</span>
-          </div>
-        }
-        style={{ width: "480px" }}
-        className="rounded-2xl overflow-hidden shadow-2xl"
-        draggable={false}
-        footer={
-          <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
-            <Button
-              label="Annuler"
-              icon={<X size={16} className="mr-2" />}
-              onClick={() => setShowRejet(false)}
-              className="p-button-text text-slate-500 font-bold hover:bg-slate-100 px-4 py-2 rounded-xl transition-all"
-            />
-            <Button
-              label="Rejeter"
-              icon={<XCircle size={16} className="mr-2" />}
-              onClick={handleSubmitRejet}
-              className="bg-red-600 hover:bg-red-700 text-white border-none px-6 py-2 rounded-xl shadow-lg shadow-red-200 transition-all font-bold"
-            />
-          </div>
-        }
-      >
-        <div className="space-y-5 pt-2">
-          <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-100 rounded-2xl">
-            <AlertCircle size={18} className="text-red-600 mt-0.5" />
-            <div className="text-xs text-red-700 leading-relaxed">
-              <span className="font-bold block uppercase mb-1">
-                ⚠️ Action irréversible
-              </span>
-              Cette action est définitive. Le courrier sera marqué comme rejeté.
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              <XCircle size={14} className="text-red-500" /> Motif du rejet *
-            </label>
-            <InputTextarea
-              value={rejetMotif}
-              onChange={(e) => setRejetMotif(e.target.value)}
-              placeholder="Indiquez la raison du rejet..."
-              rows={4}
-              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500/20 transition-all"
-              autoFocus
-            />
-          </div>
-        </div>
-      </Dialog>
-
-      {/* Modale détails */}
-      {isLoadingDetails ? (
-        <Dialog
-          visible={true}
-          onHide={() => {}}
-          header="Chargement..."
-          style={{ width: "400px" }}
-          className="rounded-2xl"
-          closable={false}
-        >
-          <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
-          </div>
-        </Dialog>
-      ) : (
-        <CourrierDetails
-          visible={!!selectedCourrier}
-          onHide={() => setSelectedCourrier(null)}
-          courrier={selectedCourrier}
-          onRefresh={refetch}
+      {/* Modale d'attribution (Logique de data-fetching déplacée à l'intérieur de ce composant) */}
+      {showAttribution && (
+        <CourrierAttribuer
+          visible={showAttribution}
+          onHide={() => {
+            setShowAttribution(false);
+            setCurrentCourrierId(null);
+          }}
+          courrierId={currentCourrierId}
+          onSuccess={() => {
+            setShowAttribution(false);
+            refetch();
+          }}
         />
       )}
+
+      {/* Modale de Rejet */}
+      {showRejet && (
+        <CourrierRejeter
+          visible={showRejet}
+          onHide={() => {
+            setShowRejet(false);
+            setCurrentCourrierId(null);
+          }}
+          courrierId={currentCourrierId}
+          onSuccess={() => {
+            setShowRejet(false);
+            refetch();
+          }}
+        />
+      )}
+
+      {/* Modale d'attente / Détails */}
+      <Dialog
+        visible={isLoadingDetails || !!selectedCourrier}
+        onHide={() => !isLoadingDetails && setSelectedCourrier(null)}
+        header={isLoadingDetails ? "Synchronisation..." : "Détails du pli"}
+        style={{ width: "90%", maxWidth: "650px" }}
+        className="rounded-2xl"
+        closable={!isLoadingDetails}
+        draggable={false}
+        resizable={false}
+      >
+        {isLoadingDetails ? (
+          <div className="flex justify-center items-center py-10">
+            <div className="animate-spin rounded-full h-9 w-9 border-2 border-slate-100 border-b-emerald-600"></div>
+          </div>
+        ) : (
+          <CourrierDetails
+            visible={!!selectedCourrier}
+            onHide={() => setSelectedCourrier(null)}
+            courrier={selectedCourrier}
+            onRefresh={refetch}
+          />
+        )}
+      </Dialog>
     </Layout>
   );
 }

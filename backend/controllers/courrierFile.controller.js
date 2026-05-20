@@ -14,6 +14,11 @@ exports.uploadCourrierFiles = async (req, res) => {
     const files = req.files;
     const agentId = req.user?.id || null;
 
+    console.log("📤 Upload fichiers - Paramètres reçus:", {
+      courrierId,
+      filesCount: files?.length,
+    });
+
     if (!files || files.length === 0) {
       return res.status(400).json({ message: "Aucun fichier uploadé" });
     }
@@ -21,12 +26,16 @@ exports.uploadCourrierFiles = async (req, res) => {
     // Vérifier si le courrier existe
     const courrier = await Courrier.findByPk(courrierId);
     if (!courrier) {
-      return res.status(404).json({ message: "Courrier non trouvé" });
+      return res
+        .status(404)
+        .json({ message: `Courrier avec ID ${courrierId} non trouvé` });
     }
 
     const uploadedFiles = [];
 
     for (const file of files) {
+      console.log("📄 Traitement du fichier:", file.originalname);
+
       // Créer l'enregistrement en base de données
       const pieceJointe = await PieceJointe.create({
         nom_fichier: file.originalname,
@@ -37,26 +46,22 @@ exports.uploadCourrierFiles = async (req, res) => {
       });
 
       uploadedFiles.push(pieceJointe);
-
-      // Journaliser l'action dans l'audit
-      if (Audit) {
-        await Audit.create({
-          courrier_idcourrier: courrierId,
-          action: "AJOUT_PIECE_JOINTE",
-          details: `Ajout de la pièce jointe: ${file.originalname}`,
-          agent_id: agentId,
-          created_at: new Date(),
-        });
-      }
     }
 
+    console.log("✅ Upload terminé:", uploadedFiles.length, "fichier(s)");
+
     res.status(201).json({
+      success: true,
       message: `${uploadedFiles.length} fichier(s) uploadé(s) avec succès`,
       files: uploadedFiles,
     });
   } catch (error) {
-    console.error("Erreur upload fichiers:", error);
-    res.status(500).json({ message: "Erreur lors de l'upload des fichiers", error: error.message });
+    console.error("❌ Erreur upload fichiers:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'upload des fichiers",
+      error: error.message,
+    });
   }
 };
 
@@ -64,16 +69,22 @@ exports.uploadCourrierFiles = async (req, res) => {
 exports.getCourrierFiles = async (req, res) => {
   try {
     const { courrierId } = req.params;
+    console.log("🔍 Récupération fichiers pour courrier:", courrierId);
 
     const piecesJointes = await PieceJointe.findAll({
       where: { courrier_idcourrier: courrierId },
       order: [["date_ajout", "DESC"]],
     });
 
+    console.log("✅ Fichiers trouvés:", piecesJointes.length);
     res.status(200).json(piecesJointes);
   } catch (error) {
-    console.error("Erreur récupération fichiers:", error);
-    res.status(500).json({ message: "Erreur lors de la récupération des fichiers", error: error.message });
+    console.error("❌ Erreur récupération fichiers:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des fichiers",
+      error: error.message,
+    });
   }
 };
 
@@ -113,7 +124,12 @@ exports.deleteCourrierFile = async (req, res) => {
     res.status(200).json({ message: "Fichier supprimé avec succès" });
   } catch (error) {
     console.error("Erreur suppression fichier:", error);
-    res.status(500).json({ message: "Erreur lors de la suppression du fichier", error: error.message });
+    res
+      .status(500)
+      .json({
+        message: "Erreur lors de la suppression du fichier",
+        error: error.message,
+      });
   }
 };
 
@@ -137,6 +153,11 @@ exports.downloadCourrierFile = async (req, res) => {
     res.download(filePath, pieceJointe.nom_fichier);
   } catch (error) {
     console.error("Erreur téléchargement fichier:", error);
-    res.status(500).json({ message: "Erreur lors du téléchargement du fichier", error: error.message });
+    res
+      .status(500)
+      .json({
+        message: "Erreur lors du téléchargement du fichier",
+        error: error.message,
+      });
   }
 };

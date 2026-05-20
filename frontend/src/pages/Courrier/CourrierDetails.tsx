@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { BACKEND_URL } from "../../api/axios";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { Tag } from "primereact/tag";
@@ -16,14 +15,17 @@ import {
   Info,
   History,
   CheckCircle,
-  XCircle,
   UserPlus,
-  Building2,
   Eye,
-  AlertCircle,
   Trash2,
   Loader2,
   Hash,
+  Download,
+  Calendar,
+  AlertTriangle,
+  ArrowRight,
+  MessageSquare,
+  Paperclip,
 } from "lucide-react";
 import {
   usePiecesJointes,
@@ -51,10 +53,8 @@ const CourrierDetails: React.FC<CourrierDetailsProps> = ({
     type: string;
   } | null>(null);
 
-  // ✅ CORRECTION : Utiliser idcourrier au lieu de id
   const courrierId = courrier?.idcourrier || courrier?.id;
 
-  // Hooks pour les pièces jointes (uniquement lecture)
   const {
     data: piecesJointes = [],
     refetch: refetchPieces,
@@ -63,7 +63,6 @@ const CourrierDetails: React.FC<CourrierDetailsProps> = ({
   const deletePieceMutation = useDeletePieceJointe();
   const downloadPieceMutation = useDownloadPieceJointe();
 
-  // Recharger les pièces jointes quand le modal s'ouvre
   useEffect(() => {
     if (visible && courrierId) {
       refetchPieces();
@@ -72,14 +71,7 @@ const CourrierDetails: React.FC<CourrierDetailsProps> = ({
 
   if (!courrier) return null;
 
-  // ✅ Garde tes logs existants
   console.log("📦 Courrier reçu:", courrier);
-  console.log("📦 Traitements:", courrier?.historique_traitements);
-  console.log("📦 Premier traitement:", courrier?.historique_traitements?.[0]);
-  console.log(
-    "📦 Agent du premier traitement:",
-    courrier?.historique_traitements?.[0]?.agent,
-  );
 
   const getStatutSeverity = (statut: string) => {
     const s = (statut || "").toUpperCase();
@@ -89,21 +81,16 @@ const CourrierDetails: React.FC<CourrierDetailsProps> = ({
     return "info";
   };
 
-  // ✅ Fonction pour vérifier si un traitement est en retard
   const isTraitementEnRetard = (
     dateLimite: string,
     dateTraitement?: string,
   ) => {
     if (!dateLimite) return false;
-
     const limite = parseISO(dateLimite);
     const traitement = dateTraitement ? parseISO(dateTraitement) : new Date();
-
-    if (!dateTraitement && isAfter(new Date(), limite)) return true;
     return isAfter(traitement, limite);
   };
 
-  // ✅ Fonction pour obtenir les informations de délai pour un attributaire spécifique
   const getDelaiForAttribution = (attribution: any) => {
     if (!attribution.date_limite_traitement) return null;
 
@@ -113,7 +100,6 @@ const CourrierDetails: React.FC<CourrierDetailsProps> = ({
     const estTraite =
       attribution.est_traite ||
       (dateTraitement && !isAfter(parseISO(dateTraitement), limite));
-
     const maintenant = new Date();
     const diff = differenceInDays(limite, maintenant);
 
@@ -122,40 +108,37 @@ const CourrierDetails: React.FC<CourrierDetailsProps> = ({
       if (isAfter(traitementDate, limite)) {
         const retard = differenceInDays(traitementDate, limite);
         return {
-          text: `Traitement en retard de ${retard}j`,
+          text: `En retard de ${retard}j`,
           severity: "danger" as const,
           isLate: true,
         };
       }
       return {
-        text: "Traité dans les délais",
+        text: "Dans les délais",
         severity: "success" as const,
         isLate: false,
       };
     }
 
-    if (diff < 0) {
+    if (diff < 0)
       return {
         text: `En retard de ${Math.abs(diff)}j`,
         severity: "danger" as const,
         isLate: true,
       };
-    }
-    if (diff <= 2) {
+    if (diff <= 2)
       return {
-        text: `${diff} jour${diff > 1 ? "s" : ""} restant${diff > 1 ? "s" : ""}`,
+        text: `${diff}j restant(s)`,
         severity: "warning" as const,
         isLate: false,
       };
-    }
     return {
-      text: `${diff} jours restants`,
+      text: `${diff}j restants`,
       severity: "success" as const,
       isLate: false,
     };
   };
 
-  // ✅ Délai global du courrier
   const delaiInfo = (() => {
     if (courrier.date_limite_traitement) {
       const limite = parseISO(courrier.date_limite_traitement);
@@ -167,120 +150,79 @@ const CourrierDetails: React.FC<CourrierDetailsProps> = ({
 
       if (isLate)
         return {
-          text: `🔴 En retard de ${Math.abs(diff)}j`,
+          text: `En retard de ${Math.abs(diff)}j`,
           severity: "danger" as const,
           isLate: true,
+          icon: <AlertTriangle size={14} />,
         };
       if (diff < 0)
         return {
-          text: `⚠️ Délai dépassé (${Math.abs(diff)}j)`,
+          text: `Délai dépassé (${Math.abs(diff)}j)`,
           severity: "danger" as const,
           isLate: true,
+          icon: <AlertTriangle size={14} />,
         };
       if (diff <= 2)
         return {
-          text: `⏰ ${diff} jour${diff > 1 ? "s" : ""} restant${diff > 1 ? "s" : ""}`,
+          text: `${diff}j restant(s)`,
           severity: "warning" as const,
           isLate: false,
+          icon: <Clock size={14} />,
         };
       return {
-        text: `✅ ${diff} jour${diff > 1 ? "s" : ""} restant${diff > 1 ? "s" : ""}`,
+        text: `${diff}j restants`,
         severity: "success" as const,
         isLate: false,
+        icon: <CheckCircle size={14} />,
       };
     }
-
-    const attributionActive = courrier.attributions?.find(
-      (a: any) => a.est_active !== false,
-    );
-    if (attributionActive?.date_limite_traitement) {
-      const limite = parseISO(attributionActive.date_limite_traitement);
-      const diff = differenceInDays(limite, new Date());
-      const isLate = isTraitementEnRetard(
-        attributionActive.date_limite_traitement,
-        attributionActive.date_traitement_effectif,
-      );
-
-      if (isLate)
-        return {
-          text: `🔴 En retard de ${Math.abs(diff)}j`,
-          severity: "danger" as const,
-          isLate: true,
-        };
-      if (diff < 0)
-        return {
-          text: `⚠️ Délai dépassé (${Math.abs(diff)}j)`,
-          severity: "danger" as const,
-          isLate: true,
-        };
-      if (diff <= 2)
-        return {
-          text: `⏰ ${diff} jour${diff > 1 ? "s" : ""} restant${diff > 1 ? "s" : ""}`,
-          severity: "warning" as const,
-          isLate: false,
-        };
-      return {
-        text: `✅ ${diff} jour${diff > 1 ? "s" : ""} restant${diff > 1 ? "s" : ""}`,
-        severity: "success" as const,
-        isLate: false,
-      };
-    }
-
     return null;
   })();
 
-  const formatDate = (date: string) => {
+  const formatDate = (date: string, includeTime = true) => {
     if (!date) return "Non définie";
     return new Date(date).toLocaleString("fr-FR", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+      ...(includeTime && { hour: "2-digit", minute: "2-digit" }),
     });
   };
 
-  // ✅ Confirmation et suppression d'un fichier
   const confirmDeleteFile = (fileId: number, fileName: string) => {
     confirmDialog({
       message: `Voulez-vous vraiment supprimer le fichier "${fileName}" ?`,
       header: "Confirmation de suppression",
       icon: "pi pi-exclamation-triangle",
-      acceptLabel: "Oui, supprimer",
+      acceptLabel: "Supprimer",
       rejectLabel: "Annuler",
-      acceptClassName: "p-button-danger",
+      acceptClassName: "p-button-danger p-button-sm",
+      rejectClassName: "p-button-text p-button-secondary p-button-sm",
       accept: async () => {
         try {
-          await deletePieceMutation.mutateAsync({
-            courrierId: courrierId,
-            fileId: fileId,
-          });
+          await deletePieceMutation.mutateAsync({ courrierId, fileId });
           toast.success("Fichier supprimé avec succès");
           await refetchPieces();
           if (onRefresh) onRefresh();
         } catch (error: any) {
-          console.error("Erreur suppression:", error);
           toast.error(error.message || "Erreur lors de la suppression");
         }
       },
     });
   };
 
-  // ✅ Téléchargement d'un fichier
   const handleDownloadFile = async (fileId: number, fileName: string) => {
     try {
       await downloadPieceMutation.mutateAsync({ fileId, fileName });
     } catch (error: any) {
-      console.error("Erreur téléchargement:", error);
       toast.error(error.message || "Erreur lors du téléchargement");
     }
   };
 
-  // ✅ Aperçu du fichier
   const openFilePreview = async (pj: any) => {
     const isImage =
       pj.type_fichier?.startsWith("image/") ||
-      pj.nom_fichier?.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i);
+      pj.nom_fichier?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
     const isPDF =
       pj.type_fichier === "application/pdf" || pj.nom_fichier?.endsWith(".pdf");
 
@@ -298,51 +240,16 @@ const CourrierDetails: React.FC<CourrierDetailsProps> = ({
     }
   };
 
-  // ✅ Fonctions helpers pour l'expéditeur et le destinataire
-  const getExpediteurNom = () => {
-    if (courrier.expediteur_details?.nom) {
-      return courrier.expediteur_details.nom;
-    }
-    if (courrier.expediteur) {
-      return courrier.expediteur;
-    }
-    return "Non spécifié";
-  };
-
-  const getExpediteurAdresse = () => {
-    if (courrier.expediteur_details?.adresse) {
-      return courrier.expediteur_details.adresse;
-    }
-    return null;
-  };
-
-  const getDestinataireNom = () => {
-    if (courrier.destinataire_externe?.nom) {
-      return courrier.destinataire_externe.nom;
-    }
-    if (courrier.destinataire) {
-      return courrier.destinataire;
-    }
-    return "Non spécifié";
-  };
-
-  const getDestinataireAdresse = () => {
-    if (courrier.destinataire_externe?.adresse) {
-      return courrier.destinataire_externe.adresse;
-    }
-    return null;
-  };
-
-  const footer = (
-    <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
-      <Button
-        label="Fermer"
-        icon={<X size={18} className="mr-2" />}
-        onClick={onHide}
-        className="p-button-text text-slate-400 font-bold hover:text-slate-600"
-      />
-    </div>
-  );
+  const getExpediteurNom = () =>
+    courrier.expediteur_details?.nom || courrier.expediteur || "Non spécifié";
+  const getExpediteurAdresse = () =>
+    courrier.expediteur_details?.adresse || null;
+  const getDestinataireNom = () =>
+    courrier.destinataire_externe?.nom ||
+    courrier.destinataire ||
+    "Non spécifié";
+  const getDestinataireAdresse = () =>
+    courrier.destinataire_externe?.adresse || null;
 
   return (
     <>
@@ -350,222 +257,224 @@ const CourrierDetails: React.FC<CourrierDetailsProps> = ({
 
       <Dialog
         header={
-          <div className="flex items-center gap-2 text-slate-800 font-bold">
-            <div className="bg-emerald-100 p-2 rounded-lg">
-              <FileText size={18} className="text-emerald-600" />
+          <div className="flex items-center gap-3 text-slate-800 font-bold p-3">
+            <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+              <FileText size={22} className="text-emerald-600" />
             </div>
-            <span>Détails du courrier</span>
+            <div className="flex flex-col">
+              <span className="text-xl font-bold tracking-tight">
+                Détails du Courrier
+              </span>
+              <span className="text-sm font-mono text-slate-500 font-normal mt-0.5">
+                Référence: {courrier.reference || courrierId}
+              </span>
+            </div>
           </div>
         }
         visible={visible}
-        style={{ width: "950px" }}
+        style={{ width: "1150px" }}
         onHide={onHide}
         draggable={false}
-        className="rounded-[2.5rem] overflow-hidden shadow-2xl"
-        footer={footer}
-        contentClassName="p-0"
+        className="rounded-2xl overflow-hidden shadow-2xl border border-slate-100"
+        footer={
+          <div className="flex justify-end gap-3 px-6 py-4 bg-white border-t border-slate-100">
+            <Button
+              label="Fermer"
+              icon={<X size={18} className="mr-2" />}
+              onClick={onHide}
+              className="p-button-outlined p-button-secondary font-semibold text-base px-5 py-2.5 hover:bg-slate-100 transition-colors"
+            />
+          </div>
+        }
+        contentClassName="p-0 bg-white"
         maximizable={false}
       >
-        {/* Conteneur principal avec scroll */}
-        <div className="p-6">
-          <div className="space-y-6">
-            {/* En-tête rapide */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              <div className="bg-white border border-slate-200 rounded-xl p-4">
-                <div className="text-xs text-slate-500">Type</div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-slate-200 h-[calc(85vh-130px)] overflow-hidden">
+          {/* ================= PANNEAU PRINCIPAL GAUCHE (2/3) ================= */}
+          <div className="lg:col-span-2 p-6 overflow-y-auto space-y-6 bg-white">
+            {/* Badges d'état rapides */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                  Type
+                </span>
                 <Tag
                   value={courrier.type === "ARRIVE" ? "Arrivé" : "Départ"}
                   severity={courrier.type === "ARRIVE" ? "success" : "info"}
-                  className="mt-1"
+                  className="w-max text-sm px-3 py-1 rounded-lg font-bold"
                 />
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-xl p-4">
-                <div className="text-xs text-slate-500">Statut</div>
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                  Statut
+                </span>
                 <Tag
                   value={courrier.statut || "En attente"}
                   severity={getStatutSeverity(courrier.statut)}
-                  className="mt-1"
+                  className="w-max text-sm px-3 py-1 rounded-lg font-bold"
                 />
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-xl p-4">
-                <div className="text-xs text-slate-500 flex items-center gap-1">
-                  <Hash size={12} />
-                  Référence
-                </div>
-                <div className="font-mono font-bold text-emerald-700 text-sm mt-1">
-                  {courrier.reference}
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1 mb-2">
+                  <Hash size={14} /> Référence
+                </span>
+                <div className="font-mono font-bold text-slate-800 text-base truncate">
+                  {courrier.reference || "N/A"}
                 </div>
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-xl p-4">
-                <div className="text-xs text-slate-500 flex items-center gap-1">
-                  <Hash size={12} />
-                  N° Courrier
-                </div>
-                <div className="font-mono font-bold text-emerald-700 text-sm mt-1">
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1 mb-2">
+                  <Hash size={14} /> N° Courrier
+                </span>
+                <div className="font-mono font-bold text-emerald-700 text-base truncate">
                   {courrier.numero_courrier || "Non défini"}
                 </div>
               </div>
-
-              {delaiInfo && (
-                <div
-                  className={`bg-white border rounded-xl p-4 ${
-                    delaiInfo.isLate
-                      ? "border-red-200 bg-red-50"
-                      : "border-slate-200"
-                  }`}
-                >
-                  <div className="text-xs text-slate-500 flex items-center gap-1">
-                    <Clock size={12} />
-                    Date limite / Délai
-                  </div>
-                  <div className="mt-1">
-                    <Tag
-                      value={delaiInfo.text}
-                      severity={delaiInfo.severity}
-                      className="font-medium"
-                    />
-                  </div>
-                  {courrier.date_limite_traitement && (
-                    <div className="text-xs text-slate-500 mt-2">
-                      À traiter avant le:{" "}
-                      {formatDate(courrier.date_limite_traitement)}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
 
-            <Divider />
+            {/* Acteurs & Dates Clés */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Acteur (Expéditeur ou Destinataire) */}
+              <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 shadow-sm">
+                {courrier.type === "ARRIVE" ? (
+                  <>
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-3">
+                      <User size={16} className="text-emerald-600" /> Expéditeur
+                    </span>
+                    <p className="text-slate-800 font-semibold text-base">
+                      {getExpediteurNom()}
+                    </p>
+                    {getExpediteurAdresse() && (
+                      <p className="text-sm text-slate-500 mt-2 flex items-center gap-1">
+                        {getExpediteurAdresse()}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-3">
+                      <Send size={16} className="text-emerald-600" />{" "}
+                      Destinataire
+                    </span>
+                    <p className="text-slate-800 font-semibold text-base">
+                      {getDestinataireNom()}
+                    </p>
+                    {getDestinataireAdresse() && (
+                      <p className="text-sm text-slate-500 mt-2 flex items-center gap-1">
+                        {getDestinataireAdresse()}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
 
-            {/* Informations sur l'expéditeur/destinataire - CORRIGÉ avec helpers */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {courrier.type === "ARRIVE" ? (
-                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-2">
-                    <User size={14} className="text-emerald-500" /> Expéditeur
-                  </label>
-                  <p className="text-slate-700 font-medium">
-                    {getExpediteurNom()}
-                  </p>
-                  {getExpediteurAdresse() && (
-                    <p className="text-xs text-slate-500 mt-1">
-                      {getExpediteurAdresse()}
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-2">
-                    <Send size={14} className="text-emerald-500" /> Destinataire
-                  </label>
-                  <p className="text-slate-700 font-medium">
-                    {getDestinataireNom()}
-                  </p>
-                  {getDestinataireAdresse() && (
-                    <p className="text-xs text-slate-500 mt-1">
-                      {getDestinataireAdresse()}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-2">
-                  <Clock size={14} className="text-emerald-500" /> Dates
-                </label>
-                <div className="space-y-1 text-sm">
-                  <p>
-                    <span className="text-slate-500">Création:</span>{" "}
-                    {formatDate(courrier.date_creation)}
-                  </p>
-                  <p>
-                    <span className="text-slate-500">Réception:</span>{" "}
-                    {formatDate(courrier.date_reception)}
-                  </p>
-                  <p className="text-emerald-700">
-                    <span className="text-slate-500">📝 Enregistrement:</span>{" "}
-                    {formatDate(courrier.date_enregistrement)}
-                  </p>
-                  {courrier.date_attribution && (
-                    <p>
-                      <span className="text-slate-500">Attribution:</span>{" "}
-                      {formatDate(courrier.date_attribution)}
-                    </p>
-                  )}
-                  {courrier.date_traitement && (
-                    <p>
-                      <span className="text-slate-500">Traitement:</span>{" "}
-                      {formatDate(courrier.date_traitement)}
-                    </p>
-                  )}
-                  {courrier.date_limite_traitement && (
-                    <p
-                      className={`font-medium ${isTraitementEnRetard(courrier.date_limite_traitement, courrier.date_traitement) ? "text-red-600" : "text-amber-600"}`}
-                    >
-                      <span className="text-slate-500">📅 Date limite:</span>{" "}
-                      {formatDate(courrier.date_limite_traitement)}
-                      {isTraitementEnRetard(
-                        courrier.date_limite_traitement,
-                        courrier.date_traitement,
-                      ) && (
-                        <span className="ml-2 text-red-600 text-xs font-bold">
-                          ⚠️ RETARD
-                        </span>
-                      )}
-                    </p>
-                  )}
+              {/* Dates Principales */}
+              <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 shadow-sm">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-3">
+                  <Calendar size={16} className="text-emerald-600" /> Dates Clés
+                </span>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                  <div>
+                    <span className="text-slate-500 block mb-1">Création</span>
+                    <span className="text-slate-800 font-semibold">
+                      {formatDate(courrier.date_creation, false)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block mb-1">Réception</span>
+                    <span className="text-slate-800 font-semibold">
+                      {formatDate(courrier.date_reception, false)}
+                    </span>
+                  </div>
+                  <div className="col-span-2 pt-2 border-t border-slate-200 mt-1">
+                    <span className="text-slate-500">Enregistrement : </span>
+                    <span className="text-emerald-700 font-bold font-mono">
+                      {formatDate(courrier.date_enregistrement)}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Objet */}
-            <div>
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-2">
-                <FileText size={14} className="text-emerald-500" /> Objet
-              </label>
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium">
+            {/* Objet du courrier */}
+            <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 shadow-sm">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-3">
+                <Info size={16} className="text-emerald-600" /> Objet du
+                Courrier
+              </span>
+              <div className="text-slate-800 font-semibold text-base leading-relaxed">
                 {courrier.objet}
               </div>
             </div>
 
-            {/* Corps */}
+            {/* Contenu / Corps */}
             {courrier.corps && (
-              <div>
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-2">
-                  <Info size={14} className="text-emerald-500" /> Contenu /
+              <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 shadow-sm">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-3">
+                  <FileText size={16} className="text-emerald-600" /> Contenu /
                   Message
-                </label>
-                <div className="p-5 bg-white border border-slate-200 rounded-xl prose text-sm max-h-64 overflow-y-auto">
+                </span>
+                <div className="p-5 bg-white rounded-xl border border-slate-100 max-h-80 overflow-y-auto text-sm text-slate-700 prose prose-slate max-w-none">
                   <div dangerouslySetInnerHTML={{ __html: courrier.corps }} />
                 </div>
               </div>
             )}
+          </div>
 
-            {/* ==================== PIÈCES JOINTES (Lecture seule) ==================== */}
+          {/* ================= PANNEAU SECONDAIRE DROIT (1/3) ================= */}
+          <div className="p-6 bg-white overflow-y-auto space-y-6">
+            {/* Bloc Délais d'alerte globale */}
+            {delaiInfo && (
+              <div
+                className={`p-5 rounded-xl border ${
+                  delaiInfo.isLate
+                    ? "border-red-200 bg-red-50 text-red-800"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-900"
+                }`}
+              >
+                <span className="text-xs font-bold uppercase tracking-wider block mb-3 opacity-80">
+                  ⚠️ Alerte de traitement
+                </span>
+                <div className="flex items-center gap-2 font-bold text-base">
+                  <Tag
+                    severity={delaiInfo.severity}
+                    value={delaiInfo.text}
+                    icon={delaiInfo.icon}
+                    className="px-3 py-1.5 rounded-lg text-sm"
+                  />
+                </div>
+                {courrier.date_limite_traitement && (
+                  <span className="text-sm text-slate-600 block mt-3 font-medium">
+                    📅 Échéance finale :{" "}
+                    {formatDate(courrier.date_limite_traitement, false)}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Pièces jointes */}
             <div>
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-3">
-                <Upload size={14} className="text-emerald-500" />
-                Pièces jointes ({piecesJointes.length})
-              </label>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-4">
+                <Paperclip size={16} className="text-emerald-600" /> Pièces
+                Jointes ({piecesJointes.length})
+              </span>
 
               {loadingFiles ? (
-                <div className="flex justify-center py-8">
+                <div className="flex justify-center py-6">
                   <Loader2
-                    size={32}
+                    size={28}
                     className="animate-spin text-emerald-600"
                   />
                 </div>
               ) : piecesJointes.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-3">
                   {piecesJointes.map((pj: any) => {
                     const isImage =
                       pj.type_fichier?.startsWith("image/") ||
-                      pj.nom_fichier?.match(
-                        /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i,
-                      );
+                      pj.nom_fichier?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
                     const isPDF =
                       pj.type_fichier === "application/pdf" ||
                       pj.nom_fichier?.endsWith(".pdf");
@@ -573,40 +482,41 @@ const CourrierDetails: React.FC<CourrierDetailsProps> = ({
                     return (
                       <div
                         key={pj.idpiece_jointe}
-                        className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3 hover:bg-white transition group"
+                        className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3 hover:bg-emerald-50 hover:border-emerald-200 transition-all duration-200 group"
                       >
                         <div
-                          className="flex items-center gap-3 flex-1 cursor-pointer"
+                          className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
                           onClick={() => openFilePreview(pj)}
                         >
-                          <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                          <div className="w-10 h-10 shrink-0 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-lg shadow-sm">
                             {isImage ? "🖼️" : isPDF ? "📑" : "📄"}
                           </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium truncate max-w-[180px]">
+                          <div className="min-w-0 flex-1">
+                            <p
+                              className="text-sm font-semibold text-slate-700 truncate"
+                              title={pj.nom_fichier}
+                            >
                               {pj.nom_fichier}
                             </p>
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-slate-400 mt-0.5">
                               {pj.date_ajout
-                                ? new Date(pj.date_ajout).toLocaleDateString(
-                                    "fr-FR",
-                                  )
+                                ? formatDate(pj.date_ajout, false)
                                 : "Date inconnue"}
                             </p>
                           </div>
                         </div>
-                        <div className="flex gap-1">
+                        <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100">
                           {(isImage || isPDF) && (
                             <Button
                               icon={<Eye size={16} />}
-                              className="p-button-text p-button-rounded text-slate-500 hover:text-emerald-600"
+                              className="p-button-text p-button-rounded p-button-secondary text-slate-500 hover:text-emerald-600 !p-2"
                               onClick={() => openFilePreview(pj)}
                               title="Aperçu"
                             />
                           )}
                           <Button
                             icon={<Download size={16} />}
-                            className="p-button-text p-button-rounded text-slate-500 hover:text-emerald-600"
+                            className="p-button-text p-button-rounded p-button-secondary text-slate-500 hover:text-emerald-600 !p-2"
                             onClick={() =>
                               handleDownloadFile(
                                 pj.idpiece_jointe,
@@ -617,7 +527,7 @@ const CourrierDetails: React.FC<CourrierDetailsProps> = ({
                           />
                           <Button
                             icon={<Trash2 size={16} />}
-                            className="p-button-text p-button-rounded text-red-500 hover:text-red-700"
+                            className="p-button-text p-button-rounded p-button-danger text-slate-500 hover:text-red-600 !p-2"
                             onClick={() =>
                               confirmDeleteFile(
                                 pj.idpiece_jointe,
@@ -632,159 +542,131 @@ const CourrierDetails: React.FC<CourrierDetailsProps> = ({
                   })}
                 </div>
               ) : (
-                <div className="text-center py-8 bg-slate-50 rounded-xl border border-slate-200">
-                  <Upload size={32} className="mx-auto text-slate-300 mb-2" />
-                  <p className="text-slate-400 text-sm">Aucune pièce jointe</p>
+                <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-500 text-sm">
+                  <Paperclip size={32} className="mx-auto mb-2 opacity-40" />
+                  Aucun fichier joint
                 </div>
               )}
             </div>
 
-            {/* ==================== TRACABILITÉ (Attributions + Traitements uniquement) ==================== */}
-            <div className="mt-4">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-3">
-                <History size={14} className="text-emerald-500" /> Historique
-              </label>
+            <Divider className="!my-3" />
 
-              <div className="space-y-4">
-                {/* Attributions */}
-                {courrier.attributions && courrier.attributions.length > 0 && (
-                  <div className="bg-slate-50 rounded-xl border border-slate-100 overflow-hidden">
-                    <div className="px-4 py-2 bg-slate-100 border-b border-slate-200">
-                      <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                        <UserPlus size={14} className="text-blue-600" />
-                        Attributions ({courrier.attributions.length})
-                      </h4>
-                    </div>
-                    <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
-                      {courrier.attributions.map(
-                        (attrib: any, index: number) => {
-                          const delaiAttrib = getDelaiForAttribution(attrib);
-                          return (
-                            <div
-                              key={index}
-                              className="p-3 hover:bg-white transition"
-                            >
-                              <div className="flex justify-between items-start flex-wrap gap-2">
-                                <span className="text-sm font-medium text-slate-700">
-                                  Attribué à: {attrib.attribue_a?.nom}{" "}
-                                  {attrib.attribue_a?.prenom || ""}
-                                </span>
-                                <span className="text-xs text-slate-400">
-                                  {new Date(attrib.createdAt).toLocaleString()}
-                                </span>
-                              </div>
+            {/* Traçabilité / Historique */}
+            <div className="space-y-5">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <History size={16} className="text-emerald-600" /> Flux &
+                Traçabilité
+              </span>
 
-                              {attrib.date_limite_traitement && (
-                                <div
-                                  className={`mt-2 p-2 rounded-lg ${
-                                    delaiAttrib?.isLate
-                                      ? "bg-red-50 border border-red-200"
-                                      : "bg-white border border-slate-200"
-                                  }`}
-                                >
-                                  <div className="flex justify-between items-center flex-wrap gap-2">
-                                    <span className="text-xs font-medium text-slate-600">
-                                      ⏰ Date limite:{" "}
-                                      {formatDate(
-                                        attrib.date_limite_traitement,
-                                      )}
-                                    </span>
-                                    {delaiAttrib && (
-                                      <Tag
-                                        value={delaiAttrib.text}
-                                        severity={delaiAttrib.severity}
-                                        className="text-xs"
-                                      />
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-
-                              {attrib.date_traitement_effectif && (
-                                <p className="text-xs text-slate-500 mt-2">
-                                  ✅ Traité le:{" "}
-                                  {formatDate(attrib.date_traitement_effectif)}
-                                </p>
-                              )}
-
-                              {attrib.instructions_copiees && (
-                                <p className="text-xs text-slate-500 mt-1">
-                                  📝 Instructions: {attrib.instructions_copiees}
-                                </p>
-                              )}
-                              {attrib.commentaire && (
-                                <p className="text-xs text-slate-400 mt-1">
-                                  💬 Commentaire: {attrib.commentaire}
-                                </p>
-                              )}
-                              {attrib.attribue_par && (
-                                <p className="text-xs text-slate-400 mt-1">
-                                  Attribué par: {attrib.attribue_par.nom}{" "}
-                                  {attrib.attribue_par.prenom}
-                                </p>
-                              )}
-                            </div>
-                          );
-                        },
-                      )}
-                    </div>
+              {/* Bloc Attributions */}
+              {courrier.attributions && courrier.attributions.length > 0 && (
+                <div className="space-y-3">
+                  <div className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                    <UserPlus size={16} className="text-blue-600" />{" "}
+                    Attributions ({courrier.attributions.length})
                   </div>
-                )}
+                  <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                    {courrier.attributions.map((attrib: any, index: number) => {
+                      const delaiAttrib = getDelaiForAttribution(attrib);
+                      return (
+                        <div
+                          key={index}
+                          className="p-3 bg-slate-50 border border-slate-200 rounded-xl"
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="font-bold text-slate-800 text-sm">
+                              À : {attrib.attribue_a?.nom}{" "}
+                              {attrib.attribue_a?.prenom || ""}
+                            </span>
+                            <span className="text-xs text-slate-400 font-mono">
+                              {formatDate(attrib.createdAt)}
+                            </span>
+                          </div>
+                          {attrib.instructions_copiees && (
+                            <p className="text-slate-600 bg-white p-2 rounded-lg border border-slate-100 text-sm mb-2">
+                              <span className="font-semibold text-slate-500">
+                                Instructions :
+                              </span>{" "}
+                              {attrib.instructions_copiees}
+                            </p>
+                          )}
+                          {delaiAttrib && (
+                            <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-200 mt-2">
+                              <span className="text-slate-500 font-mono">
+                                ⏰ Limite:{" "}
+                                {formatDate(
+                                  attrib.date_limite_traitement,
+                                  false,
+                                )}
+                              </span>
+                              <Tag
+                                value={delaiAttrib.text}
+                                severity={delaiAttrib.severity}
+                                className="text-[11px] px-2 py-0.5 rounded-md font-semibold"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
-                {/* ✅ Traitements - AVEC NOM DE L'AGENT (corrigé) */}
-                {/* ==================== TRAITEMENTS ==================== */}
-                {courrier.historique_traitements?.length > 0 && (
-                  <div className="bg-slate-50 rounded-xl border border-slate-100 overflow-hidden">
-                    <div className="px-4 py-2 bg-slate-100 border-b border-slate-200">
-                      <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                        <CheckCircle size={14} className="text-teal-600" />
-                        Traitements ({courrier.historique_traitements.length})
-                      </h4>
+              {/* Bloc Traitements Réels */}
+              {courrier.historique_traitements &&
+                courrier.historique_traitements.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                      <CheckCircle size={16} className="text-emerald-600" />{" "}
+                      Traitements ({courrier.historique_traitements.length})
                     </div>
-
-                    <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                    <div className="relative pl-4 border-l-2 border-slate-200 space-y-4 max-h-60 overflow-y-auto pr-2">
                       {courrier.historique_traitements.map(
                         (traitement: any, index: number) => {
-                          // ✅ NOM AGENT (version robuste)
-                          const agentNom = traitement?.agent?.nom || "";
-                          const agentPrenom = traitement?.agent?.prenom || "";
                           const agentFullName =
-                            `${agentNom} ${agentPrenom}`.trim();
-
+                            `${traitement?.agent?.nom || ""} ${traitement?.agent?.prenom || ""}`.trim();
                           return (
-                            <div
-                              key={index}
-                              className="p-3 hover:bg-white transition"
-                            >
-                              {/* Action + statut */}
-                              <div className="flex justify-between items-start flex-wrap gap-2">
-                                <span className="text-sm font-medium text-slate-700">
-                                  {traitement.action}
-                                  {traitement.nouveau_statut &&
-                                    ` → ${traitement.nouveau_statut}`}
-                                </span>
+                            <div key={index} className="relative">
+                              <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
 
-                                <span className="text-xs text-slate-400">
-                                  {new Date(
+                              <div className="flex justify-between text-xs text-slate-400 font-mono mb-1">
+                                <span>
+                                  {formatDate(
                                     traitement.createdAt ||
                                       traitement.date_action,
-                                  ).toLocaleString()}
+                                  )}
                                 </span>
                               </div>
-
-                              {/* Motif */}
+                              <p className="font-semibold text-slate-800 text-sm flex items-center gap-1 flex-wrap">
+                                {traitement.action}
+                                {traitement.nouveau_statut && (
+                                  <>
+                                    <ArrowRight
+                                      size={12}
+                                      className="text-slate-400"
+                                    />{" "}
+                                    <span className="text-emerald-700 font-bold">
+                                      {traitement.nouveau_statut}
+                                    </span>
+                                  </>
+                                )}
+                              </p>
                               {traitement.motif && (
-                                <p className="text-xs text-slate-500 mt-1">
-                                  📝 Motif: {traitement.motif}
-                                </p>
+                                <div className="border rounded-xl">
+                                  <p className="text-slate-600  text-sm mt-1.5 bg-slate-50 p-2 rounded-lg flex items-start gap-1.5">
+                                    <MessageSquare
+                                      size={18}
+                                      className="mt-0.5 flex-shrink-0 text-emerald-700 font-bold"
+                                    />
+                                    <span>{traitement.motif}</span>
+                                  </p>
+                                </div>
                               )}
-
-                              {/* Agent */}
                               {agentFullName && (
-                                <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-                                  <User size={12} />
-                                  Traité par: {agentFullName}
-                                </p>
+                                <span className="text-xs text-slate-500 block mt-1.5 font-medium">
+                                  👤 Par : {agentFullName}
+                                </span>
                               )}
                             </div>
                           );
@@ -794,77 +676,56 @@ const CourrierDetails: React.FC<CourrierDetailsProps> = ({
                   </div>
                 )}
 
-                {(!courrier.attributions ||
-                  courrier.attributions.length === 0) &&
-                  (!courrier.historique_traitements ||
-                    courrier.historique_traitements.length === 0) && (
-                    <div className="text-center py-8 text-slate-400 text-sm">
-                      Aucun historique d'attribution ou de traitement
-                    </div>
-                  )}
-              </div>
+              {/* Fallback si vide */}
+              {(!courrier.attributions || courrier.attributions.length === 0) &&
+                (!courrier.historique_traitements ||
+                  courrier.historique_traitements.length === 0) && (
+                  <div className="text-center py-6 text-slate-400 text-sm bg-slate-50 rounded-xl">
+                    <History size={24} className="mx-auto mb-2 opacity-40" />
+                    Aucun flux enregistré
+                  </div>
+                )}
             </div>
           </div>
         </div>
       </Dialog>
 
       {/* Modal d'aperçu des fichiers */}
-      <Dialog
-        visible={!!previewFile}
-        onHide={() => setPreviewFile(null)}
-        header={
-          <div className="flex items-center gap-2">
-            <div className="bg-emerald-100 p-1.5 rounded-lg">
-              {previewFile?.type === "image" ? "🖼️" : "📑"}
+      {previewFile && (
+        <Dialog
+          header={
+            <div className="flex items-center gap-2 p-2">
+              <div className="bg-emerald-100 p-2 rounded-lg">
+                {previewFile.type === "image" ? "🖼️" : "📑"}
+              </div>
+              <span className="font-semibold text-slate-800 truncate max-w-md">
+                {previewFile.name}
+              </span>
             </div>
-            <span className="text-slate-800 font-bold truncate max-w-[400px]">
-              {previewFile?.name || "Aperçu"}
-            </span>
+          }
+          visible={!!previewFile}
+          style={{ width: "90vw", maxWidth: "1000px" }}
+          onHide={() => setPreviewFile(null)}
+          className="rounded-xl overflow-hidden"
+          maximizable
+        >
+          <div className="w-full h-full bg-slate-900 flex items-center justify-center p-3">
+            {previewFile.type === "image" ? (
+              <img
+                src={previewFile.url}
+                alt={previewFile.name}
+                className="max-w-full max-h-full object-contain rounded-lg mt-3"
+              />
+            ) : (
+              <iframe
+                src={previewFile.url}
+                title={previewFile.name}
+                className="w-full h-[75vh] border-0 rounded-lg bg-white"
+              />
+            )}
           </div>
-        }
-        style={{ width: "80vw", maxWidth: "900px" }}
-        className="rounded-2xl overflow-hidden"
-        footer={
-          <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
-            <Button
-              label="Télécharger"
-              icon={<Download size={16} className="mr-2" />}
-              onClick={() => {
-                if (previewFile) {
-                  const link = document.createElement("a");
-                  link.href = previewFile.url;
-                  link.download = previewFile.name;
-                  link.click();
-                }
-              }}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            />
-            <Button
-              label="Fermer"
-              icon={<X size={16} className="mr-2" />}
-              onClick={() => setPreviewFile(null)}
-              className="p-button-text"
-            />
-          </div>
-        }
-      >
-        <div className="p-4">
-          {previewFile?.type === "image" && (
-            <img
-              src={previewFile.url}
-              alt="Aperçu"
-              className="w-full h-auto rounded-xl max-h-[70vh] object-contain"
-            />
-          )}
-          {previewFile?.type === "pdf" && (
-            <iframe
-              src={previewFile.url}
-              className="w-full h-[70vh] rounded-xl"
-              title="PDF Viewer"
-            />
-          )}
-        </div>
-      </Dialog>
+        </Dialog>
+      )}
     </>
   );
 };

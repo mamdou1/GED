@@ -10,6 +10,7 @@ import { Toast } from "primereact/toast";
 import { TabView, TabPanel } from "primereact/tabview";
 import { ProgressBar } from "primereact/progressbar";
 import { useAuth } from "../../context/AuthContext";
+import PreviewUploadFiles from "./PreviewUploadFiles";
 import {
   useCreateCourrier,
   useAddPiecesJointes,
@@ -29,6 +30,7 @@ import {
   XCircle,
   Calendar as CalendarIcon,
   Hash,
+  Eye,
 } from "lucide-react";
 
 interface CourrierFormProps {
@@ -85,6 +87,7 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
   const [destinataires, setDestinataires] = useState<DestinataireOption[]>([]);
   const [loadingExpediteurs, setLoadingExpediteurs] = useState(false);
   const [loadingDestinataires, setLoadingDestinataires] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   const createMutation = useCreateCourrier();
   const addPiecesMutation = useAddPiecesJointes();
@@ -120,10 +123,27 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result as string);
         reader.readAsDataURL(file);
+      } else if (file.type === "application/pdf") {
+        // Pour les PDF, on crée un URL objet
+        const url = URL.createObjectURL(file);
+        resolve(url);
       } else {
         resolve(null);
       }
     });
+  };
+
+  const handlePreviewFiles = () => {
+    if (selectedFiles.length === 0) {
+      toast.current?.show({
+        severity: "warn",
+        summary: "Aucun fichier",
+        detail: "Veuillez d'abord sélectionner des fichiers",
+        life: 3000,
+      });
+      return;
+    }
+    setShowPreview(true);
   };
 
   // Ajouter des fichiers
@@ -303,6 +323,7 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
     setLoading(true);
 
     try {
+      // ✅ Construction du payload AVANT l'appel API
       const payload: any = {
         type: activeTab === 0 ? "ARRIVE" : "DEPART",
         reference: formData.reference,
@@ -314,6 +335,7 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
         date_enregistrement: formData.date_enregistrement,
       };
 
+      // ✅ Gestion de l'expéditeur/destinataire AVANT l'appel
       if (activeTab === 0) {
         if (formData.expediteur_id) {
           payload.expediteur_id = formData.expediteur_id;
@@ -328,22 +350,58 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
         }
       }
 
+      console.log("📤 Création courrier - Payload final:", payload);
+
+      // ✅ 1. Création du courrier
       const newCourrier = await createMutation.mutateAsync(payload);
+      console.log(
+        "✅ Courrier créé ID:",
+        newCourrier?.idcourrier || newCourrier?.data?.idcourrier,
+      );
 
-      // Upload des fichiers
-      if (selectedFiles.length > 0 && newCourrier.idcourrier) {
+      // Récupérer l'ID correctement
+      const courrierId =
+        newCourrier?.idcourrier || newCourrier?.data?.idcourrier;
+
+      if (!courrierId) {
+        throw new Error("Impossible de récupérer l'ID du courrier créé");
+      }
+
+      // ✅ 2. Upload des fichiers (si nécessaire)
+      if (selectedFiles.length > 0) {
         const filesToUpload = selectedFiles.map((sf) => sf.file);
+        console.log(
+          "📤 Upload de",
+          filesToUpload.length,
+          "fichier(s) pour le courrier",
+          courrierId,
+        );
 
+        filesToUpload.forEach((f) =>
+          console.log("   -", f.name, f.type, f.size),
+        );
+
+        // Simuler la progression
         filesToUpload.forEach((_, index) => {
           setUploadProgress((prev) => ({
             ...prev,
-            [index]: ((index + 1) / filesToUpload.length) * 100,
+            [index]: ((index + 1) / filesToUpload.length) * 50,
           }));
         });
 
-        await addPiecesMutation.mutateAsync({
-          id: newCourrier.idcourrier,
+        const uploadResult = await addPiecesMutation.mutateAsync({
+          id: courrierId,
           files: filesToUpload,
+        });
+
+        console.log("✅ Upload terminé:", uploadResult);
+
+        // Progression à 100%
+        filesToUpload.forEach((_, index) => {
+          setUploadProgress((prev) => ({
+            ...prev,
+            [index]: 100,
+          }));
         });
       }
 
@@ -352,10 +410,12 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
         summary: "Succès",
         detail: "Courrier enregistré avec succès",
       });
+
       onSuccess();
       onHide();
     } catch (error: any) {
-      console.error("Erreur détaillée:", error);
+      console.error("❌ Erreur détaillée:", error);
+      console.error("❌ Réponse erreur:", error.response?.data);
       toast.current?.show({
         severity: "error",
         summary: "Erreur",
@@ -435,6 +495,18 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
                 </div>
               </div>
 
+              {selectedFiles.length > 0 && (
+                <div className="flex justify-end mt-2">
+                  <Button
+                    title="Aperçu des fichiers"
+                    icon={<Eye size={16} className="mr-2" />}
+                    onClick={handlePreviewFiles}
+                    className="p-button-outlined p-button-secondary text-sm"
+                    disabled={loading}
+                  />
+                </div>
+              )}
+
               {uploadProgress[sf.id] && uploadProgress[sf.id] < 100 ? (
                 <div className="w-20">
                   <ProgressBar value={uploadProgress[sf.id]} className="h-1" />
@@ -505,7 +577,22 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
         onTabChange={(e) => setActiveTab(e.index)}
         className="pt-4"
       >
-        <TabPanel header="Courrier Arrivé">
+        <TabPanel
+          header={
+            <div
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-semibold ${
+                activeTab === 0
+                  ? "bg-amber-100 text-amber-800 border border-amber-200"
+                  : "text-slate-500 hover:bg-slate-100"
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${activeTab === 0 ? "bg-amber-500 animate-pulse" : "bg-transparent"}`}
+              ></span>
+              Courrier Arrivé
+            </div>
+          }
+        >
           <div className="space-y-6 pt-4">
             <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
               <Info size={18} className="text-amber-600 mt-0.5" />
@@ -716,7 +803,22 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
           </div>
         </TabPanel>
 
-        <TabPanel header="Courrier Départ">
+        <TabPanel
+          header={
+            <div
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-semibold ${
+                activeTab === 1
+                  ? "bg-blue-100 text-blue-800 border border-blue-200"
+                  : "text-slate-500 hover:bg-slate-100"
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${activeTab === 1 ? "bg-blue-500 animate-pulse" : "bg-transparent"}`}
+              ></span>
+              Courrier Départ
+            </div>
+          }
+        >
           <div className="space-y-6 pt-4">
             <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl">
               <Info size={18} className="text-blue-600 mt-0.5" />
@@ -929,17 +1031,23 @@ const CourrierForm: React.FC<CourrierFormProps> = ({
                   <div className="text-xs text-slate-400">
                     ou glissez-déposez-les ici
                   </div>
-                  <div className="text-xs text-slate-400 mt-2">
-                    PDF, DOC, DOCX, XLS, XLSX, images (Max 10MB par fichier)
-                  </div>
                 </label>
               </div>
-
               <SelectedFilesList />
             </div>
           </div>
         </TabPanel>
       </TabView>
+      <PreviewUploadFiles
+        visible={showPreview}
+        onHide={() => setShowPreview(false)}
+        files={selectedFiles.map((sf) => ({
+          ...sf,
+          name: sf.file.name,
+        }))}
+        onRemoveFile={handleRemoveFile}
+        title="Aperçu des pièces jointes"
+      />
     </Dialog>
   );
 };

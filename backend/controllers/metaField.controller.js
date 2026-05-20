@@ -399,7 +399,9 @@ exports.setOverride = async (req, res) => {
         metaFieldId,
         userId: req.user?.id,
       });
-      return res.status(404).json({ message: "Champ de métadonnées introuvable" });
+      return res
+        .status(404)
+        .json({ message: "Champ de métadonnées introuvable" });
     }
 
     const entityValid = await validateEntity(entityType, parseInt(entityId));
@@ -587,7 +589,8 @@ exports.hasOverrides = async (req, res) => {
 
 exports.cloneOverrides = async (req, res) => {
   const startTime = Date.now();
-  const { sourceType, sourceId, targetType, targetId, typeDocumentId } = req.body;
+  const { sourceType, sourceId, targetType, targetId, typeDocumentId } =
+    req.body;
 
   try {
     logger.info("📋 Clonage des surcharges", {
@@ -645,7 +648,9 @@ exports.getAllFieldsForEntity = async (req, res) => {
   const { typeId, entityType, entityId } = req.params;
 
   try {
-    console.log(`🔍 getAllFieldsForEntity: typeId=${typeId}, entityType=${entityType}, entityId=${entityId}`);
+    console.log(
+      `🔍 getAllFieldsForEntity: typeId=${typeId}, entityType=${entityType}, entityId=${entityId}`,
+    );
 
     // 1. Champs de base
     const baseFields = await MetaField.findAll({
@@ -653,19 +658,13 @@ exports.getAllFieldsForEntity = async (req, res) => {
       order: [["position", "ASC"]],
     });
 
-    // 🔍 LOG - Afficher les field_type réels de la base
-    console.log("📋 VALEURS RÉELLES DANS LA BASE:");
-    baseFields.forEach(f => {
-      console.log(`   ID:${f.id} | ${f.label} | field_type = "${f.field_type}" (type: ${typeof f.field_type})`);
-    });
-
-    // 2. Surcharges si entité valide
-    let formattedBaseFields = baseFields.map(f => ({
+    // ✅ CORRECTION: Sequelize retourne déjà un boolean, donc il faut juste garder la valeur
+    let formattedBaseFields = baseFields.map((f) => ({
       id: f.id,
       name: f.name,
       label: f.label,
-      field_type: f.field_type,  // Pas de fallback, on prend la valeur réelle
-      required: f.required === 1,
+      field_type: f.field_type,
+      required: f.required === true || f.required === 1, // ✅ Accepte les deux formats
       position: f.position || 0,
       options: f.options,
       placeholder: f.placeholder,
@@ -674,7 +673,12 @@ exports.getAllFieldsForEntity = async (req, res) => {
       hidden: false,
     }));
 
-    if (entityType && entityId && entityType !== 'null' && entityId !== 'null') {
+    if (
+      entityType &&
+      entityId &&
+      entityType !== "null" &&
+      entityId !== "null"
+    ) {
       const overrides = await MetaFieldOverride.findAll({
         where: {
           type_document_id: parseInt(typeId),
@@ -682,15 +686,19 @@ exports.getAllFieldsForEntity = async (req, res) => {
           entity_id: parseInt(entityId),
         },
       });
-      const overrideMap = new Map(overrides.map(o => [o.meta_field_id, o]));
-      formattedBaseFields = baseFields.map(field => {
+      const overrideMap = new Map(overrides.map((o) => [o.meta_field_id, o]));
+      formattedBaseFields = baseFields.map((field) => {
         const override = overrideMap.get(field.id);
         return {
           id: field.id,
           name: field.name,
           label: override?.label_override || field.label,
-          field_type: field.field_type,  // Garde la valeur réelle
-          required: override?.required_override !== undefined ? override.required_override : (field.required === 1),
+          field_type: field.field_type,
+          required:
+            override?.required_override !== undefined
+              ? override.required_override === true ||
+                override.required_override === 1 // ✅ Accepte les deux formats
+              : field.required === true || field.required === 1, // ✅ Accepte les deux formats
           position: override?.position_override ?? field.position ?? 0,
           options: override?.options_override || field.options,
           placeholder: override?.placeholder_override || field.placeholder,
@@ -701,29 +709,36 @@ exports.getAllFieldsForEntity = async (req, res) => {
       });
     }
 
-    // 🔍 LOG - Afficher ce qui va être envoyé
-    console.log("📋 CHAMPS FORMATÉS (base):");
-    formattedBaseFields.forEach(f => {
-      console.log(`   ${f.label}: field_type = "${f.field_type}"`);
-    });
-
     // 3. Champs personnalisés
-    const customFields = await EntityCustomField.findAll({
-      where: {
-        type_document_id: parseInt(typeId),
-        is_active: true,
-      },
-      order: [["position", "ASC"]],
-    });
+    let customFields = [];
 
-    console.log(`📋 Champs personnalisés trouvés: ${customFields.length}`);
+    if (
+      entityType &&
+      entityId &&
+      entityType !== "null" &&
+      entityId !== "null"
+    ) {
+      customFields = await EntityCustomField.findAll({
+        where: {
+          type_document_id: parseInt(typeId),
+          entity_type: entityType,
+          entity_id: parseInt(entityId),
+          is_active: true,
+        },
+        order: [["position", "ASC"]],
+      });
+      console.log(
+        `📋 Champs personnalisés pour ${entityType}/${entityId}: ${customFields.length}`,
+      );
+    }
 
-    const formattedCustomFields = customFields.map(field => ({
+    // ✅ CORRECTION pour les champs personnalisés aussi
+    const formattedCustomFields = customFields.map((field) => ({
       id: field.id,
       name: field.name,
       label: field.label,
       field_type: field.field_type,
-      required: field.required === 1,
+      required: field.required === true || field.required === 1, // ✅ Accepte les deux formats
       position: field.position || 0,
       options: field.options,
       placeholder: field.placeholder,
@@ -733,15 +748,21 @@ exports.getAllFieldsForEntity = async (req, res) => {
     }));
 
     const allFields = [...formattedBaseFields, ...formattedCustomFields].sort(
-      (a, b) => a.position - b.position
+      (a, b) => a.position - b.position,
     );
 
-    // 🔍 LOG - Afficher la réponse finale
-    console.log("📋 RÉPONSE FINALE:", JSON.stringify(allFields.map(f => ({ label: f.label, field_type: f.field_type })), null, 2));
+    console.log(
+      `📋 RÉSULTAT DETAIL:`,
+      allFields.map((f) => ({
+        label: f.label,
+        required: f.required,
+        type: typeof f.required,
+      })),
+    );
 
     res.json({ success: true, data: allFields });
   } catch (e) {
-    console.error("❌ Erreur:", e);
+    console.error("❌ Erreur getAllFieldsForEntity:", e);
     res.status(500).json({ message: e.message });
   }
 };
@@ -760,7 +781,12 @@ exports.addCustomField = async (req, res) => {
     });
 
     // Vérifier si l'entité existe (si fournie)
-    if (entityType && entityId && entityType !== 'null' && entityId !== 'null') {
+    if (
+      entityType &&
+      entityId &&
+      entityType !== "null" &&
+      entityId !== "null"
+    ) {
       const entityValid = await validateEntity(entityType, parseInt(entityId));
       if (!entityValid) {
         return res.status(404).json({ message: "Entité introuvable" });
@@ -964,7 +990,9 @@ exports.toggleCustomFieldHide = async (req, res) => {
     res.json({
       success: true,
       data: customField,
-      message: hidden ? "Champ masqué avec succès" : "Champ affiché avec succès",
+      message: hidden
+        ? "Champ masqué avec succès"
+        : "Champ affiché avec succès",
     });
   } catch (e) {
     logger.error("❌ Erreur toggleCustomFieldHide:", {

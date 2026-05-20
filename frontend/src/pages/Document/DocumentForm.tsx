@@ -8,21 +8,8 @@ import { Calendar } from "primereact/calendar";
 import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { InputSwitch } from "primereact/inputswitch";
+import { useEntityMetaFields } from "../../hooks/useMetaFieldOverrides";
 import api from "../../api/axios";
-
-interface MetaField {
-  id: number;
-  name: string;
-  label: string;
-  field_type: string;
-  required: boolean;
-  position: number;
-  options?: any;
-  placeholder?: string;
-  description?: string;
-  source?: "base" | "custom";
-  hidden?: boolean;
-}
 
 interface DocumentPayload {
   type_document_id: number | null;
@@ -31,11 +18,6 @@ interface DocumentPayload {
   entities?: any[];
   defaultEntityType?: string;
   id?: number;
-}
-
-interface DocumentEntityPayload {
-  entity_type: string;
-  entity_id: number;
 }
 
 // Configuration des types d'entités
@@ -49,16 +31,27 @@ const ENTITY_TYPE_MAP: Record<string, string> = {
   EntiteeUn: "entitee_un",
   EntiteeDeux: "entitee_deux",
   EntiteeTrois: "entitee_trois",
+  un: "entitee_un",
+  deux: "entitee_deux",
+  trois: "entitee_trois",
 };
 
-// Normaliser le type d'entité pour l'API
 const normalizeEntityType = (type: string): string => {
   const mapping: Record<string, string> = {
-    entiteeun: "EntiteeUn",
-    entiteedoux: "EntiteeDeux",
-    entiteetrois: "EntiteeTrois",
+    entiteeun: "entitee_un",
+    entiteedoux: "entitee_deux",
+    entiteetrois: "entitee_trois",
+    entitee_un: "entitee_un",
+    entitee_deux: "entitee_deux",
+    entitee_trois: "entitee_trois",
+    EntiteeUn: "entitee_un",
+    EntiteeDeux: "entitee_deux",
+    EntiteeTrois: "entitee_trois",
+    un: "entitee_un",
+    deux: "entitee_deux",
+    trois: "entitee_trois",
   };
-  return mapping[type?.toLowerCase()] || type;
+  return mapping[type?.toLowerCase()] || "entitee_un";
 };
 
 const mapEntityType = (type: string): string => {
@@ -72,8 +65,19 @@ const mapEntityType = (type: string): string => {
     entitee_un: "entitee_un",
     entitee_deux: "entitee_deux",
     entitee_trois: "entitee_trois",
+    un: "entitee_un",
+    deux: "entitee_deux",
+    trois: "entitee_trois",
   };
   return mapping[type] || "entitee_un";
+};
+
+// ✅ Fonction pour normaliser la valeur required (peut être boolean, 0/1, "0"/"1")
+const normalizeRequired = (value: any): boolean => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") return value === "1" || value === "true";
+  return false;
 };
 
 export default function DocumentForm({
@@ -92,8 +96,6 @@ export default function DocumentForm({
 }: any) {
   const [values, setValues] = useState<Record<string, any>>({});
   const [documentType_id, setDocumentType_id] = useState<number | null>(null);
-  const [metaFields, setMetaFields] = useState<MetaField[]>([]);
-  const [loading, setLoading] = useState(false);
   const toast = useRef<Toast>(null);
 
   const isEntityPreselected =
@@ -102,49 +104,57 @@ export default function DocumentForm({
     ? ENTITY_TYPE_MAP[preselectedEntity.entity_type?.toLowerCase()] ||
       preselectedEntity.entity_type
     : defaultEntityType;
-  const effectiveEntityId = isEntityPreselected ? preselectedEntity.entity_id : null;
+  const effectiveEntityId = isEntityPreselected
+    ? preselectedEntity.entity_id
+    : null;
 
-  // ✅ Charger TOUS les champs (base + personnalisés) pour l'entité
-  const loadEntityMetaFields = async (typeId: number) => {
-    if (!effectiveEntityType || !effectiveEntityId) {
-      await loadBaseMetaFields(typeId);
-      return;
+  const {
+    data: fieldsData,
+    isLoading: fieldsLoading,
+    refetch: refetchFields,
+  } = useEntityMetaFields(
+    documentType_id || 0,
+    effectiveEntityType || "",
+    effectiveEntityId || 0,
+  );
+
+  // ✅ Normaliser les champs (convertir required en boolean)
+  const normalizedFields = (fieldsData || []).map((field: any) => ({
+    ...field,
+    required: normalizeRequired(field.required),
+    hidden: field.hidden === true || field.hidden === 1 || field.hidden === "1",
+  }));
+
+  useEffect(() => {
+    if (
+      visible &&
+      documentType_id &&
+      effectiveEntityType &&
+      effectiveEntityId
+    ) {
+      refetchFields();
     }
+  }, [
+    visible,
+    documentType_id,
+    effectiveEntityType,
+    effectiveEntityId,
+    refetchFields,
+  ]);
 
-    setLoading(true);
-    try {
-      const normalizedType = normalizeEntityType(effectiveEntityType);
-      const response = await api.get(
-        `/meta-fields/${typeId}/entity/${normalizedType}/${effectiveEntityId}/all`
+  useEffect(() => {
+    if (visible && normalizedFields && normalizedFields.length > 0) {
+      console.log(`✅ ${normalizedFields.length} champs chargés`);
+      console.log(
+        "📋 Détail des champs REQUIRED:",
+        normalizedFields.map((f: any) => ({
+          label: f.label,
+          required: f.required,
+        })),
       );
-      const fields = response.data.data || [];
-      console.log("📋 Champs chargés pour l'entité:", fields);
-      setMetaFields(fields);
-    } catch (error) {
-      console.error("Erreur chargement champs personnalisés:", error);
-      await loadBaseMetaFields(typeId);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [normalizedFields, visible]);
 
-  // ✅ Charger uniquement les champs de base (fallback)
-  const loadBaseMetaFields = async (typeId: number) => {
-    setLoading(true);
-    try {
-      const response = await api.get(`/meta-fields/${typeId}`);
-      const fields = response.data.data || response.data || [];
-      console.log("📋 Champs de base chargés:", fields);
-      setMetaFields(fields);
-    } catch (error) {
-      console.error("Erreur chargement champs de base:", error);
-      setMetaFields([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Charger les données du document à éditer
   useEffect(() => {
     if (!visible) return;
 
@@ -165,29 +175,27 @@ export default function DocumentForm({
   }, [visible, editingDoc]);
 
   useEffect(() => {
-    if (selectedTypeId && !editingDoc) setDocumentType_id(selectedTypeId);
-  }, [selectedTypeId, editingDoc]);
+    if (selectedTypeId && !editingDoc && !documentType_id) {
+      setDocumentType_id(selectedTypeId);
+    }
+  }, [selectedTypeId, editingDoc, documentType_id]);
 
-  // ✅ Charger les champs quand le type change
-  useEffect(() => {
-    if (!documentType_id) return;
-    loadEntityMetaFields(documentType_id);
-  }, [documentType_id, effectiveEntityType, effectiveEntityId]);
-
-  const renderField = (field: MetaField) => {
+  const renderField = (field: any) => {
     const value = values[field.id] || "";
     if (field.hidden) return null;
 
-    const fieldType = field.field_type?.toUpperCase();
-
-    switch (fieldType) {
+    switch (field.field_type) {
       case "TEXT":
       case "TEXTAREA":
         return (
           <textarea
             value={value}
-            onChange={(e) => setValues({ ...values, [field.id]: e.target.value })}
-            placeholder={field.placeholder || `Entrez ${field.label.toLowerCase()}...`}
+            onChange={(e) =>
+              setValues({ ...values, [field.id]: e.target.value })
+            }
+            placeholder={
+              field.placeholder || `Entrez ${field.label.toLowerCase()}...`
+            }
             className="w-full bg-white border border-emerald-100 p-3 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
             rows={field.field_type === "TEXTAREA" ? 4 : 2}
           />
@@ -197,10 +205,14 @@ export default function DocumentForm({
           <InputNumber
             value={value !== "" ? Number(value) : null}
             onValueChange={(e) => {
-              // Stocker la valeur brute (nombre ou null)
-              setValues({ ...values, [field.id]: e.value !== null ? e.value : "" });
+              setValues({
+                ...values,
+                [field.id]: e.value !== null ? e.value : "",
+              });
             }}
-            placeholder={field.placeholder || `Entrez ${field.label.toLowerCase()}...`}
+            placeholder={
+              field.placeholder || `Entrez ${field.label.toLowerCase()}...`
+            }
             className="w-full"
             inputClassName="w-full bg-white border border-emerald-100 p-3 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
           />
@@ -210,8 +222,9 @@ export default function DocumentForm({
           <Calendar
             value={value ? new Date(value) : null}
             onChange={(e) => {
-              // Stocker la date au format YYYY-MM-DD
-              const dateValue = e.value ? e.value.toISOString().split("T")[0] : "";
+              const dateValue = e.value
+                ? e.value.toISOString().split("T")[0]
+                : "";
               setValues({ ...values, [field.id]: dateValue });
             }}
             dateFormat="dd/mm/yy"
@@ -227,8 +240,10 @@ export default function DocumentForm({
             <InputSwitch
               checked={value === "true" || value === true}
               onChange={(e) => {
-                // Stocker la valeur booléenne comme string "true"/"false"
-                setValues({ ...values, [field.id]: e.value ? "true" : "false" });
+                setValues({
+                  ...values,
+                  [field.id]: e.value ? "true" : "false",
+                });
               }}
             />
             <span className="text-sm text-slate-600">{field.label}</span>
@@ -239,13 +254,18 @@ export default function DocumentForm({
         return (
           <select
             value={value}
-            onChange={(e) => setValues({ ...values, [field.id]: e.target.value })}
+            onChange={(e) =>
+              setValues({ ...values, [field.id]: e.target.value })
+            }
             className="w-full bg-white border border-emerald-100 p-3 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
           >
             <option value="">Sélectionnez...</option>
-            {options.map((opt: any) => (
-              <option key={opt.value || opt} value={opt.value || opt}>
-                {opt.label || opt}
+            {options.map((opt: any, idx: number) => (
+              <option
+                key={idx}
+                value={typeof opt === "object" ? opt.value : opt}
+              >
+                {typeof opt === "object" ? opt.label : opt}
               </option>
             ))}
           </select>
@@ -254,7 +274,9 @@ export default function DocumentForm({
         return (
           <input
             type="file"
-            onChange={(e) => setValues({ ...values, [field.id]: e.target.files?.[0] })}
+            onChange={(e) =>
+              setValues({ ...values, [field.id]: e.target.files?.[0] })
+            }
             className="w-full bg-white border border-emerald-100 p-2 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
           />
         );
@@ -262,8 +284,12 @@ export default function DocumentForm({
         return (
           <InputText
             value={value}
-            onChange={(e) => setValues({ ...values, [field.id]: e.target.value })}
-            placeholder={field.placeholder || `Entrez ${field.label.toLowerCase()}...`}
+            onChange={(e) =>
+              setValues({ ...values, [field.id]: e.target.value })
+            }
+            placeholder={
+              field.placeholder || `Entrez ${field.label.toLowerCase()}...`
+            }
             className="w-full bg-white border border-emerald-100 p-3 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
           />
         );
@@ -289,10 +315,11 @@ export default function DocumentForm({
       return;
     }
 
-    const visibleRequiredFields = metaFields.filter(
-      (f) => f.required && f.hidden !== true
+    // ✅ Utiliser normalizedFields pour la validation
+    const visibleRequiredFields = normalizedFields.filter(
+      (f: any) => f.required === true && f.hidden !== true,
     );
-    const missing = visibleRequiredFields.filter((f) => {
+    const missing = visibleRequiredFields.filter((f: any) => {
       const val = values[f.id];
       return val === undefined || val === null || val === "";
     });
@@ -301,7 +328,7 @@ export default function DocumentForm({
       toast.current?.show({
         severity: "warn",
         summary: "Champs manquants",
-        detail: `Veuillez remplir: ${missing.map((f) => f.label).join(", ")}`,
+        detail: `Veuillez remplir: ${missing.map((f: any) => f.label).join(", ")}`,
       });
       return;
     }
@@ -309,15 +336,17 @@ export default function DocumentForm({
     try {
       const valuesObject: Record<string, string> = {};
 
-      for (const field of metaFields) {
+      for (const field of normalizedFields) {
         const fieldValue = values[field.id];
 
-        if (fieldValue !== undefined && fieldValue !== null && fieldValue !== "") {
+        if (
+          fieldValue !== undefined &&
+          fieldValue !== null &&
+          fieldValue !== ""
+        ) {
           if (fieldValue instanceof File) {
-            // Les fichiers seront traités séparément
             continue;
           }
-          // Convertir tous les types en string
           valuesObject[field.id] = String(fieldValue);
         }
       }
@@ -328,7 +357,7 @@ export default function DocumentForm({
         entities: [
           {
             entity_type: mapEntityType(effectiveEntityType),
-            entity_id: effectiveEntityId,
+            entity_id: Number(effectiveEntityId),
           },
         ],
       };
@@ -353,7 +382,7 @@ export default function DocumentForm({
             fileUploads.push(
               api.post(`/documents/${docId}/files`, formData, {
                 headers: { "Content-Type": "multipart/form-data" },
-              })
+              }),
             );
           }
         }
@@ -385,6 +414,12 @@ export default function DocumentForm({
     }
   };
 
+  // ✅ Utiliser normalizedFields pour l'affichage
+  const visibleFields = normalizedFields.filter((f: any) => !f.hidden);
+  const customFieldsCount = visibleFields.filter(
+    (f: any) => f.source === "custom",
+  ).length;
+
   return (
     <>
       <Toast ref={toast} />
@@ -398,14 +433,14 @@ export default function DocumentForm({
               {editingDoc ? "Modifier le document" : "Nouveau document"}
             </span>
             {isEntityPreselected && (
-              <p className="text-xs text-emerald-600 mt-1 font-medium ml-12">
-                Pour : {preselectedEntity?.entity_label}
-              </p>
+              <span className="text-xs text-emerald-600 font-medium ml-4 bg-emerald-50 px-3 py-1.5 rounded-full">
+                {preselectedEntity?.entity_label}
+              </span>
             )}
           </div>
         }
         visible={visible}
-        style={{ width: "600px", maxWidth: "90vw" }}
+        style={{ width: "650px", maxWidth: "90vw" }}
         onHide={onHide}
         className="rounded-3xl overflow-hidden"
         footer={
@@ -419,7 +454,7 @@ export default function DocumentForm({
               label={editingDoc ? "Modifier" : "Enregistrer"}
               icon={<Save size={18} className="mr-2" />}
               onClick={handleSubmit}
-              disabled={loading}
+              disabled={fieldsLoading}
               className="bg-emerald-600 hover:bg-emerald-700 text-white border-none px-6 py-2.5 rounded-xl shadow-lg shadow-emerald-200 transition-all font-bold"
             />
           </div>
@@ -435,7 +470,11 @@ export default function DocumentForm({
             <Dropdown
               value={documentType_id}
               options={documentType}
-              onChange={(e) => setDocumentType_id(e.value)}
+              onChange={(e) => {
+                console.log("📌 Changement de type:", e.value);
+                setDocumentType_id(e.value);
+                setValues({});
+              }}
               optionLabel="nom"
               optionValue="id"
               placeholder="Sélectionner..."
@@ -445,63 +484,66 @@ export default function DocumentForm({
             />
           </div>
 
-          {/* Champs du formulaire avec défilement unique */}
-          {loading ? (
+          {/* Champs du formulaire */}
+          {fieldsLoading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
               <p className="text-sm text-slate-400 mt-2">
                 Chargement des champs...
               </p>
             </div>
-          ) : metaFields.filter((f) => !f.hidden).length > 0 ? (
-            <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-2">
-              <div className="text-[10px] font-black text-emerald-800/40 uppercase tracking-widest flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
-                Champs du document ({metaFields.length})
+          ) : visibleFields.length > 0 ? (
+            <>
+              <div className="flex justify-between items-center">
+                <div className="text-[10px] font-black text-emerald-800/40 uppercase tracking-widest flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+                  Champs du document
+                </div>
+                {customFieldsCount > 0 && (
+                  <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-[10px]">
+                    {customFieldsCount} personnalisé
+                    {customFieldsCount > 1 ? "s" : ""}
+                  </span>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 gap-4">
-                {metaFields.map((field) => {
-                  if (field.hidden) return null;
-                  return (
-                    <div key={field.id} className="flex flex-col gap-2">
-                      <label className="text-xs font-bold text-emerald-900 ml-1 flex items-center gap-2">
-                        {field.label}
-                        {field.required && (
-                          <span className="text-red-500 text-xs">*</span>
-                        )}
-                        {field.source === "custom" && (
-                          <span className="text-[9px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full">
-                            Personnalisé
-                          </span>
-                        )}
-                      </label>
-                      {renderField(field)}
-                      {field.description && (
-                        <p className="text-xs text-slate-400 ml-1">
-                          {field.description}
-                        </p>
+              <div className="grid grid-cols-1 gap-5">
+                {visibleFields.map((field: any) => (
+                  <div key={field.id} className="flex flex-col gap-2">
+                    <label className="text-xs font-bold text-emerald-900 ml-1 flex items-center gap-2">
+                      {field.label}
+                      {field.required === true && (
+                        <span className="text-red-500 text-sm font-bold ml-0.5">
+                          *
+                        </span>
                       )}
-                    </div>
-                  );
-                })}
+                      {field.source === "custom" && (
+                        <span className="text-[9px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full">
+                          Personnalisé
+                        </span>
+                      )}
+                    </label>
+                    {renderField(field)}
+                    {field.description && (
+                      <p className="text-xs text-slate-400 ml-1">
+                        {field.description}
+                      </p>
+                    )}
+                  </div>
+                ))}
               </div>
-            </div>
+            </>
           ) : documentType_id ? (
             <div className="text-center py-12 bg-emerald-50/20 rounded-xl border border-dashed border-emerald-200">
               <FileText size={48} className="mx-auto text-emerald-300 mb-4" />
-              <p className="text-emerald-600 text-sm">
+              <p className="text-emerald-600 text-sm font-medium">
                 Aucun champ configuré pour ce type de document
-              </p>
-              <p className="text-xs text-emerald-400 mt-1">
-                Vous pouvez ajouter des champs personnalisés depuis la gestion
-                des champs
               </p>
             </div>
           ) : (
             <div className="text-center py-12 bg-emerald-50/20 rounded-xl border border-dashed border-emerald-200">
               <FileText size={48} className="mx-auto text-emerald-300 mb-4" />
-              <p className="text-emerald-600 text-sm">
+              <p className="text-emerald-600 text-sm font-medium">
                 Sélectionnez d'abord un type de document
               </p>
             </div>

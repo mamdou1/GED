@@ -1057,7 +1057,6 @@ export default function DocumentTypeEntitee() {
                                           >
                                             <FilePlus size={25} />
                                           </button>
-
                                           {/* ✅ BOUTON AFFECTATION - TOUJOURS VISIBLE */}
                                           <button
                                             onClick={(e) => {
@@ -1070,7 +1069,6 @@ export default function DocumentTypeEntitee() {
                                           >
                                             <SplinePointer size={25} />
                                           </button>
-
                                           <button
                                             onClick={(e) => {
                                               setEditing(t);
@@ -1082,42 +1080,49 @@ export default function DocumentTypeEntitee() {
                                           >
                                             <Pencil size={25} />
                                           </button>
-                                          <button
-                                            onClick={(e) => {
-                                              setSelected(t);
-                                              setMetaVisible(true);
-                                              e.stopPropagation();
-                                            }}
-                                            className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg"
-                                            title="Métadonnées"
-                                          >
-                                            <Settings size={25} />
-                                          </button>
-                                          {/* ✅ NOUVEAU BOUTON : Personnalisation par entité */}
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setSelected(t);
-                                              // Déterminer le type d'entité
-                                              let entityType: EntityTypeUI =
-                                                "entiteeUn";
-                                              if (t.entitee_trois_id) {
-                                                entityType = "entiteeTrois";
-                                              } else if (t.entitee_deux_id) {
-                                                entityType = "entiteeDeux";
-                                              } else if (t.entitee_un_id) {
-                                                entityType = "entiteeUn";
-                                              }
-                                              setSelectedEntityType(entityType);
-                                              setEntityFieldManagerVisible(
-                                                true,
-                                              );
-                                            }}
-                                            className="p-2 text-purple-500 hover:bg-purple-50 rounded-lg"
-                                            title="Personnaliser les champs pour cette entité"
-                                          >
-                                            <Settings size={25} />
-                                          </button>
+                                          {expandedStructure ===
+                                          "Tous les types de documents" ? (
+                                            // Cas 1: Structure "Tous les types de documents" → Afficher Métadonnées
+                                            <button
+                                              onClick={(e) => {
+                                                setSelected(t);
+                                                setMetaVisible(true);
+                                                e.stopPropagation();
+                                              }}
+                                              className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-all"
+                                              title="Gérer les métadonnées"
+                                            >
+                                              <Settings size={25} />
+                                            </button>
+                                          ) : (
+                                            // Cas 2: Entité spécifique (entiteeUn, entiteeDeux, entiteeTrois) → Afficher Personnalisation
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelected(t);
+                                                // Déterminer le type d'entité
+                                                let entityType: EntityTypeUI =
+                                                  "entiteeUn";
+                                                if (t.entitee_trois_id) {
+                                                  entityType = "entiteeTrois";
+                                                } else if (t.entitee_deux_id) {
+                                                  entityType = "entiteeDeux";
+                                                } else if (t.entitee_un_id) {
+                                                  entityType = "entiteeUn";
+                                                }
+                                                setSelectedEntityType(
+                                                  entityType,
+                                                );
+                                                setEntityFieldManagerVisible(
+                                                  true,
+                                                );
+                                              }}
+                                              className="p-2 text-purple-500 hover:bg-purple-50 rounded-lg transition-all"
+                                              title="Personnaliser les champs pour cette entité"
+                                            >
+                                              <Settings size={25} />
+                                            </button>
+                                          )}
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();

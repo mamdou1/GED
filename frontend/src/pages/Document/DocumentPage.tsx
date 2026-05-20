@@ -302,10 +302,14 @@ export default function DocumentPage() {
         return ensureArray(doc.entitee_un).some((e: any) => e.id === entityId);
       }
       if (entityType === "deux") {
-        return ensureArray(doc.entitee_deux).some((e: any) => e.id === entityId);
+        return ensureArray(doc.entitee_deux).some(
+          (e: any) => e.id === entityId,
+        );
       }
       if (entityType === "trois") {
-        return ensureArray(doc.entitee_trois).some((e: any) => e.id === entityId);
+        return ensureArray(doc.entitee_trois).some(
+          (e: any) => e.id === entityId,
+        );
       }
       return false;
     });
@@ -584,12 +588,12 @@ export default function DocumentPage() {
       const entity = entitees.find((e) => e.id === entiteeId);
       if (entity) {
         const entityTypeMap: Record<string, string> = {
-          un: "entitee_un",
-          deux: "entitee_deux",
-          trois: "entitee_trois",
+          un: "EntiteeUn",
+          deux: "EntiteeDeux",
+          trois: "EntiteeTrois",
         };
         setActiveEntity({
-          entity_type: entityTypeMap[entity.type] || entity.type,
+          entity_type: entityTypeMap[entity.type] || entity.type, // "EntiteeUn", "EntiteeDeux", "EntiteeTrois"
           entity_id: entity.id,
           entity_label: entity.libelle,
         });
@@ -683,7 +687,7 @@ export default function DocumentPage() {
   const getDisplayContent = () => {
     const params = new URLSearchParams(location.search);
     const entitee = params.get("entitee");
-    
+
     // ===== CAS 1 : ADMIN (affichage complet avec entités + types)
     if (isUserAdmin()) {
       if (!selectedNiveau && !entitee) {
@@ -810,7 +814,9 @@ export default function DocumentPage() {
                             return hasCorrectType && hasCorrectEntity;
                           });
 
-                          const currentPageForType = getCurrentPageForType(type.id);
+                          const currentPageForType = getCurrentPageForType(
+                            type.id,
+                          );
                           const paginatedDocs = typeDocs.slice(
                             (currentPageForType - 1) * itemsPerPage,
                             currentPageForType * itemsPerPage,
@@ -986,12 +992,14 @@ export default function DocumentPage() {
                                                         setPendingTypeId(
                                                           type.id,
                                                         );
-                                                        setCurrentEntityForForm({
-                                                          id: entiteeItem.id,
-                                                          type: entiteeItem.type,
-                                                          label:
-                                                            entiteeItem.libelle,
-                                                        });
+                                                        setCurrentEntityForForm(
+                                                          {
+                                                            id: entiteeItem.id,
+                                                            type: entiteeItem.type,
+                                                            label:
+                                                              entiteeItem.libelle,
+                                                          },
+                                                        );
                                                         setFormVisible(true);
                                                       }}
                                                       className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
@@ -1002,7 +1010,9 @@ export default function DocumentPage() {
                                                     <button
                                                       onClick={(e) => {
                                                         setSelected(doc);
-                                                        setDisponibleVisible(true);
+                                                        setDisponibleVisible(
+                                                          true,
+                                                        );
                                                         e.stopPropagation();
                                                       }}
                                                       className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
@@ -1019,12 +1029,16 @@ export default function DocumentPage() {
                                                       className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
                                                       title="Chargement des fichiers"
                                                     >
-                                                      <CloudDownload size={18} />
+                                                      <CloudDownload
+                                                        size={18}
+                                                      />
                                                     </button>
                                                     <button
                                                       onClick={(e) => {
                                                         e.stopPropagation();
-                                                        handleDelete(String(doc.id));
+                                                        handleDelete(
+                                                          String(doc.id),
+                                                        );
                                                       }}
                                                       className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
                                                     >
@@ -1070,7 +1084,10 @@ export default function DocumentPage() {
                                         }}
                                         className="mt-3 text-sm bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition-all"
                                       >
-                                        <Plus size={14} className="inline mr-1" />
+                                        <Plus
+                                          size={14}
+                                          className="inline mr-1"
+                                        />
                                         Créer le premier document
                                       </button>
                                     </div>
@@ -1213,7 +1230,9 @@ export default function DocumentPage() {
                           const typeDocs = allDocs.filter(
                             (d) => d.type_document_id === type.id,
                           );
-                          const currentPageForType = getCurrentPageForType(type.id);
+                          const currentPageForType = getCurrentPageForType(
+                            type.id,
+                          );
                           const paginatedDocs = typeDocs.slice(
                             (currentPageForType - 1) * itemsPerPage,
                             currentPageForType * itemsPerPage,
@@ -1286,9 +1305,15 @@ export default function DocumentPage() {
                                     <Plus size={14} />
                                   </button>
                                   {isTypeExpanded ? (
-                                    <ChevronDown size={16} className="text-emerald-500" />
+                                    <ChevronDown
+                                      size={16}
+                                      className="text-emerald-500"
+                                    />
                                   ) : (
-                                    <ChevronRight size={16} className="text-slate-400" />
+                                    <ChevronRight
+                                      size={16}
+                                      className="text-slate-400"
+                                    />
                                   )}
                                 </div>
                               </div>
@@ -1331,14 +1356,18 @@ export default function DocumentPage() {
                                                 <td className="p-3">
                                                   <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-lg text-xs font-bold border border-emerald-200">
                                                     #
-                                                    {String(doc.id).padStart(3, "0")}
+                                                    {String(doc.id).padStart(
+                                                      3,
+                                                      "0",
+                                                    )}
                                                   </span>
                                                 </td>
                                                 {metaFields.map((m) => {
                                                   const value =
                                                     doc.values?.find(
                                                       (v: any) =>
-                                                        v.metaField?.id === m.id,
+                                                        v.metaField?.id ===
+                                                        m.id,
                                                     )?.value;
                                                   return (
                                                     <td
@@ -1356,18 +1385,25 @@ export default function DocumentPage() {
                                                 <td className="p-3">
                                                   <div
                                                     className="flex justify-center gap-1"
-                                                    onClick={(e) => e.stopPropagation()}
+                                                    onClick={(e) =>
+                                                      e.stopPropagation()
+                                                    }
                                                   >
                                                     <button
                                                       onClick={(e) => {
                                                         e.stopPropagation();
                                                         setEditingDoc(doc);
-                                                        setPendingTypeId(type.id);
-                                                        setCurrentEntityForForm({
-                                                          id: entiteeItem.id,
-                                                          type: entiteeItem.type,
-                                                          label: entiteeItem.libelle,
-                                                        });
+                                                        setPendingTypeId(
+                                                          type.id,
+                                                        );
+                                                        setCurrentEntityForForm(
+                                                          {
+                                                            id: entiteeItem.id,
+                                                            type: entiteeItem.type,
+                                                            label:
+                                                              entiteeItem.libelle,
+                                                          },
+                                                        );
                                                         setFormVisible(true);
                                                       }}
                                                       className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
@@ -1378,7 +1414,9 @@ export default function DocumentPage() {
                                                     <button
                                                       onClick={(e) => {
                                                         setSelected(doc);
-                                                        setDisponibleVisible(true);
+                                                        setDisponibleVisible(
+                                                          true,
+                                                        );
                                                         e.stopPropagation();
                                                       }}
                                                       className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
@@ -1395,10 +1433,16 @@ export default function DocumentPage() {
                                                       className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
                                                       title="Chargement des fichiers"
                                                     >
-                                                      <CloudDownload size={18} />
+                                                      <CloudDownload
+                                                        size={18}
+                                                      />
                                                     </button>
                                                     <button
-                                                      onClick={() => handleDelete(String(doc.id))}
+                                                      onClick={() =>
+                                                        handleDelete(
+                                                          String(doc.id),
+                                                        )
+                                                      }
                                                       className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
                                                     >
                                                       <Trash2 size={18} />
@@ -1443,7 +1487,10 @@ export default function DocumentPage() {
                                         }}
                                         className="mt-3 text-sm bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition-all"
                                       >
-                                        <Plus size={14} className="inline mr-1" />
+                                        <Plus
+                                          size={14}
+                                          className="inline mr-1"
+                                        />
                                         Créer le premier document
                                       </button>
                                     </div>
@@ -1650,7 +1697,7 @@ export default function DocumentPage() {
                                             ---
                                           </span>
                                         )}
-                                       </td>
+                                      </td>
                                     );
                                   })}
                                   <td className="p-3">
@@ -1663,7 +1710,8 @@ export default function DocumentPage() {
                                           e.stopPropagation();
                                           setEditingDoc(doc);
                                           setPendingTypeId(type.id);
-                                          const entity = getCurrentFonctionEntity();
+                                          const entity =
+                                            getCurrentFonctionEntity();
                                           if (entity)
                                             setCurrentEntityForForm(entity);
                                           setFormVisible(true);
@@ -1696,14 +1744,16 @@ export default function DocumentPage() {
                                         <CloudDownload size={18} />
                                       </button>
                                       <button
-                                        onClick={() => handleDelete(String(doc.id))}
+                                        onClick={() =>
+                                          handleDelete(String(doc.id))
+                                        }
                                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
                                       >
                                         <Trash2 size={18} />
                                       </button>
                                     </div>
-                                   </td>
-                                 </tr>
+                                  </td>
+                                </tr>
                               ))}
                             </tbody>
                           </table>
@@ -1763,7 +1813,7 @@ export default function DocumentPage() {
         </div>
       );
     }
-    
+
     // ===== CAS PAR DÉFAUT (affichage du message de sélection)
     return (
       <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-100">
@@ -1794,7 +1844,7 @@ export default function DocumentPage() {
             Parcourez les documents par structure
           </p>
         </div>
-        {/* <Button
+        <Button
           label="Nouveau Document"
           icon={<Plus size={18} className="mr-2" />}
           onClick={() => {
@@ -1803,7 +1853,7 @@ export default function DocumentPage() {
             setFormVisible(true);
           }}
           className="bg-emerald-600 hover:bg-emerald-700 text-white border-none px-6 py-3 rounded-xl shadow-lg shadow-emerald-200 transition-all font-bold"
-        /> */}
+        />
       </div>
 
       {/* Barre de recherche */}

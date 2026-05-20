@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import Layout from "../../components/layout/Layoutt";
 import BoxDetails from "./BoxDetails";
 import BoxForm from "./BoxForm";
 import BoxAffectationForm from "./BoxAffectationForm";
-import type { Box } from "../../interfaces";
+import type { Box, TypeOutilsConservation } from "../../interfaces";
 import { confirmDialog } from "primereact/confirmdialog";
 import { Toast } from "primereact/toast";
 import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
+import { Dropdown } from "primereact/dropdown";
 import Pagination from "../../components/layout/Pagination";
 import { Dialog } from "primereact/dialog";
 // ✅ IMPORTER LES NOUVEAUX HOOKS
@@ -17,6 +18,7 @@ import {
   useUpdateBox,
   useDeleteBox,
 } from "../../hooks/useBoxes";
+import { useTypeOutilsConservation } from "../../hooks/useTypeOutilsConservation";
 import {
   Archive,
   Plus,
@@ -36,7 +38,8 @@ import {
   XCircle,
   PackageOpen,
   SplinePointer,
-  Columns, // ✅ Pour la modale BoxListeEtAffectation
+  Columns,
+  Filter,
 } from "lucide-react";
 import { Badge } from "primereact/badge";
 
@@ -47,6 +50,10 @@ import BoxListeEtAffectation from "./Classement/BoxListeEtAffectation";
 export default function BoxPage() {
   // ✅ ÉTAPE 4: Remplacer useState par useQuery
   const { data: allBoxes = [], isLoading, error, refetch } = useBoxes();
+
+  // ✅ Hook pour récupérer les types d'outils de conservation
+  const { data: allTypeOutilsConservation = [], isLoading: loadingTypes } =
+    useTypeOutilsConservation();
 
   // ✅ ÉTAPE 5: Remplacer les mutations
   const createMutation = useCreateBox();
@@ -60,15 +67,25 @@ export default function BoxPage() {
   const [detailsVisible, setDetailsVisible] = useState(false);
   const toast = useRef<Toast>(null);
   const [query, setQuery] = useState("");
+  const [selectedTypeOutilsId, setSelectedTypeOutilsId] = useState<
+    number | null
+  >(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   // ✅ ÉTATS POUR LES MODALES
   const [archivageVisible, setArchivageVisible] = useState(false);
-
   const [affectationVisible, setAffectationVisible] = useState(false);
   const [affectationTraveeVisible, setAffectationTraveeVisible] =
-    useState(false); // ✅ Nouvel état pour BoxListeEtAffectation
+    useState(false);
+
+  // ✅ Options pour le dropdown des types d'outils de conservation
+  const typeOutilsOptions = useMemo(() => {
+    return allTypeOutilsConservation.map((type: TypeOutilsConservation) => ({
+      label: type.nom,
+      value: type.id,
+    }));
+  }, [allTypeOutilsConservation]);
 
   // ✅ ÉTAPE 6: Modifier handleAction (pour BoxForm)
   const handleAction = async (payload: any) => {
@@ -181,10 +198,20 @@ export default function BoxPage() {
     });
   };
 
-  // ✅ ÉTAPE 8: Filtrer et paginer (inchangé)
-  const filtered = allBoxes.filter((b) =>
-    `${b.code_box} ${b.libelle}`.toLowerCase().includes(query.toLowerCase()),
-  );
+  // ✅ ÉTAPE 8: Filtrer et paginer (avec filtre par type d'outils)
+  const filtered = allBoxes.filter((b) => {
+    // Filtre par recherche textuelle
+    const matchesSearch = `${b.code_box} ${b.libelle}`
+      .toLowerCase()
+      .includes(query.toLowerCase());
+
+    // Filtre par type d'outils de conservation
+    const matchesType = selectedTypeOutilsId
+      ? Number(b.type_outils_conservation_id) === selectedTypeOutilsId
+      : true;
+
+    return matchesSearch && matchesType;
+  });
 
   const paginated = filtered.slice(
     (currentPage - 1) * itemsPerPage,
@@ -273,7 +300,7 @@ export default function BoxPage() {
           <p>Erreur de chargement: {error.message}</p>
           <Button
             label="Réessayer"
-            onClick={() => window.location.reload()}
+            onClick={() => refetch()}
             className="mt-4"
           />
         </div>
@@ -300,15 +327,15 @@ export default function BoxPage() {
             </p>
           </div>
         </div>
-        <div className="flex gap-3">
-          {/* ✅ Bouton "Affecter à une travée" avec icône Building2 */}
+        <div className="flex gap-3 flex-wrap">
+          {/* ✅ Bouton "Affecter à une travée" */}
           <Button
             label="Affecter à une travée"
             icon={<Building2 size={20} className="mr-2" />}
             className="bg-purple-500 hover:bg-purple-600 text-white border-none px-6 py-3 rounded-xl shadow-purple-200 shadow-lg transition-all"
             onClick={() => setAffectationTraveeVisible(true)}
           />
-          {/* Bouton "Ajouter au Box" */}
+          {/* Bouton "Ajouter Document" */}
           <Button
             label="Ajouter Document à outils"
             icon={<PackageOpen size={20} className="mr-2" />}
@@ -328,261 +355,303 @@ export default function BoxPage() {
         </div>
       </div>
 
-      {/* Barre de recherche */}
+      {/* ✅ Barre de recherche AVEC FILTRE PAR TYPE D'OUTILS */}
       <div className="bg-white p-4 rounded-2xl border border-slate-100 mb-6">
-        <div className="relative group max-w-md">
-          <Search
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500"
-            size={20}
-          />
-          <InputText
-            className="w-full pl-12 pr-4 py-3 bg-slate-50 border-slate-200 rounded-xl focus:ring-4 focus:ring-emerald-500/10 outline-none"
-            placeholder="Rechercher un box..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative group flex-1">
+            <Search
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500"
+              size={20}
+            />
+            <InputText
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 border-slate-200 rounded-xl focus:ring-4 focus:ring-emerald-500/10 outline-none"
+              placeholder="Rechercher un box par code ou libellé..."
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+
+          {/* ✅ Dropdown de filtre par type d'outils de conservation */}
+          <div className="w-full sm:w-72">
+            <label className="block text-xs font-semibold text-slate-500 mb-1">
+              <Filter size={12} className="inline mr-1" />
+              Type d'outils
+            </label>
+            <Dropdown
+              value={selectedTypeOutilsId}
+              options={typeOutilsOptions}
+              onChange={(e) => {
+                setSelectedTypeOutilsId(e.value);
+                setCurrentPage(1);
+              }}
+              placeholder="Tous les types"
+              className="w-full bg-slate-50 border-slate-200 rounded-xl"
+              showClear
+              loading={loadingTypes}
+            />
+          </div>
+        </div>
+
+        {/* ✅ Affichage du nombre de résultats filtrés */}
+        <div className="mt-3 text-xs text-slate-400">
+          {filtered.length} box(s) trouvé(s)
+          {selectedTypeOutilsId && (
+            <span className="ml-2 inline-flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              Filtré par type
+            </span>
+          )}
         </div>
       </div>
 
       {/* TABLEAU */}
       <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-emerald-50/30 border-b border-emerald-50">
-              <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
-                Code
-              </th>
-              <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
-                Libellé
-              </th>
-              <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
-                Structure
-              </th>
-              <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
-                Type de document
-              </th>
-              <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
-                Travée
-              </th>
-              <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
-                Type
-              </th>
-              <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
-                Statut
-              </th>
-              <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
-                Capacité
-              </th>
-              <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest text-center">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-emerald-50">
-            {paginated.length > 0 ? (
-              paginated.map((box) => {
-                const ratio =
-                  (Number(box.current_count) / Number(box.capacite_max)) * 100;
-                const isFull = ratio >= 100;
-                const entiteeType = getEntiteeType(box);
-
-                return (
-                  <tr
-                    key={box.id}
-                    className="hover:bg-emerald-50/40 transition-colors group cursor-pointer"
-                    onClick={() => {
-                      setSelected(box);
-                      setDetailsVisible(true);
-                    }}
-                  >
-                    <td className="p-5">
-                      <span className="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-black border border-slate-200 font-mono">
-                        {box.code_box}
-                      </span>
-                    </td>
-                    <td className="p-5">
-                      <div className="font-bold text-slate-800">
-                        {box.libelle}
-                      </div>
-                    </td>
-                    <td className="p-5">
-                      {getEntiteeLibelle(box) !== "Non assigné" ? (
-                        <div className="flex items-center gap-2">
-                          {getNiveauIcon(entiteeType)}
-                          <span className="text-sm text-slate-600">
-                            {getEntiteeLibelle(box)}
-                          </span>
-                          {entiteeType && (
-                            <span
-                              className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
-                                entiteeType === "un"
-                                  ? "bg-blue-100 text-blue-700"
-                                  : entiteeType === "deux"
-                                    ? "bg-purple-100 text-purple-700"
-                                    : "bg-emerald-100 text-emerald-700"
-                              }`}
-                            >
-                              N
-                              {entiteeType === "un"
-                                ? "1"
-                                : entiteeType === "deux"
-                                  ? "2"
-                                  : "3"}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-sm text-slate-400 italic">
-                          Non assigné
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-5">
-                      {box.typeDocument ? (
-                        <div className="flex items-center gap-2">
-                          <Briefcase size={14} className="text-slate-400" />
-                          <span className="text-sm text-slate-600">
-                            {box.typeDocument.nom}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-slate-400 italic">
-                          Aucun type
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-5">
-                      {box.trave ? (
-                        <div className="flex items-center gap-2">
-                          <MapPin size={14} className="text-slate-400" />
-                          <span className="text-sm text-slate-600">
-                            {box.trave.code}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-slate-400 italic">
-                          Non assignée
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-5">
-                      {box.typeOutilsConservation ? (
-                        <div className="flex items-center gap-2">
-                          <Briefcase size={14} className="text-slate-400" />
-                          <span className="text-sm text-slate-600">
-                            {box.typeOutilsConservation.nom}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-slate-400 italic">
-                          Aucun type
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-5">{getStatusBadge(box.status)}</td>
-                    <td className="p-5">
-                      <div className="space-y-2 min-w-[120px]">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-bold text-slate-700">
-                            {box.current_count || 0}/{box.capacite_max || 0}
-                          </span>
-                          {isFull ? (
-                            <XCircle size={14} className="text-red-500" />
-                          ) : (
-                            <CheckCircle
-                              size={14}
-                              className="text-emerald-500"
-                            />
-                          )}
-                        </div>
-                        <div className="w-full bg-slate-100 rounded-full h-1.5">
-                          <div
-                            className={`h-1.5 rounded-full transition-all duration-300 ${
-                              isFull
-                                ? "bg-red-500"
-                                : ratio > 80
-                                  ? "bg-orange-400"
-                                  : "bg-emerald-500"
-                            }`}
-                            style={{ width: `${Math.min(ratio, 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-5">
-                      <div
-                        className="flex justify-center gap-2"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {/* ✅ Bouton Affectation structure (SplinePointer) */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelected(box);
-                            setAffectationVisible(true);
-                          }}
-                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                          title="Affecter à une structure"
-                        >
-                          <SplinePointer size={18} />
-                        </button>
-
-                        {/* ✅ Bouton Voir détails */}
-                        <button
-                          onClick={() => {
-                            setSelected(box);
-                            setDetailsVisible(true);
-                          }}
-                          className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
-                          title="Voir le contenu"
-                        >
-                          <Eye size={18} />
-                        </button>
-
-                        {/* Bouton Modifier */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditing(box);
-                            setFormVisible(true);
-                          }}
-                          className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
-                          title="Modifier"
-                        >
-                          <Pencil size={18} />
-                        </button>
-
-                        {/* Bouton Supprimer */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(String(box.id));
-                          }}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                          title="Supprimer"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            ) : (
-              <tr>
-                <td colSpan={8} className="p-12 text-center text-slate-500">
-                  <Archive size={48} className="mx-auto text-slate-200 mb-4" />
-                  <p className="text-slate-400">Aucune box trouvée.</p>
-                  {query && (
-                    <p className="text-sm text-slate-400 mt-2">
-                      Essayez de modifier votre recherche.
-                    </p>
-                  )}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[1000px]">
+            <thead>
+              <tr className="bg-emerald-50/30 border-b border-emerald-50">
+                <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
+                  Code
+                </th>
+                <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
+                  Libellé
+                </th>
+                <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
+                  Structure
+                </th>
+                <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
+                  Type de document
+                </th>
+                <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
+                  Type outil
+                </th>
+                <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
+                  Travée
+                </th>
+                <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
+                  Statut
+                </th>
+                <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
+                  Capacité
+                </th>
+                <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest text-center">
+                  Actions
+                </th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-emerald-50">
+              {paginated.length > 0 ? (
+                paginated.map((box) => {
+                  const ratio =
+                    (Number(box.current_count) / Number(box.capacite_max)) *
+                    100;
+                  const isFull = ratio >= 100;
+                  const entiteeType = getEntiteeType(box);
+
+                  return (
+                    <tr
+                      key={box.id}
+                      className="hover:bg-emerald-50/40 transition-colors group cursor-pointer"
+                      onClick={() => {
+                        setSelected(box);
+                        setDetailsVisible(true);
+                      }}
+                    >
+                      <td className="p-2 w-36">
+                        <span className="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-black border border-slate-200 font-mono">
+                          {box.code_box}
+                        </span>
+                      </td>
+                      <td className="p-5">
+                        <div className="font-bold text-slate-800">
+                          {box.libelle}
+                        </div>
+                      </td>
+                      <td className="p-5">
+                        {getEntiteeLibelle(box) !== "Non assigné" ? (
+                          <div className="flex items-center gap-2">
+                            {getNiveauIcon(entiteeType)}
+                            <span className="text-sm text-slate-600">
+                              {getEntiteeLibelle(box)}
+                            </span>
+                            {entiteeType && (
+                              <span
+                                className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                                  entiteeType === "un"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : entiteeType === "deux"
+                                      ? "bg-purple-100 text-purple-700"
+                                      : "bg-emerald-100 text-emerald-700"
+                                }`}
+                              >
+                                N
+                                {entiteeType === "un"
+                                  ? "1"
+                                  : entiteeType === "deux"
+                                    ? "2"
+                                    : "3"}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-slate-400 italic">
+                            Non assigné
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-5">
+                        {box.typeDocument ? (
+                          <div className="flex items-center gap-2">
+                            <Briefcase size={14} className="text-slate-400" />
+                            <span className="text-sm text-slate-600">
+                              {box.typeDocument.nom}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-slate-400 italic">
+                            Aucun type
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-5">
+                        {box.typeOutilsConservation ? (
+                          <div className="flex items-center gap-2">
+                            <Archive size={14} className="text-slate-400" />
+                            <span className="text-sm font-medium text-slate-600">
+                              {box.typeOutilsConservation.nom}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-slate-400 italic">
+                            Non défini
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-5">
+                        {box.trave ? (
+                          <div className="flex items-center gap-2">
+                            <MapPin size={14} className="text-slate-400" />
+                            <span className="text-sm text-slate-600">
+                              {box.trave.code}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-slate-400 italic">
+                            Non assignée
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-2 w-28">{getStatusBadge(box.status)}</td>
+                      <td className="p-5">
+                        <div className="space-y-2 min-w-[120px]">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-bold text-slate-700">
+                              {box.current_count || 0}/{box.capacite_max || 0}
+                            </span>
+                            {isFull ? (
+                              <XCircle size={14} className="text-red-500" />
+                            ) : (
+                              <CheckCircle
+                                size={14}
+                                className="text-emerald-500"
+                              />
+                            )}
+                          </div>
+                          <div className="w-full bg-slate-100 rounded-full h-1.5">
+                            <div
+                              className={`h-1.5 rounded-full transition-all duration-300 ${
+                                isFull
+                                  ? "bg-red-500"
+                                  : ratio > 80
+                                    ? "bg-orange-400"
+                                    : "bg-emerald-500"
+                              }`}
+                              style={{ width: `${Math.min(ratio, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-5">
+                        <div
+                          className="flex justify-center gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {/* ✅ Bouton Affectation structure */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelected(box);
+                              setAffectationVisible(true);
+                            }}
+                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                            title="Affecter à une structure"
+                          >
+                            <SplinePointer size={18} />
+                          </button>
+
+                          {/* ✅ Bouton Voir détails */}
+                          <button
+                            onClick={() => {
+                              setSelected(box);
+                              setDetailsVisible(true);
+                            }}
+                            className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                            title="Voir le contenu"
+                          >
+                            <Eye size={18} />
+                          </button>
+
+                          {/* Bouton Modifier */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditing(box);
+                              setFormVisible(true);
+                            }}
+                            className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                            title="Modifier"
+                          >
+                            <Pencil size={18} />
+                          </button>
+
+                          {/* Bouton Supprimer */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(String(box.id));
+                            }}
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                            title="Supprimer"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={9} className="p-12 text-center text-slate-500">
+                    <Archive
+                      size={48}
+                      className="mx-auto text-slate-200 mb-4"
+                    />
+                    <p className="text-slate-400">Aucune box trouvée.</p>
+                    {(query || selectedTypeOutilsId) && (
+                      <p className="text-sm text-slate-400 mt-2">
+                        Essayez de modifier vos critères de recherche.
+                      </p>
+                    )}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Pagination */}

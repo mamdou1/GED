@@ -195,118 +195,118 @@ exports.getByType = async (req, res) => {
   }
 };
 
-exports.getAllFieldsForEntity = async (req, res) => {
-  const startTime = Date.now();
-  const { typeId, entityType, entityId } = req.params;
+// exports.getAllFieldsForEntity = async (req, res) => {
+//   const startTime = Date.now();
+//   const { typeId, entityType, entityId } = req.params;
 
-  try {
-    console.log(
-      `🔍 getAllFieldsForEntity: typeId=${typeId}, entityType=${entityType}, entityId=${entityId}`,
-    );
+//   try {
+//     console.log(
+//       `🔍 getAllFieldsForEntity: typeId=${typeId}, entityType=${entityType}, entityId=${entityId}`,
+//     );
 
-    const baseFields = await MetaField.findAll({
-      where: { type_document_id: parseInt(typeId) },
-      order: [["position", "ASC"]],
-    });
+//     const baseFields = await MetaField.findAll({
+//       where: { type_document_id: parseInt(typeId) },
+//       order: [["position", "ASC"]],
+//     });
 
-    console.log(`📋 Champs de base trouvés: ${baseFields.length}`);
+//     console.log(`📋 Champs de base trouvés: ${baseFields.length}`);
 
-    const overrides = await MetaFieldOverride.findAll({
-      where: {
-        type_document_id: parseInt(typeId),
-        entity_type: entityType,
-        entity_id: parseInt(entityId),
-      },
-    });
+//     const overrides = await MetaFieldOverride.findAll({
+//       where: {
+//         type_document_id: parseInt(typeId),
+//         entity_type: entityType,
+//         entity_id: parseInt(entityId),
+//       },
+//     });
 
-    const overrideMap = new Map();
-    overrides.forEach((o) => overrideMap.set(o.meta_field_id, o));
+//     const overrideMap = new Map();
+//     overrides.forEach((o) => overrideMap.set(o.meta_field_id, o));
 
-    const formattedBaseFields = baseFields.map((field) => {
-      const override = overrideMap.get(field.id);
-      return {
-        id: field.id,
-        name: field.name,
-        label: override?.label_override || field.label,
-        field_type: field.field_type || "TEXT",
-        required:
-          override?.required_override !== undefined
-            ? override.required_override
-            : field.required === 1 || field.required === true,
-        position:
-          override?.position_override !== undefined
-            ? override.position_override
-            : field.position || 0,
-        options: override?.options_override || field.options,
-        placeholder: override?.placeholder_override || field.placeholder,
-        description: override?.description_override || field.description,
-        default_value: override?.default_value_override || field.default_value,
-        source: "base",
-        is_overridden: !!override,
-        hidden: override?.hidden === true,
-        original: override
-          ? {
-              label: field.label,
-              required: field.required === 1 || field.required === true,
-              position: field.position || 0,
-            }
-          : null,
-      };
-    });
+//     const formattedBaseFields = baseFields.map((field) => {
+//       const override = overrideMap.get(field.id);
+//       return {
+//         id: field.id,
+//         name: field.name,
+//         label: override?.label_override || field.label,
+//         field_type: field.field_type || "TEXT",
+//         required:
+//           override?.required_override !== undefined
+//             ? override.required_override
+//             : field.required === 1 || field.required === true,
+//         position:
+//           override?.position_override !== undefined
+//             ? override.position_override
+//             : field.position || 0,
+//         options: override?.options_override || field.options,
+//         placeholder: override?.placeholder_override || field.placeholder,
+//         description: override?.description_override || field.description,
+//         default_value: override?.default_value_override || field.default_value,
+//         source: "base",
+//         is_overridden: !!override,
+//         hidden: override?.hidden === true,
+//         original: override
+//           ? {
+//               label: field.label,
+//               required: field.required === 1 || field.required === true,
+//               position: field.position || 0,
+//             }
+//           : null,
+//       };
+//     });
 
-    console.log(`📋 Champs de base formatés: ${formattedBaseFields.length}`);
+//     console.log(`📋 Champs de base formatés: ${formattedBaseFields.length}`);
 
-    const customFields = await EntityCustomField.findAll({
-      where: {
-        type_document_id: parseInt(typeId),
-        entity_type: entityType,
-        entity_id: parseInt(entityId),
-        is_active: true,
-      },
-      order: [["position", "ASC"]],
-    });
+//     const customFields = await EntityCustomField.findAll({
+//       where: {
+//         type_document_id: parseInt(typeId),
+//         entity_type: entityType,
+//         entity_id: parseInt(entityId),
+//         is_active: true,
+//       },
+//       order: [["position", "ASC"]],
+//     });
 
-    console.log(`📋 Champs personnalisés trouvés: ${customFields.length}`);
+//     console.log(`📋 Champs personnalisés trouvés: ${customFields.length}`);
 
-    const formattedCustomFields = customFields.map((field) => ({
-      id: field.id,
-      name: field.name,
-      label: field.label,
-      field_type: field.field_type,
-      required: field.required === 1 || field.required === true,
-      position: field.position || 0,
-      options: field.options,
-      placeholder: field.placeholder,
-      description: field.description,
-      default_value: field.default_value,
-      source: "custom",
-      is_custom: true,
-      is_overridden: false,
-      hidden: field.hidden === true,
-    }));
+//     const formattedCustomFields = customFields.map((field) => ({
+//       id: field.id,
+//       name: field.name,
+//       label: field.label,
+//       field_type: field.field_type,
+//       required: field.required === 1 || field.required === true,
+//       position: field.position || 0,
+//       options: field.options,
+//       placeholder: field.placeholder,
+//       description: field.description,
+//       default_value: field.default_value,
+//       source: "custom",
+//       is_custom: true,
+//       is_overridden: false,
+//       hidden: field.hidden === true,
+//     }));
 
-    const allFields = [...formattedBaseFields, ...formattedCustomFields].sort(
-      (a, b) => a.position - b.position,
-    );
+//     const allFields = [...formattedBaseFields, ...formattedCustomFields].sort(
+//       (a, b) => a.position - b.position,
+//     );
 
-    console.log(
-      `📋 TOTAL: base=${formattedBaseFields.length}, custom=${formattedCustomFields.length}, total=${allFields.length}`,
-    );
+//     console.log(
+//       `📋 TOTAL: base=${formattedBaseFields.length}, custom=${formattedCustomFields.length}, total=${allFields.length}`,
+//     );
 
-    res.json({
-      success: true,
-      data: allFields,
-      summary: {
-        base: formattedBaseFields.length,
-        custom: formattedCustomFields.length,
-        total: allFields.length,
-      },
-    });
-  } catch (e) {
-    console.error("❌ Erreur getAllFieldsForEntity:", e);
-    res.status(500).json({ message: e.message });
-  }
-};
+//     res.json({
+//       success: true,
+//       data: allFields,
+//       summary: {
+//         base: formattedBaseFields.length,
+//         custom: formattedCustomFields.length,
+//         total: allFields.length,
+//       },
+//     });
+//   } catch (e) {
+//     console.error("❌ Erreur getAllFieldsForEntity:", e);
+//     res.status(500).json({ message: e.message });
+//   }
+// };
 
 // ==================== SURCHARGES POUR CHAMPS DE BASE ====================
 
@@ -645,10 +645,18 @@ exports.getAllFieldsForEntity = async (req, res) => {
   const { typeId, entityType, entityId } = req.params;
 
   try {
+    console.log(`🔍 getAllFieldsForEntity: typeId=${typeId}, entityType=${entityType}, entityId=${entityId}`);
+
     // 1. Champs de base
     const baseFields = await MetaField.findAll({
       where: { type_document_id: parseInt(typeId) },
       order: [["position", "ASC"]],
+    });
+
+    // 🔍 LOG - Afficher les field_type réels de la base
+    console.log("📋 VALEURS RÉELLES DANS LA BASE:");
+    baseFields.forEach(f => {
+      console.log(`   ID:${f.id} | ${f.label} | field_type = "${f.field_type}" (type: ${typeof f.field_type})`);
     });
 
     // 2. Surcharges si entité valide
@@ -656,7 +664,7 @@ exports.getAllFieldsForEntity = async (req, res) => {
       id: f.id,
       name: f.name,
       label: f.label,
-      field_type: f.field_type || "TEXT",
+      field_type: f.field_type,  // Pas de fallback, on prend la valeur réelle
       required: f.required === 1,
       position: f.position || 0,
       options: f.options,
@@ -681,7 +689,7 @@ exports.getAllFieldsForEntity = async (req, res) => {
           id: field.id,
           name: field.name,
           label: override?.label_override || field.label,
-          field_type: field.field_type || "TEXT",
+          field_type: field.field_type,  // Garde la valeur réelle
           required: override?.required_override !== undefined ? override.required_override : (field.required === 1),
           position: override?.position_override ?? field.position ?? 0,
           options: override?.options_override || field.options,
@@ -693,7 +701,13 @@ exports.getAllFieldsForEntity = async (req, res) => {
       });
     }
 
-    // 3. Champs personnalisés - IGNORER entityType/entityId (comme dans l'exemple)
+    // 🔍 LOG - Afficher ce qui va être envoyé
+    console.log("📋 CHAMPS FORMATÉS (base):");
+    formattedBaseFields.forEach(f => {
+      console.log(`   ${f.label}: field_type = "${f.field_type}"`);
+    });
+
+    // 3. Champs personnalisés
     const customFields = await EntityCustomField.findAll({
       where: {
         type_document_id: parseInt(typeId),
@@ -701,6 +715,8 @@ exports.getAllFieldsForEntity = async (req, res) => {
       },
       order: [["position", "ASC"]],
     });
+
+    console.log(`📋 Champs personnalisés trouvés: ${customFields.length}`);
 
     const formattedCustomFields = customFields.map(field => ({
       id: field.id,
@@ -720,8 +736,12 @@ exports.getAllFieldsForEntity = async (req, res) => {
       (a, b) => a.position - b.position
     );
 
+    // 🔍 LOG - Afficher la réponse finale
+    console.log("📋 RÉPONSE FINALE:", JSON.stringify(allFields.map(f => ({ label: f.label, field_type: f.field_type })), null, 2));
+
     res.json({ success: true, data: allFields });
   } catch (e) {
+    console.error("❌ Erreur:", e);
     res.status(500).json({ message: e.message });
   }
 };

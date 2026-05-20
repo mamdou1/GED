@@ -599,12 +599,23 @@ export default function Recherche() {
   // Chargement initial
   useEffect(() => {
     const loadData = async () => {
-      const [resDocs, resTypes] = await Promise.all([
-        getDocuments(),
-        getTypeDocuments(),
-      ]);
-      setDocs(resDocs);
-      setTypes(resTypes.typeDocument);
+      try {
+        const [resDocs, resTypes] = await Promise.all([
+          getDocuments(),
+          getTypeDocuments(),
+        ]);
+        setDocs(Array.isArray(resDocs) ? resDocs : []);
+        // ✅ CORRECTION : getTypeDocuments retourne directement un tableau
+        if (Array.isArray(resTypes)) {
+          setTypes(resTypes);
+        } else {
+          setTypes([]);
+        }
+      } catch (error) {
+        console.error("Erreur chargement initial:", error);
+        setDocs([]);
+        setTypes([]);
+      }
     };
     loadData();
   }, []);
@@ -649,29 +660,55 @@ export default function Recherche() {
     }));
   }, [selectedNiveau, entiteeUn, entiteeDeux, entiteeTrois, user]);
 
-  // =============================================
-  // getUserFonctionTypes — pour le cas sans accès
-  // (maintenant via API Many-to-Many si possible,
-  //  sinon fallback sur filtrage local)
-  // =============================================
-  const getUserFonctionTypes = (
-    user: User | null,
-    allTypes: TypeDocument[],
-  ) => {
-    // Fallback local (utilisé uniquement pour l'interface simple sans niveau sélectionné)
-    const entityType = getUserFonctionEntityType(user);
-    const entityId = getUserFonctionEntityId(user);
-    if (!entityType || !entityId) return [];
-    // NOTE: si vous avez les API Many-to-Many, utilisez-les ici aussi
-    // Pour l'instant, on filtre via les IDs présents dans typeDoc
-    return allTypes.filter((typeDoc: any) => {
-      const entities: any[] = typeDoc.entitees || [];
-      return entities.some(
-        (e: any) =>
-          e.niveau === normalizeNiveau(entityType) && e.id === entityId,
-      );
+  // Filtrer les types
+  useEffect(() => {
+    if (!selectedEntitee || !selectedNiveau) {
+      setFilteredTypesByEntitee([]);
+      return;
+    }
+    const filtered = types.filter((typeDoc) => {
+      if (selectedNiveau === "un")
+        return typeDoc.entitee_un_id === selectedEntitee;
+      if (selectedNiveau === "deux")
+        return typeDoc.entitee_deux_id === selectedEntitee;
+      if (selectedNiveau === "trois")
+        return typeDoc.entitee_trois_id === selectedEntitee;
+      return false;
     });
-  };
+    setFilteredTypesByEntitee(filtered);
+  }, [selectedEntitee, selectedNiveau, types]);
+
+  // ✅ Métadonnées avec getAllFieldsForEntity
+  useEffect(() => {
+    const loadMetaFieldsForType = async () => {
+      if (!documentType_id || !selectedNiveau || !selectedEntitee) {
+        setMetaFields([]);
+        return;
+      }
+      setLoading(true);
+      try {
+        const entityTypeMap: Record<NiveauType, string> = {
+          un: "EntiteeUn",
+          deux: "EntiteeDeux",
+          trois: "EntiteeTrois",
+        };
+        const fields = await getAllFieldsForEntity(
+          documentType_id,
+          entityTypeMap[selectedNiveau],
+          selectedEntitee,
+        );
+        setMetaFields(fields.filter((f: any) => !f.hidden));
+        setSelectedFields([]);
+        setSearchValues({});
+      } catch (error) {
+        console.error("Erreur chargement méta-champs:", error);
+        setMetaFields([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadMetaFieldsForType();
+  }, [documentType_id, selectedNiveau, selectedEntitee]);
 
   const toggleField = (id: number) => {
     setSelectedFields((prev) =>

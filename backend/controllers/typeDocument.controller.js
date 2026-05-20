@@ -1,4 +1,3 @@
-// controllers/typeDocument.controller.js
 const {
   TypeDocument,
   MetaField,
@@ -48,7 +47,6 @@ exports.create = async (req, res) => {
       duration: Date.now() - startTime,
     });
 
-    // Journalisation dans l'historique
     await HistoriqueService.logCreate(req, "typeDocument", data);
 
     res.status(201).json(data);
@@ -67,6 +65,7 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   const startTime = Date.now();
   const { id } = req.params;
+  const t = await sequelize.transaction();
 
   try {
     logger.info("📝 Tentative de mise à jour d'un type de document", {
@@ -95,6 +94,7 @@ exports.update = async (req, res) => {
       division_id,
     } = req.body;
 
+    // 1. Mettre à jour les colonnes directes
     const [updated] = await TypeDocument.update(
       {
         cote,
@@ -105,20 +105,71 @@ exports.update = async (req, res) => {
         entitee_trois_id,
         division_id,
       },
-      { where: { id } },
+      { where: { id }, transaction: t },
     );
 
-    if (updated === 0) {
-      logger.warn("⚠️ Aucune modification apportée", {
-        typeId: id,
-        userId: req.user?.id,
-      });
-      return res.status(404).json({
-        message: "Aucune modification apportée",
-      });
+    // 2. AJOUTER (sans supprimer) l'association pour entitee_deux
+    if (entitee_deux_id) {
+      const existing = await sequelize.query(
+        `SELECT * FROM entitee_deux_type_documents WHERE type_document_id = ? AND entitee_deux_id = ?`,
+        { replacements: [id, entitee_deux_id], transaction: t, type: sequelize.QueryTypes.SELECT }
+      );
+      
+      if (existing.length === 0) {
+        await sequelize.query(
+          `INSERT INTO entitee_deux_type_documents (entitee_deux_id, type_document_id, created_at, updated_at)
+           VALUES (?, ?, NOW(), NOW())`,
+          { replacements: [entitee_deux_id, id], transaction: t, type: sequelize.QueryTypes.INSERT }
+        );
+        console.log(`✅ Association ajoutée: type ${id} -> entitee_deux ${entitee_deux_id}`);
+      } else {
+        console.log(`ℹ️ Association existante: type ${id} -> entitee_deux ${entitee_deux_id}`);
+      }
     }
 
-    const updatedType = await TypeDocument.findByPk(id);
+    // 3. AJOUTER (sans supprimer) l'association pour entitee_un
+    if (entitee_un_id) {
+      const existing = await sequelize.query(
+        `SELECT * FROM entitee_un_type_documents WHERE type_document_id = ? AND entitee_un_id = ?`,
+        { replacements: [id, entitee_un_id], transaction: t, type: sequelize.QueryTypes.SELECT }
+      );
+      
+      if (existing.length === 0) {
+        await sequelize.query(
+          `INSERT INTO entitee_un_type_documents (entitee_un_id, type_document_id, created_at, updated_at)
+           VALUES (?, ?, NOW(), NOW())`,
+          { replacements: [entitee_un_id, id], transaction: t, type: sequelize.QueryTypes.INSERT }
+        );
+        console.log(`✅ Association ajoutée: type ${id} -> entitee_un ${entitee_un_id}`);
+      }
+    }
+
+    // 4. AJOUTER (sans supprimer) l'association pour entitee_trois
+    if (entitee_trois_id) {
+      const existing = await sequelize.query(
+        `SELECT * FROM entitee_trois_type_documents WHERE type_document_id = ? AND entitee_trois_id = ?`,
+        { replacements: [id, entitee_trois_id], transaction: t, type: sequelize.QueryTypes.SELECT }
+      );
+      
+      if (existing.length === 0) {
+        await sequelize.query(
+          `INSERT INTO entitee_trois_type_documents (entitee_trois_id, type_document_id, created_at, updated_at)
+           VALUES (?, ?, NOW(), NOW())`,
+          { replacements: [entitee_trois_id, id], transaction: t, type: sequelize.QueryTypes.INSERT }
+        );
+        console.log(`✅ Association ajoutée: type ${id} -> entitee_trois ${entitee_trois_id}`);
+      }
+    }
+
+    await t.commit();
+
+    const updatedType = await TypeDocument.findByPk(id, {
+      include: [
+        { model: EntiteeUn, as: "entitee_un", through: { attributes: [] } },
+        { model: EntiteeDeux, as: "entitee_deux", through: { attributes: [] } },
+        { model: EntiteeTrois, as: "entitee_trois", through: { attributes: [] } },
+      ],
+    });
 
     logger.info("✅ Type de document mis à jour avec succès", {
       typeId: id,
@@ -128,13 +179,7 @@ exports.update = async (req, res) => {
       duration: Date.now() - startTime,
     });
 
-    // Journalisation dans l'historique
-    await HistoriqueService.logUpdate(
-      req,
-      "typeDocument",
-      oldCopy,
-      updatedType,
-    );
+    await HistoriqueService.logUpdate(req, "typeDocument", oldCopy, updatedType);
 
     res.json({
       success: true,
@@ -142,6 +187,7 @@ exports.update = async (req, res) => {
       data: updatedType,
     });
   } catch (e) {
+    if (t) await t.rollback();
     logger.error("❌ Erreur mise à jour typeDocument:", {
       typeId: id,
       error: e.message,
@@ -169,46 +215,69 @@ exports.getAll = async (req, res) => {
         {
           model: EntiteeUn,
           as: "entitee_un",
+          through: { attributes: [] },
           attributes: ["id", "libelle", "code", "titre"],
+          required: false,
         },
         {
           model: EntiteeDeux,
           as: "entitee_deux",
+          through: { attributes: [] },
           attributes: ["id", "libelle", "code", "titre"],
+          required: false,
         },
         {
           model: EntiteeTrois,
           as: "entitee_trois",
+          through: { attributes: [] },
           attributes: ["id", "libelle", "code", "titre"],
+          required: false,
         },
         {
           model: Pieces,
           as: "pieces",
           attributes: ["id", "libelle", "code_pieces"],
           through: { attributes: [] },
+          required: false,
         },
       ],
       order: [["createdAt", "DESC"]],
     });
 
+    // Log pour déboguer les associations
+    console.log("📊 === TYPES AVEC ASSOCIATIONS ===");
+    data.forEach(td => {
+      console.log(`Type ${td.id}: ${td.nom}`);
+      console.log(`  entitee_un: ${td.entitee_un?.map(e => `${e.id} (${e.libelle})`).join(', ') || 'aucune'}`);
+      console.log(`  entitee_deux: ${td.entitee_deux?.map(e => `${e.id} (${e.libelle})`).join(', ') || 'aucune'}`);
+      console.log(`  entitee_trois: ${td.entitee_trois?.map(e => `${e.id} (${e.libelle})`).join(', ') || 'aucune'}`);
+    });
+
     const formatted = data.map((td) => {
-      const entiteeConcernee =
-        td.entitee_trois || td.entitee_deux || td.entitee_un;
+      const entiteeUnArray = td.entitee_un || [];
+      const entiteeDeuxArray = td.entitee_deux || [];
+      const entiteeTroisArray = td.entitee_trois || [];
+      
+      const entiteeUnFirst = entiteeUnArray[0] || null;
+      const entiteeDeuxFirst = entiteeDeuxArray[0] || null;
+      const entiteeTroisFirst = entiteeTroisArray[0] || null;
+      
+      const entiteeConcernee = entiteeTroisFirst || entiteeDeuxFirst || entiteeUnFirst;
 
       return {
         id: td.id,
         cote: td.cote,
         code: td.code,
         nom: td.nom,
-        entitee_un_id: td.entitee_un?.id || null,
-        entitee_deux_id: td.entitee_deux?.id || null,
-        entitee_trois_id: td.entitee_trois?.id || null,
+        entitee_un_id: entiteeUnFirst?.id || td.entitee_un_id || null,
+        entitee_deux_id: entiteeDeuxFirst?.id || td.entitee_deux_id || null,
+        entitee_trois_id: entiteeTroisFirst?.id || td.entitee_trois_id || null,
         structure_libelle: entiteeConcernee
           ? entiteeConcernee.libelle
           : "Non assigné",
-        entitee_un: td.entitee_un,
-        entitee_deux: td.entitee_deux,
-        entitee_trois: td.entitee_trois,
+        entitee_un: entiteeUnArray,
+        entitee_deux: entiteeDeuxArray,
+        entitee_trois: entiteeTroisArray,
         metaFields: td.metaFields || [],
         pieces: (td.pieces || []).map((p) => ({
           id: p.id,
@@ -226,7 +295,6 @@ exports.getAll = async (req, res) => {
       duration: Date.now() - startTime,
     });
 
-    // Journalisation dans l'historique pour les GET avec sidebar
     if (req.headers["x-sidebar-navigation"] === "true") {
       await HistoriqueService.log({
         agent_id: req.user?.id || null,
@@ -247,7 +315,7 @@ exports.getAll = async (req, res) => {
       });
     }
 
-    res.json({ typeDocument: formatted });
+    res.json(formatted);
   } catch (e) {
     logger.error("❌ Erreur getAll typeDocument:", {
       error: e.message,
@@ -271,10 +339,25 @@ exports.getById = async (req, res) => {
 
     const data = await TypeDocument.findByPk(id, {
       include: [
-        { model: EntiteeUn },
-        { model: EntiteeDeux },
-        { model: EntiteeTrois },
-        { model: MetaField },
+        { 
+          model: EntiteeUn, 
+          as: "entitee_un",
+          through: { attributes: [] },
+          required: false,
+        },
+        { 
+          model: EntiteeDeux, 
+          as: "entitee_deux",
+          through: { attributes: [] },
+          required: false,
+        },
+        { 
+          model: EntiteeTrois, 
+          as: "entitee_trois",
+          through: { attributes: [] },
+          required: false,
+        },
+        { model: MetaField, as: "metaFields" },
       ],
     });
 
@@ -293,7 +376,6 @@ exports.getById = async (req, res) => {
       duration: Date.now() - startTime,
     });
 
-    // Journalisation dans l'historique
     await HistoriqueService.log({
       agent_id: req.user?.id || null,
       action: "read",
@@ -374,7 +456,6 @@ exports.remove = async (req, res) => {
       duration: Date.now() - startTime,
     });
 
-    // Journalisation dans l'historique
     await HistoriqueService.logDelete(req, "typeDocument", typeDoc);
 
     res.json({ success: true });
@@ -431,7 +512,6 @@ exports.addPiecesToTypeDocument = async (req, res) => {
       duration: Date.now() - startTime,
     });
 
-    // Journalisation dans l'historique
     await HistoriqueService.log({
       agent_id: req.user?.id || null,
       action: "update",
@@ -494,7 +574,6 @@ exports.removePieceFromTypeDocument = async (req, res) => {
       duration: Date.now() - startTime,
     });
 
-    // Journalisation dans l'historique
     await HistoriqueService.log({
       agent_id: req.user?.id || null,
       action: "update",
@@ -596,9 +675,6 @@ exports.addPieceToEntityTypeDocument = async (req, res) => {
       },
     });
 
-    // ==========================================
-    // CAS 1 : pièce globale
-    // ==========================================
     if (globalLink) {
       console.log("CAS GLOBAL DETECTÉ");
 
@@ -611,9 +687,6 @@ exports.addPieceToEntityTypeDocument = async (req, res) => {
       });
     }
 
-    // ==========================================
-    // CAS 2 : non global
-    // ==========================================
     console.log("CAS NON GLOBAL");
 
     if (existing) {
@@ -631,7 +704,7 @@ exports.addPieceToEntityTypeDocument = async (req, res) => {
       });
     }
 
-    const created = await EntityTypeDocumentPiece.create({
+    await EntityTypeDocumentPiece.create({
       type_document_id: typeDocumentId,
       entity_type,
       entity_id,
@@ -667,14 +740,12 @@ exports.removePieceFromEntityTypeDocument = async (req, res) => {
     });
 
     if (existing) {
-      // Si déjà REMOVE, rien à faire
       if (existing.action === "REMOVE") {
         return res.json({
           message: "Pièce déjà retirée",
         });
       }
 
-      // Si ADD, on passe à REMOVE
       existing.action = "REMOVE";
       await existing.save();
 
@@ -683,7 +754,6 @@ exports.removePieceFromEntityTypeDocument = async (req, res) => {
       });
     }
 
-    // Aucun enregistrement existant
     await EntityTypeDocumentPiece.create({
       type_document_id: typeDocumentId,
       entity_type,
@@ -706,14 +776,12 @@ exports.getEffectivePiecesForEntity = async (req, res) => {
   try {
     const { typeDocumentId, entityType, entityId } = req.params;
 
-    // 1. Récupérer les pièces de base du type de document
     const typeDocument = await TypeDocument.findByPk(typeDocumentId, {
       include: [{ model: Pieces, as: "pieces" }],
     });
 
     const basePieces = typeDocument.pieces || [];
 
-    // 2. Récupérer les ajouts spécifiques à cette entité
     const added = await EntityTypeDocumentPiece.findAll({
       where: {
         type_document_id: typeDocumentId,
@@ -723,7 +791,6 @@ exports.getEffectivePiecesForEntity = async (req, res) => {
       },
     });
 
-    // 3. Récupérer les retraits spécifiques à cette entité
     const removed = await EntityTypeDocumentPiece.findAll({
       where: {
         type_document_id: typeDocumentId,
@@ -736,7 +803,6 @@ exports.getEffectivePiecesForEntity = async (req, res) => {
     const addedPieceIds = added.map((a) => a.piece_id);
     const removedPieceIds = removed.map((r) => r.piece_id);
 
-    // Récupérer les pièces ajoutées
     const addedPieces = await Pieces.findAll({
       where: { id: addedPieceIds },
     });

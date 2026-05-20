@@ -6,6 +6,13 @@ import type {
   Pieces,
 } from "../interfaces";
 
+// ✅ AJOUT DE L'INTERFACE MANQUANTE
+export interface EntityPiecePayload {
+  entity_type: string;
+  entity_id: number;
+  piece_id: number;
+}
+
 export const createTypeDocument = async (
   payload: CreateTypeDocumentPayload,
 ): Promise<TypeDocument> => {
@@ -14,12 +21,22 @@ export const createTypeDocument = async (
   return response.data.type || response.data;
 };
 
-export const getTypeDocuments = async (): Promise<{
-  typeDocument: TypeDocument[];
-}> => {
+export const getTypeDocuments = async (): Promise<TypeDocument[]> => {
   const response = await api.get("/types-documents");
-  // On s'assure de renvoyer la structure attendue par le state React
-  return response.data;
+  console.log("📡 getTypeDocuments response:", response.data);
+  
+  // ✅ CORRECTION : Gère les différents formats possibles
+  if (Array.isArray(response.data)) {
+    return response.data;
+  }
+  if (response.data && Array.isArray(response.data.typeDocument)) {
+    return response.data.typeDocument;
+  }
+  if (response.data && Array.isArray(response.data.data)) {
+    return response.data.data;
+  }
+  console.warn("⚠️ Format de réponse inattendu:", response.data);
+  return [];
 };
 
 export const getTypeDocumentById = async (

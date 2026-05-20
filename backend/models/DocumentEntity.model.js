@@ -1,3 +1,4 @@
+// models/DocumentEntity.js
 module.exports = (sequelize, DataTypes) => {
   const DocumentEntity = sequelize.define(
     "DocumentEntity",
@@ -28,9 +29,29 @@ module.exports = (sequelize, DataTypes) => {
   );
 
   DocumentEntity.associate = (models) => {
+    // Relation vers Document
     DocumentEntity.belongsTo(models.Document, {
       foreignKey: "document_id",
       as: "document",
+    });
+
+    // Relations polymorphes vers les entités
+    DocumentEntity.belongsTo(models.EntiteeUn, {
+      foreignKey: "entity_id",
+      constraints: false,
+      as: "entitee_un",
+    });
+
+    DocumentEntity.belongsTo(models.EntiteeDeux, {
+      foreignKey: "entity_id",
+      constraints: false,
+      as: "entitee_deux",
+    });
+
+    DocumentEntity.belongsTo(models.EntiteeTrois, {
+      foreignKey: "entity_id",
+      constraints: false,
+      as: "entitee_trois",
     });
   };
 

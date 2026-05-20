@@ -78,6 +78,16 @@ export default function DocumentTypeDetails({
 
   if (!type) return null;
 
+  // ✅ CORRECTION : Utiliser les bons noms de champs du backend
+  // Le backend retourne : entitee_un, entitee_deux, entitee_trois (qui sont des tableaux)
+  const entitesUn = type.entitee_un || [];
+  const entitesDeux = type.entitee_deux || [];
+  const entitesTrois = type.entitee_trois || [];
+
+  console.log("📊 entitesUn:", entitesUn);
+  console.log("📊 entitesDeux:", entitesDeux);
+  console.log("📊 entitesTrois:", entitesTrois);
+
   const tabHeaderTemplate = (context: any) => ({
     className: `flex items-center cursor-pointer select-none px-6 py-4 border-b-2 font-black text-[11px] uppercase tracking-widest transition-all duration-500 rounded-t-2xl
       ${
@@ -125,7 +135,7 @@ export default function DocumentTypeDetails({
                 <div className="p-1.5 bg-emerald-400/20 rounded-lg">
                   <Hash size={14} className="text-emerald-300" />
                 </div>
-                <span className="text-white text-sm  tracking-wider">
+                <span className="text-white text-sm tracking-wider">
                   {type.code}
                 </span>
               </div>
@@ -138,59 +148,71 @@ export default function DocumentTypeDetails({
                   {type.cote}
                 </span>
               </div>
+            </div>
 
-              {/* Remplacement de la division par la structure hiérarchique */}
-              <div className="flex flex-wrap gap-2 mt-2">
-                {/* Affichage des Entités Niveau 1 */}
-                {type.entites_un?.map((e: any) => (
-                  <div
-                    key={e.id}
-                    className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl flex items-center gap-2 border border-white/10 shadow-inner"
-                  >
-                    <Building2 size={12} className="text-emerald-300" />
-                    <span className="text-white text-[11px] font-bold uppercase tracking-tight">
-                      {e.libelle}
-                    </span>
-                  </div>
-                ))}
-
-                {/* Affichage des Entités Niveau 2 */}
-                {type.entites_deux?.map((e: any) => (
-                  <div
-                    key={e.id}
-                    className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl flex items-center gap-2 border border-white/10 shadow-inner"
-                  >
-                    <Layers size={12} className="text-blue-300" />
-                    <span className="text-white text-[11px] font-bold uppercase tracking-tight">
-                      {e.libelle}
-                    </span>
-                  </div>
-                ))}
-
-                {/* Affichage des Entités Niveau 3 */}
-                {type.entites_trois?.map((e: any) => (
-                  <div
-                    key={e.id}
-                    className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl flex items-center gap-2 border border-white/10 shadow-inner"
-                  >
-                    <GitMerge size={12} className="text-orange-300" />
-                    <span className="text-white text-[11px] font-bold uppercase tracking-tight">
-                      {e.libelle}
-                    </span>
-                  </div>
-                ))}
-
-                {/* Cas transversal */}
-                {!type.entites_un?.length &&
-                  !type.entites_deux?.length &&
-                  !type.entites_trois?.length && (
-                    <div className="bg-white/5 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/5">
-                      <span className="text-white/60 text-[11px] font-bold uppercase tracking-widest italic">
-                        Document Transversal
+            {/* ✅ CORRECTION : Utiliser les bons noms de champs */}
+            <div className="flex flex-wrap gap-2 mt-4">
+              {/* Affichage des Entités Niveau 1 */}
+              {entitesUn.length > 0 && (
+                <div className="flex flex-wrap gap-2 w-full">
+                  {entitesUn.map((e: any) => (
+                    <div
+                      key={e.id}
+                      className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl flex items-center gap-2 border border-white/10 shadow-inner"
+                    >
+                      <Building2 size={12} className="text-emerald-300" />
+                      <span className="text-white text-[11px] font-bold uppercase tracking-tight">
+                        {e.libelle}
                       </span>
                     </div>
-                  )}
-              </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Affichage des Entités Niveau 2 */}
+              {entitesDeux.length > 0 && (
+                <div className="flex flex-wrap gap-2 w-full">
+                  {entitesDeux.map((e: any) => (
+                    <div
+                      key={e.id}
+                      className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl flex items-center gap-2 border border-white/10 shadow-inner"
+                    >
+                      <Layers size={12} className="text-blue-300" />
+                      <span className="text-white text-[11px] font-bold uppercase tracking-tight">
+                        {e.libelle}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Affichage des Entités Niveau 3 */}
+              {entitesTrois.length > 0 && (
+                <div className="flex flex-wrap gap-2 w-full">
+                  {entitesTrois.map((e: any) => (
+                    <div
+                      key={e.id}
+                      className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl flex items-center gap-2 border border-white/10 shadow-inner"
+                    >
+                      <GitMerge size={12} className="text-orange-300" />
+                      <span className="text-white text-[11px] font-bold uppercase tracking-tight">
+                        {e.libelle}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Cas transversal : aucun entité associée */}
+              {entitesUn.length === 0 &&
+                entitesDeux.length === 0 &&
+                entitesTrois.length === 0 && (
+                  <div className="bg-white/5 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/5">
+                    <span className="text-white/60 text-[11px] font-bold uppercase tracking-widest italic">
+                      Document Transversal
+                    </span>
+                  </div>
+                )}
             </div>
           </div>
         </div>

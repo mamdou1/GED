@@ -55,11 +55,17 @@ import EntityFieldManager from "./EntityFieldManager";
 // Types pour les entités (UI et API)
 type EntityTypeUI = "entiteeUn" | "entiteeDeux" | "entiteeTrois";
 type EntityTypeApi = "entitee_un" | "entitee_deux" | "entitee_trois";
+// ✅ CORRECTION : Utiliser les mêmes valeurs que dans TypeDocumentAjoutPiecesEntytee
 type LegacyEntityType =
+  |
   | "direction"
-  | "sousDirection"
+ 
+  | "sous_direction"
+ 
   | "division"
+ 
   | "section"
+ 
   | "service";
 
 export default function DocumentTypeEntitee() {
@@ -97,10 +103,8 @@ export default function DocumentTypeEntitee() {
   const [affectationFormVisible, setAffectationFormVisible] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [metaVisible, setMetaVisible] = useState(false);
-  const [entityFieldManagerVisible, setEntityFieldManagerVisible] =
-    useState(false);
-  const [selectedEntityType, setSelectedEntityType] =
-    useState<string>("EntiteeUn");
+  const [entityFieldManagerVisible, setEntityFieldManagerVisible] = useState(false);
+  const [selectedEntityType, setSelectedEntityType] = useState<string>("EntiteeUn");
   const [query, setQuery] = useState("");
   const [formPiecesVisible, setFormPiecesVisible] = useState(false);
   const [selectedTypeDoc, setSelectedTypeDoc] = useState<string | null>(null);
@@ -158,12 +162,13 @@ export default function DocumentTypeEntitee() {
   };
 
   // ✅ Conversion vers les types legacy attendus par TypeDocumentAjoutPiecesEntytee
+  // ✅ CORRECTION : Utiliser "sous_direction" au lieu de "sousDirection"
   const mapToLegacyEntityType = (apiType: EntityTypeApi): LegacyEntityType => {
     switch (apiType) {
       case "entitee_un":
         return "direction";
       case "entitee_deux":
-        return "sousDirection";
+        return "sous_direction";
       case "entitee_trois":
         return "division";
       default:
@@ -202,6 +207,22 @@ export default function DocumentTypeEntitee() {
 
   const getUserAccessibleEntityIds = (user: User | null) => {
     if (!user)
+      return {
+        un: new Set<number>(),
+        deux: new Set<number>(),
+        trois: new Set<number>(),
+      };
+    const ids = {
+      un: new Set<number>(),
+      deux: new Set<number>(),
+      trois: new Set<number>(),
+    };
+    if (user.fonction_details?.entitee_un?.id)
+      ids.un.add(user.fonction_details.entitee_un.id);
+    if (user.fonction_details?.entitee_deux?.id)
+      ids.deux.add(user.fonction_details.entitee_deux.id);
+    if (user.fonction_details?.entitee_trois?.id)
+      ids.trois.add(user.fonction_details.entitee_trois.id);
       return {
         un: new Set<number>(),
         deux: new Set<number>(),
@@ -274,7 +295,7 @@ export default function DocumentTypeEntitee() {
   const hasAccessToStructure = (structureName: string): boolean => {
     const isAdmin = isUserAdmin(user);
     if (isAdmin) return true;
-    if (structureName === "Type de documents non assignés") return false;
+    if (structureName === "Tous les types de documents") return false;
     const accessibleIds = getUserAccessibleEntityIds(user);
     const foundE3 = entiteeTrois.find((e) => e.libelle === structureName);
     if (foundE3 && accessibleIds.trois.has(foundE3.id)) return true;
@@ -296,7 +317,7 @@ export default function DocumentTypeEntitee() {
     entiteeUn.forEach((e1) => {
       if (hasAccessToStructure(e1.libelle)) groups[e1.libelle] = [];
     });
-    groups["Type de documents non assignés"] = [];
+    groups["Tous les types de documents"] = [];
     return groups;
   };
 
@@ -307,7 +328,9 @@ export default function DocumentTypeEntitee() {
 
     const accessibleTypes = types.filter((t) => hasAccessToEntity(t));
 
-    const filtered = accessibleTypes.filter((t) => {
+    // Application du filtre de recherche
+    let filtered = accessibleTypes;
+    if (query) {
       const search = query.toLowerCase();
       const matchesSearch =
         t.code.toLowerCase().includes(search) ||
@@ -328,6 +351,8 @@ export default function DocumentTypeEntitee() {
     });
 
     const groups: Record<string, TypeDocument[]> = {};
+
+    // Ajouter toutes les entités accessibles comme groupes
     entiteeTrois.forEach((e3) => {
       if (hasAccessToStructure(e3.libelle)) groups[e3.libelle] = [];
     });
@@ -337,44 +362,51 @@ export default function DocumentTypeEntitee() {
     entiteeUn.forEach((e1) => {
       if (hasAccessToStructure(e1.libelle)) groups[e1.libelle] = [];
     });
+    
+    // ✅ Ajouter "Tous les types de documents" comme catégorie virtuelle
+    groups["Tous les types de documents"] = [];
 
-    const unassignedDocs = filtered.filter(
-      (t) =>
-        getEntitiesArray((t as any).entitee_un).length === 0 &&
-        getEntitiesArray((t as any).entitee_deux).length === 0 &&
-        getEntitiesArray((t as any).entitee_trois).length === 0,
-    );
-    if (unassignedDocs.length > 0 || !selectedTypeDoc) {
-      groups["Type de documents non assignés"] = unassignedDocs;
-    }
-
+    // ✅ CORRECTION : Un type peut apparaître dans MULTIPLES groupes
     filtered.forEach((t) => {
       const assignedStructures = new Set<string>();
+
+      // ✅ TOUJOURS ajouter "Tous les types de documents"
+      assignedStructures.add("Tous les types de documents");
+
+      // Récupérer toutes les structures associées à ce type
       getEntitiesArray((t as any).entitee_trois).forEach((e3: any) => {
         const found = entiteeTrois.find((item) => item.id === e3.id);
-        if (found) assignedStructures.add(found.libelle);
+        if (found && hasAccessToStructure(found.libelle)) {
+          assignedStructures.add(found.libelle);
+        }
       });
+
       getEntitiesArray((t as any).entitee_deux).forEach((e2: any) => {
         const found = entiteeDeux.find((item) => item.id === e2.id);
-        if (found) assignedStructures.add(found.libelle);
+        if (found && hasAccessToStructure(found.libelle)) {
+          assignedStructures.add(found.libelle);
+        }
       });
+
       getEntitiesArray((t as any).entitee_un).forEach((e1: any) => {
         const found = entiteeUn.find((item) => item.id === e1.id);
-        if (found) assignedStructures.add(found.libelle);
+        if (found && hasAccessToStructure(found.libelle)) {
+          assignedStructures.add(found.libelle);
+        }
       });
-      if (assignedStructures.size === 0) {
-        assignedStructures.add("Type de documents non assignés");
-      }
+
+      // ✅ Ajouter le type à CHAQUE structure concernée
       assignedStructures.forEach((structureLabel) => {
-        if (hasAccessToStructure(structureLabel)) {
-          if (!groups[structureLabel]) groups[structureLabel] = [];
-          if (!groups[structureLabel].find((doc) => doc.id === t.id)) {
-            groups[structureLabel].push(t);
-          }
+        if (!groups[structureLabel]) {
+          groups[structureLabel] = [];
+        }
+        if (!groups[structureLabel].find((doc) => doc.id === t.id)) {
+          groups[structureLabel].push(t);
         }
       });
     });
 
+    // Si un filtre par structure est appliqué, ne garder que cette structure
     if (selectedTypeDoc) {
       const filteredGroups: Record<string, TypeDocument[]> = {};
       Object.entries(groups).forEach(([key, docs]) => {
@@ -382,6 +414,17 @@ export default function DocumentTypeEntitee() {
       });
       return filteredGroups;
     }
+    
+    console.log(
+      "🔍 TYPES:",
+      types.map((t) => ({
+        id: t.id,
+        nom: t.nom,
+        entitee_deux: t.entitee_deux,
+      })),
+    );
+    console.log("🔍 ENTITEES DEUX:", entiteeDeux);
+
     return groups;
   };
 
@@ -711,7 +754,7 @@ export default function DocumentTypeEntitee() {
     setExpandedStructure(
       expandedStructure === structureName ? null : structureName,
     );
-    if (structureName !== "Type de documents non assignés") {
+    if (structureName !== "Tous les types de documents") {
       let entityId: number | undefined;
       let entityType: EntityTypeUI | undefined;
       const foundE3 = entiteeTrois.find((e) => e.libelle === structureName);
@@ -848,8 +891,8 @@ export default function DocumentTypeEntitee() {
                   currentPage: internalPage,
                   totalPages,
                 } = getPaginatedDocumentsForStructure(structureName, docs);
-                const isNonAssigned =
-                  structureName === "Type de documents non assignés";
+                const isAllTypes =
+                  structureName === "Tous les types de documents";
                 return (
                   <div
                     key={structureName}
@@ -897,8 +940,8 @@ export default function DocumentTypeEntitee() {
                             >
                               {structureName}
                             </h3>
-                            {/* ✅ BOUTON GÉRER LES TYPES */}
-                            {!isNonAssigned && (
+                            {/* ✅ BOUTON GÉRER LES TYPES - seulement pour les vraies entités */}
+                            {!isAllTypes && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1032,40 +1075,20 @@ export default function DocumentTypeEntitee() {
                                           >
                                             <FilePlus size={25} />
                                           </button>
-                                          {isNonAssigned && (
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelected(t);
-                                                if (
-                                                  selectedAccordionStructure
-                                                ) {
-                                                  setSelectedTypeDoc(
-                                                    selectedAccordionStructure.value,
-                                                  );
-                                                  setAffectationFormVisible(
-                                                    true,
-                                                  );
-                                                } else {
-                                                  setAffectationFormVisible(
-                                                    true,
-                                                  );
-                                                }
-                                              }}
-                                              className={`p-2 rounded-lg ${
-                                                selectedAccordionStructure
-                                                  ? "text-blue-600 bg-blue-50 hover:bg-blue-100"
-                                                  : "text-blue-500 hover:bg-blue-50"
-                                              }`}
-                                              title={
-                                                selectedAccordionStructure
-                                                  ? `Affecter à ${selectedAccordionStructure.label}`
-                                                  : "Affecter à une structure"
-                                              }
-                                            >
-                                              <SplinePointer size={25} />
-                                            </button>
-                                          )}
+
+                                          {/* ✅ BOUTON AFFECTATION - TOUJOURS VISIBLE */}
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSelected(t);
+                                              setAffectationFormVisible(true);
+                                            }}
+                                            className="p-2 rounded-lg text-blue-500 hover:bg-blue-50"
+                                            title="Affecter à une structure"
+                                          >
+                                            <SplinePointer size={25} />
+                                          </button>
+
                                           <button
                                             onClick={(e) => {
                                               setEditing(t);
@@ -1094,13 +1117,14 @@ export default function DocumentTypeEntitee() {
                                               e.stopPropagation();
                                               setSelected(t);
                                               // Déterminer le type d'entité
-                                              let entityType = "EntiteeUn";
+                                              let entityType: EntityTypeUI =
+                                                "entiteeUn";
                                               if (t.entitee_trois_id) {
-                                                entityType = "EntiteeTrois";
+                                                entityType = "entiteeTrois";
                                               } else if (t.entitee_deux_id) {
-                                                entityType = "EntiteeDeux";
+                                                entityType = "entiteeDeux";
                                               } else if (t.entitee_un_id) {
-                                                entityType = "EntiteeUn";
+                                                entityType = "entiteeUn";
                                               }
                                               setSelectedEntityType(entityType);
                                               setEntityFieldManagerVisible(
@@ -1230,9 +1254,9 @@ export default function DocumentTypeEntitee() {
         onSubmit={handleMetaSubmit}
         type={selected}
       />
-      {/* ✅ Choix du modal selon le type d’accordéon */}
+      {/* ✅ Choix du modal selon le type d'accordéon */}
       {!expandedStructure ||
-      expandedStructure === "Type de documents non assignés" ? (
+      expandedStructure === "Tous les types de documents" ? (
         <TypeDocumentAjoutPieces
           visible={formPiecesVisible}
           onHide={() => setFormPiecesVisible(false)}
@@ -1313,7 +1337,13 @@ export default function DocumentTypeEntitee() {
         visible={entityFieldManagerVisible}
         onHide={() => setEntityFieldManagerVisible(false)}
         typeDocumentId={selected?.id}
-        entityType={selectedEntityType}
+        entityType={
+          selectedEntityType === "entiteeUn"
+            ? "EntiteeUn"
+            : selectedEntityType === "entiteeDeux"
+              ? "EntiteeDeux"
+              : "EntiteeTrois"
+        }
         entityId={
           selected?.entitee_trois_id ||
           selected?.entitee_deux_id ||

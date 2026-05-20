@@ -52,6 +52,13 @@ interface Entitee {
   parent_id?: number;
 }
 
+// Helper pour s'assurer qu'une propriété est un tableau
+const ensureArray = <T,>(value: T | T[] | undefined | null): T[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  return [value];
+};
+
 export default function DocumentPage() {
   const { user } = useAuth();
   const toast = useRef<Toast>(null);
@@ -292,13 +299,13 @@ export default function DocumentPage() {
 
     return types.filter((doc) => {
       if (entityType === "un") {
-        return (doc.entitee_un || []).some((e: any) => e.id === entityId);
+        return ensureArray(doc.entitee_un).some((e: any) => e.id === entityId);
       }
       if (entityType === "deux") {
-        return (doc.entitee_deux || []).some((e: any) => e.id === entityId);
+        return ensureArray(doc.entitee_deux).some((e: any) => e.id === entityId);
       }
       if (entityType === "trois") {
-        return (doc.entitee_trois || []).some((e: any) => e.id === entityId);
+        return ensureArray(doc.entitee_trois).some((e: any) => e.id === entityId);
       }
       return false;
     });
@@ -402,24 +409,6 @@ export default function DocumentPage() {
   };
 
   // ✅ ÉTAPE 6: Remplacer handleDelete
-  // const handleDelete = (id: string) => {
-  //   confirmDialog({
-  //     message: "Voulez-vous supprimer ce document définitivement ?",
-  //     header: "Confirmation",
-  //     icon: "pi pi-info-circle",
-  //     acceptLabel: "Supprimer",
-  //     rejectLabel: "Annuler",
-  //     acceptClassName: "p-button-danger p-button-raised p-button-rounded p-2",
-  //     rejectClassName:
-  //       "p-button-secondary p-button-outlined p-button-rounded mr-4 p-2",
-  //     style: { width: "450px" },
-  //     accept: async () => {
-  //       await deleteMutation.mutateAsync(id);
-  //       toast.current?.show({ severity: "success", summary: "Supprimé" });
-  //     },
-  //   });
-  // };
-
   const handleDelete = (id: string) => {
     confirmDialog({
       message:
@@ -440,14 +429,14 @@ export default function DocumentPage() {
           toast.current?.show({
             severity: "success",
             summary: "Succès",
-            detail: "Type de document supprimé avec succès",
+            detail: "Document supprimé avec succès",
           });
         } catch (error) {
           toast.current?.show({
             severity: "error",
             summary: "Suppression impossible",
             detail:
-              "Ce type de document ne peut pas être supprimé car il contient des pièces charger avec ou sans méta donnée associées.",
+              "Ce document ne peut pas être supprimé car il contient des pièces associées.",
             life: 5000,
           });
         }
@@ -482,27 +471,27 @@ export default function DocumentPage() {
         userEntityIds.trois.add(access.entitee_trois.id);
     });
 
-    // Vérifier via les tableaux many-to-many
-    const hasAccessE3 = (typeDoc.entitee_trois || []).some((e: any) =>
+    // Vérifier via les tableaux many-to-many (avec ensureArray)
+    const hasAccessE3 = ensureArray(typeDoc.entitee_trois).some((e: any) =>
       userEntityIds.trois.has(e.id),
     );
     if (hasAccessE3) return true;
 
-    const hasAccessE2 = (typeDoc.entitee_deux || []).some((e: any) =>
+    const hasAccessE2 = ensureArray(typeDoc.entitee_deux).some((e: any) =>
       userEntityIds.deux.has(e.id),
     );
     if (hasAccessE2) return true;
 
-    const hasAccessE1 = (typeDoc.entitee_un || []).some((e: any) =>
+    const hasAccessE1 = ensureArray(typeDoc.entitee_un).some((e: any) =>
       userEntityIds.un.has(e.id),
     );
     if (hasAccessE1) return true;
 
     // Documents non assignés visibles par tous
     if (
-      (!typeDoc.entitee_un || typeDoc.entitee_un.length === 0) &&
-      (!typeDoc.entitee_deux || typeDoc.entitee_deux.length === 0) &&
-      (!typeDoc.entitee_trois || typeDoc.entitee_trois.length === 0)
+      ensureArray(typeDoc.entitee_un).length === 0 &&
+      ensureArray(typeDoc.entitee_deux).length === 0 &&
+      ensureArray(typeDoc.entitee_trois).length === 0
     ) {
       return true;
     }
@@ -519,42 +508,39 @@ export default function DocumentPage() {
     if (isUserAdmin() || hasAdditionalAccess()) {
       typesToShow = types.filter((t) => hasAccessToEntity(t));
 
-      // ✅ Filtrer par niveau si sélectionné - UNIQUEMENT l'inclusion, pas d'exclusion
+      // ✅ Filtrer par niveau si sélectionné
       if (selectedNiveau === "un") {
         typesToShow = typesToShow.filter(
-          (type) => type.entitee_un && type.entitee_un.length > 0,
-          // ✅ SUPPRIMER les conditions qui excluent entitee_deux et entitee_trois
+          (type) => ensureArray(type.entitee_un).length > 0,
         );
       } else if (selectedNiveau === "deux") {
         typesToShow = typesToShow.filter(
-          (type) => type.entitee_deux && type.entitee_deux.length > 0,
-          // ✅ SUPPRIMER la condition qui exclut entitee_trois
+          (type) => ensureArray(type.entitee_deux).length > 0,
         );
       } else if (selectedNiveau === "trois") {
         typesToShow = typesToShow.filter(
-          (type) => type.entitee_trois && type.entitee_trois.length > 0,
+          (type) => ensureArray(type.entitee_trois).length > 0,
         );
       }
-      // Si selectedNiveau est null, on garde tous les types
 
       // ✅ Grouper par entité selon le niveau sélectionné
       typesToShow.forEach((type) => {
         if (selectedNiveau === "un") {
-          (type.entitee_un || []).forEach((e: any) => {
+          ensureArray(type.entitee_un).forEach((e: any) => {
             if (!grouped[e.id]) grouped[e.id] = [];
             if (!grouped[e.id].find((t) => t.id === type.id)) {
               grouped[e.id].push(type);
             }
           });
         } else if (selectedNiveau === "deux") {
-          (type.entitee_deux || []).forEach((e: any) => {
+          ensureArray(type.entitee_deux).forEach((e: any) => {
             if (!grouped[e.id]) grouped[e.id] = [];
             if (!grouped[e.id].find((t) => t.id === type.id)) {
               grouped[e.id].push(type);
             }
           });
         } else if (selectedNiveau === "trois") {
-          (type.entitee_trois || []).forEach((e: any) => {
+          ensureArray(type.entitee_trois).forEach((e: any) => {
             if (!grouped[e.id]) grouped[e.id] = [];
             if (!grouped[e.id].find((t) => t.id === type.id)) {
               grouped[e.id].push(type);
@@ -563,19 +549,19 @@ export default function DocumentPage() {
         }
         // Si aucun niveau sélectionné, on groupe par toutes les entités
         if (!selectedNiveau) {
-          (type.entitee_un || []).forEach((e: any) => {
+          ensureArray(type.entitee_un).forEach((e: any) => {
             if (!grouped[e.id]) grouped[e.id] = [];
             if (!grouped[e.id].find((t) => t.id === type.id)) {
               grouped[e.id].push(type);
             }
           });
-          (type.entitee_deux || []).forEach((e: any) => {
+          ensureArray(type.entitee_deux).forEach((e: any) => {
             if (!grouped[e.id]) grouped[e.id] = [];
             if (!grouped[e.id].find((t) => t.id === type.id)) {
               grouped[e.id].push(type);
             }
           });
-          (type.entitee_trois || []).forEach((e: any) => {
+          ensureArray(type.entitee_trois).forEach((e: any) => {
             if (!grouped[e.id]) grouped[e.id] = [];
             if (!grouped[e.id].find((t) => t.id === type.id)) {
               grouped[e.id].push(type);
@@ -587,11 +573,6 @@ export default function DocumentPage() {
 
     return grouped;
   }, [types, selectedNiveau, user]);
-
-  // const toggleEntitee = (entiteeId: number) => {
-  //   setExpandedEntitee(expandedEntitee === entiteeId ? null : entiteeId);
-  //   setExpandedType(null);
-  // };
 
   const toggleEntitee = (entiteeId: number) => {
     const isExpanding = expandedEntitee !== entiteeId;
@@ -613,9 +594,6 @@ export default function DocumentPage() {
           entity_label: entity.libelle,
         });
       }
-    } else {
-      // Ne pas effacer activeEntity quand on ferme l'accordéon
-      // pour que le formulaire puisse encore l'utiliser
     }
   };
 
@@ -694,11 +672,18 @@ export default function DocumentPage() {
     return pageByType[typeId] || 1;
   };
 
+  // Helper pour obtenir les entités d'un document (safe)
+  const getDocumentEntities = (doc: any): any[] => {
+    if (!doc.entities) return [];
+    if (Array.isArray(doc.entities)) return doc.entities;
+    return [doc.entities];
+  };
+
   // Déterminer ce qu'il faut afficher
   const getDisplayContent = () => {
     const params = new URLSearchParams(location.search);
-    const typeId = params.get("typeId");
     const entitee = params.get("entitee");
+    
     // ===== CAS 1 : ADMIN (affichage complet avec entités + types)
     if (isUserAdmin()) {
       if (!selectedNiveau && !entitee) {
@@ -739,7 +724,7 @@ export default function DocumentPage() {
                       : "border-slate-100"
                   }`}
                 >
-                  {/* HEADER ENTITÉ - garde ton code existant ici */}
+                  {/* HEADER ENTITÉ */}
                   <button
                     onClick={() => toggleEntitee(entiteeItem.id)}
                     className={`w-full flex items-center justify-between p-5 transition-all ${
@@ -801,20 +786,18 @@ export default function DocumentPage() {
                     )}
                   </button>
 
-                  {/* TYPES DE DOCUMENTS DE L'ENTITÉ - garde ton code existant */}
+                  {/* TYPES DE DOCUMENTS DE L'ENTITÉ */}
                   {isExpanded && (
                     <div className="border-t border-slate-100 p-5 space-y-3 bg-slate-50/30">
                       {entiteeTypes.length > 0 ? (
                         entiteeTypes.map((type) => {
                           const isTypeExpanded = expandedType === type.id;
-                          // ✅ CORRIGÉ - Filtrer par type ET par entité
+                          // Filtrer par type ET par entité
                           const typeDocs = allDocs.filter((d) => {
-                            // Vérifier le type de document
                             const hasCorrectType =
                               d.type_document_id === type.id;
-
-                            // Vérifier que le document est lié à l'entité courante
-                            const hasCorrectEntity = d.entities?.some(
+                            const docEntities = getDocumentEntities(d);
+                            const hasCorrectEntity = docEntities.some(
                               (e: any) =>
                                 e.entity_type ===
                                   (entiteeItem.type === "un"
@@ -824,40 +807,10 @@ export default function DocumentPage() {
                                       : "entitee_trois") &&
                                 e.entity_id === entiteeItem.id,
                             );
-
                             return hasCorrectType && hasCorrectEntity;
                           });
 
-                          // ✅ LOG DE DÉBUGAGE
-                          console.log(
-                            `🔍 Type "${type.nom}" (ID:${type.id}) dans entité "${entiteeItem.libelle}" (ID:${entiteeItem.id}, type:${entiteeItem.type}):`,
-                          );
-                          console.log(
-                            `   - typeDocs trouvés: ${typeDocs.length}`,
-                          );
-                          if (typeDocs.length > 0) {
-                            console.log(`   - Premier doc:`, {
-                              id: typeDocs[0].id,
-                              type_document_id: typeDocs[0].type_document_id,
-                              entities: typeDocs[0].entities,
-                            });
-                          } else {
-                            console.log(
-                              `   - allDocs filtrés par type:`,
-                              allDocs.filter(
-                                (d) => d.type_document_id === type.id,
-                              ).length,
-                            );
-                            console.log(
-                              `   - allDocs avec entities:`,
-                              allDocs.filter((d) => d.entities?.length > 0)
-                                .length,
-                            );
-                          }
-
-                          const currentPageForType = getCurrentPageForType(
-                            type.id,
-                          );
+                          const currentPageForType = getCurrentPageForType(type.id);
                           const paginatedDocs = typeDocs.slice(
                             (currentPageForType - 1) * itemsPerPage,
                             currentPageForType * itemsPerPage,
@@ -917,7 +870,6 @@ export default function DocumentPage() {
                                       e.stopPropagation();
                                       setPendingTypeId(type.id);
                                       setEditingDoc(null);
-                                      // ✅ AJOUT : stocker l'entité courante
                                       setCurrentEntityForForm({
                                         id: entiteeItem.id,
                                         type: entiteeItem.type,
@@ -970,7 +922,6 @@ export default function DocumentPage() {
                                                   {m.label}
                                                 </th>
                                               ))}
-
                                               <th className="p-3 text-[11px] font-black text-emerald-800 uppercase tracking-widest text-center">
                                                 Actions
                                               </th>
@@ -1035,15 +986,12 @@ export default function DocumentPage() {
                                                         setPendingTypeId(
                                                           type.id,
                                                         );
-                                                        // ✅ AJOUT : stocker l'entité courante
-                                                        setCurrentEntityForForm(
-                                                          {
-                                                            id: entiteeItem.id,
-                                                            type: entiteeItem.type,
-                                                            label:
-                                                              entiteeItem.libelle,
-                                                          },
-                                                        );
+                                                        setCurrentEntityForForm({
+                                                          id: entiteeItem.id,
+                                                          type: entiteeItem.type,
+                                                          label:
+                                                            entiteeItem.libelle,
+                                                        });
                                                         setFormVisible(true);
                                                       }}
                                                       className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
@@ -1054,9 +1002,7 @@ export default function DocumentPage() {
                                                     <button
                                                       onClick={(e) => {
                                                         setSelected(doc);
-                                                        setDisponibleVisible(
-                                                          true,
-                                                        );
+                                                        setDisponibleVisible(true);
                                                         e.stopPropagation();
                                                       }}
                                                       className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
@@ -1073,17 +1019,13 @@ export default function DocumentPage() {
                                                       className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
                                                       title="Chargement des fichiers"
                                                     >
-                                                      <CloudDownload
-                                                        size={18}
-                                                      />
+                                                      <CloudDownload size={18} />
                                                     </button>
                                                     <button
-                                                      onClick={(e) =>
-                                                        handleDelete(
-                                                          String(doc.id),
-                                                          e.stopPropagation,
-                                                        )
-                                                      }
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDelete(String(doc.id));
+                                                      }}
                                                       className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
                                                     >
                                                       <Trash2 size={18} />
@@ -1119,7 +1061,6 @@ export default function DocumentPage() {
                                       <button
                                         onClick={() => {
                                           setDocumentType_id(type.id);
-                                          // ✅ AJOUT : stocker l'entité courante
                                           setCurrentEntityForForm({
                                             id: entiteeItem.id,
                                             type: entiteeItem.type,
@@ -1129,10 +1070,7 @@ export default function DocumentPage() {
                                         }}
                                         className="mt-3 text-sm bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition-all"
                                       >
-                                        <Plus
-                                          size={14}
-                                          className="inline mr-1"
-                                        />
+                                        <Plus size={14} className="inline mr-1" />
                                         Créer le premier document
                                       </button>
                                     </div>
@@ -1204,7 +1142,7 @@ export default function DocumentPage() {
                       : "border-slate-100"
                   }`}
                 >
-                  {/* HEADER ENTITÉ - même contenu que CAS 1 */}
+                  {/* HEADER ENTITÉ */}
                   <button
                     onClick={() => toggleEntitee(entiteeItem.id)}
                     className={`w-full flex items-center justify-between p-5 transition-all ${
@@ -1275,10 +1213,7 @@ export default function DocumentPage() {
                           const typeDocs = allDocs.filter(
                             (d) => d.type_document_id === type.id,
                           );
-                          const currentPageForType = getCurrentPageForType(
-                            type.id,
-                          );
-
+                          const currentPageForType = getCurrentPageForType(type.id);
                           const paginatedDocs = typeDocs.slice(
                             (currentPageForType - 1) * itemsPerPage,
                             currentPageForType * itemsPerPage,
@@ -1338,7 +1273,6 @@ export default function DocumentPage() {
                                       e.stopPropagation();
                                       setPendingTypeId(type.id);
                                       setEditingDoc(null);
-                                      // ✅ AJOUT : stocker l'entité courante
                                       setCurrentEntityForForm({
                                         id: entiteeItem.id,
                                         type: entiteeItem.type,
@@ -1352,15 +1286,9 @@ export default function DocumentPage() {
                                     <Plus size={14} />
                                   </button>
                                   {isTypeExpanded ? (
-                                    <ChevronDown
-                                      size={16}
-                                      className="text-emerald-500"
-                                    />
+                                    <ChevronDown size={16} className="text-emerald-500" />
                                   ) : (
-                                    <ChevronRight
-                                      size={16}
-                                      className="text-slate-400"
-                                    />
+                                    <ChevronRight size={16} className="text-slate-400" />
                                   )}
                                 </div>
                               </div>
@@ -1403,18 +1331,14 @@ export default function DocumentPage() {
                                                 <td className="p-3">
                                                   <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-lg text-xs font-bold border border-emerald-200">
                                                     #
-                                                    {String(doc.id).padStart(
-                                                      3,
-                                                      "0",
-                                                    )}
+                                                    {String(doc.id).padStart(3, "0")}
                                                   </span>
                                                 </td>
                                                 {metaFields.map((m) => {
                                                   const value =
                                                     doc.values?.find(
                                                       (v: any) =>
-                                                        v.metaField?.id ===
-                                                        m.id,
+                                                        v.metaField?.id === m.id,
                                                     )?.value;
                                                   return (
                                                     <td
@@ -1432,26 +1356,18 @@ export default function DocumentPage() {
                                                 <td className="p-3">
                                                   <div
                                                     className="flex justify-center gap-1"
-                                                    onClick={(e) =>
-                                                      e.stopPropagation()
-                                                    }
+                                                    onClick={(e) => e.stopPropagation()}
                                                   >
                                                     <button
                                                       onClick={(e) => {
                                                         e.stopPropagation();
                                                         setEditingDoc(doc);
-                                                        setPendingTypeId(
-                                                          type.id,
-                                                        );
-                                                        // ✅ AJOUT : stocker l'entité courante
-                                                        setCurrentEntityForForm(
-                                                          {
-                                                            id: entiteeItem.id,
-                                                            type: entiteeItem.type,
-                                                            label:
-                                                              entiteeItem.libelle,
-                                                          },
-                                                        );
+                                                        setPendingTypeId(type.id);
+                                                        setCurrentEntityForForm({
+                                                          id: entiteeItem.id,
+                                                          type: entiteeItem.type,
+                                                          label: entiteeItem.libelle,
+                                                        });
                                                         setFormVisible(true);
                                                       }}
                                                       className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
@@ -1459,13 +1375,10 @@ export default function DocumentPage() {
                                                     >
                                                       <Pencil size={18} />
                                                     </button>
-
                                                     <button
                                                       onClick={(e) => {
                                                         setSelected(doc);
-                                                        setDisponibleVisible(
-                                                          true,
-                                                        );
+                                                        setDisponibleVisible(true);
                                                         e.stopPropagation();
                                                       }}
                                                       className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
@@ -1482,16 +1395,10 @@ export default function DocumentPage() {
                                                       className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
                                                       title="Chargement des fichiers"
                                                     >
-                                                      <CloudDownload
-                                                        size={18}
-                                                      />
+                                                      <CloudDownload size={18} />
                                                     </button>
                                                     <button
-                                                      onClick={() =>
-                                                        handleDelete(
-                                                          String(doc.id),
-                                                        )
-                                                      }
+                                                      onClick={() => handleDelete(String(doc.id))}
                                                       className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
                                                     >
                                                       <Trash2 size={18} />
@@ -1527,7 +1434,6 @@ export default function DocumentPage() {
                                       <button
                                         onClick={() => {
                                           setDocumentType_id(type.id);
-                                          // ✅ AJOUT : stocker l'entité courante
                                           setCurrentEntityForForm({
                                             id: entiteeItem.id,
                                             type: entiteeItem.type,
@@ -1537,10 +1443,7 @@ export default function DocumentPage() {
                                         }}
                                         className="mt-3 text-sm bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition-all"
                                       >
-                                        <Plus
-                                          size={14}
-                                          className="inline mr-1"
-                                        />
+                                        <Plus size={14} className="inline mr-1" />
                                         Créer le premier document
                                       </button>
                                     </div>
@@ -1615,7 +1518,6 @@ export default function DocumentPage() {
             );
             const isTypeExpanded = expandedType === type.id;
 
-            // ✅ Pagination spécifique à ce type
             const currentPageForType = getCurrentPageForType(type.id);
             const totalItems = typeDocs.length;
             const paginatedDocs = typeDocs.slice(
@@ -1677,7 +1579,6 @@ export default function DocumentPage() {
                         e.stopPropagation();
                         setPendingTypeId(type.id);
                         setEditingDoc(null);
-                        // ✅ AJOUT : récupérer l'entité de la fonction courante
                         const entity = getCurrentFonctionEntity();
                         if (entity) setCurrentEntityForForm(entity);
                         setFormVisible(true);
@@ -1749,7 +1650,7 @@ export default function DocumentPage() {
                                             ---
                                           </span>
                                         )}
-                                      </td>
+                                       </td>
                                     );
                                   })}
                                   <td className="p-3">
@@ -1762,9 +1663,7 @@ export default function DocumentPage() {
                                           e.stopPropagation();
                                           setEditingDoc(doc);
                                           setPendingTypeId(type.id);
-                                          // ✅ AJOUT : récupérer l'entité de la fonction courante
-                                          const entity =
-                                            getCurrentFonctionEntity();
+                                          const entity = getCurrentFonctionEntity();
                                           if (entity)
                                             setCurrentEntityForForm(entity);
                                           setFormVisible(true);
@@ -1797,26 +1696,19 @@ export default function DocumentPage() {
                                         <CloudDownload size={18} />
                                       </button>
                                       <button
-                                        onClick={() =>
-                                          handleDelete(String(doc.id))
-                                        }
+                                        onClick={() => handleDelete(String(doc.id))}
                                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
                                       >
                                         <Trash2 size={18} />
                                       </button>
                                     </div>
-                                  </td>
-                                </tr>
+                                   </td>
+                                 </tr>
                               ))}
                             </tbody>
                           </table>
                         </div>
 
-                        {/*
-                         * pourquoi la pagination ne marche t'elle pas
-                         */}
-
-                        {/* ✅ PAGINATION spécifique à ce type */}
                         {totalItems > itemsPerPage && (
                           <div className="mt-4 flex justify-center">
                             <Pagination
@@ -1842,7 +1734,6 @@ export default function DocumentPage() {
                         <button
                           onClick={() => {
                             setDocumentType_id(type.id);
-                            // ✅ AJOUT : récupérer l'entité de la fonction courante
                             const entity = getCurrentFonctionEntity();
                             if (entity) setCurrentEntityForForm(entity);
                             setFormVisible(true);
@@ -1872,6 +1763,7 @@ export default function DocumentPage() {
         </div>
       );
     }
+    
     // ===== CAS PAR DÉFAUT (affichage du message de sélection)
     return (
       <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-100">
@@ -1907,7 +1799,7 @@ export default function DocumentPage() {
           icon={<Plus size={18} className="mr-2" />}
           onClick={() => {
             setSelected(null);
-            setCurrentEntityForForm(null); // ✅ AJOUT : réinitialiser
+            setCurrentEntityForForm(null);
             setFormVisible(true);
           }}
           className="bg-emerald-600 hover:bg-emerald-700 text-white border-none px-6 py-3 rounded-xl shadow-lg shadow-emerald-200 transition-all font-bold"
@@ -1939,7 +1831,7 @@ export default function DocumentPage() {
         onHide={() => {
           setFormVisible(false);
           setEditingDoc(null);
-          setCurrentEntityForForm(null); // ✅ AJOUT : nettoyer
+          setCurrentEntityForForm(null);
         }}
         onSubmit={editingDoc ? onEdit : handleSubmit}
         refresh={() => {}}
@@ -1970,7 +1862,7 @@ export default function DocumentPage() {
         visible={ajoutVisible}
         onHide={() => setAjoutVisible(false)}
         document={selected}
-        onSuccess={() => refetch()} // ✅ Recharger après upload
+        onSuccess={() => refetch()}
       />
       <DocumentDisponiblePieces
         visible={disponibleVisible}

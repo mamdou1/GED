@@ -25,7 +25,7 @@ db.MetaField = require("./MetaField.model")(sequelize, DataTypes);
 db.Document = require("./Document.model")(sequelize, DataTypes);
 db.DocumentValue = require("./DocumentValue.model")(sequelize, DataTypes);
 db.DocumentFile = require("./DocumentFIle.model")(sequelize, DataTypes);
-db.DocumentEntity = require("./DocumentEntity")(sequelize, DataTypes);
+db.DocumentEntity = require("./DocumentEntity.model")(sequelize, DataTypes);
 
 // =====================
 // 🔹 NOUVEAUX MODÈLES Archive

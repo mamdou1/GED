@@ -28,16 +28,27 @@ interface DocumentPayload {
   type_document_id: number | null;
   values: Record<string, string>;
   piece_values?: Record<string, any>;
-  entities?: DocumentEntityPayload[];
+  entities?: any[];
   defaultEntityType?: string;
   id?: number;
 }
 
+interface DocumentEntityPayload {
+  entity_type: string;
+  entity_id: number;
+}
+
 // Configuration des types d'entités
 const ENTITY_TYPE_MAP: Record<string, string> = {
+  entiteeun: "entitee_un",
+  entiteedoux: "entitee_deux",
+  entiteetrois: "entitee_trois",
   entitee_un: "entitee_un",
   entitee_deux: "entitee_deux",
   entitee_trois: "entitee_trois",
+  EntiteeUn: "entitee_un",
+  EntiteeDeux: "entitee_deux",
+  EntiteeTrois: "entitee_trois",
 };
 
 // Normaliser le type d'entité pour l'API
@@ -48,6 +59,21 @@ const normalizeEntityType = (type: string): string => {
     entiteetrois: "EntiteeTrois",
   };
   return mapping[type?.toLowerCase()] || type;
+};
+
+const mapEntityType = (type: string): string => {
+  const mapping: Record<string, string> = {
+    entiteeUn: "entitee_un",
+    entiteeDeux: "entitee_deux",
+    entiteeTrois: "entitee_trois",
+    EntiteeUn: "entitee_un",
+    EntiteeDeux: "entitee_deux",
+    EntiteeTrois: "entitee_trois",
+    entitee_un: "entitee_un",
+    entitee_deux: "entitee_deux",
+    entitee_trois: "entitee_trois",
+  };
+  return mapping[type] || "entitee_un";
 };
 
 export default function DocumentForm({
@@ -73,12 +99,10 @@ export default function DocumentForm({
   const isEntityPreselected =
     preselectedEntity?.entity_id && preselectedEntity?.entity_id > 0;
   const effectiveEntityType = isEntityPreselected
-    ? ENTITY_TYPE_MAP[preselectedEntity.entity_type] ||
+    ? ENTITY_TYPE_MAP[preselectedEntity.entity_type?.toLowerCase()] ||
       preselectedEntity.entity_type
     : defaultEntityType;
-  const effectiveEntityId = isEntityPreselected
-    ? preselectedEntity.entity_id
-    : null;
+  const effectiveEntityId = isEntityPreselected ? preselectedEntity.entity_id : null;
 
   // ✅ Charger TOUS les champs (base + personnalisés) pour l'entité
   const loadEntityMetaFields = async (typeId: number) => {
@@ -91,7 +115,7 @@ export default function DocumentForm({
     try {
       const normalizedType = normalizeEntityType(effectiveEntityType);
       const response = await api.get(
-        `/meta-fields/${typeId}/entity/${normalizedType}/${effectiveEntityId}/all`,
+        `/meta-fields/${typeId}/entity/${normalizedType}/${effectiveEntityId}/all`
       );
       const fields = response.data.data || [];
       console.log("📋 Champs chargés pour l'entité:", fields);
@@ -162,12 +186,8 @@ export default function DocumentForm({
         return (
           <textarea
             value={value}
-            onChange={(e) =>
-              setValues({ ...values, [field.id]: e.target.value })
-            }
-            placeholder={
-              field.placeholder || `Entrez ${field.label.toLowerCase()}...`
-            }
+            onChange={(e) => setValues({ ...values, [field.id]: e.target.value })}
+            placeholder={field.placeholder || `Entrez ${field.label.toLowerCase()}...`}
             className="w-full bg-white border border-emerald-100 p-3 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
             rows={field.field_type === "TEXTAREA" ? 4 : 2}
           />
@@ -175,11 +195,12 @@ export default function DocumentForm({
       case "NUMBER":
         return (
           <InputNumber
-            value={value ? Number(value) : null}
-            onValueChange={(e) => setValues({ ...values, [field.id]: e.value })}
-            placeholder={
-              field.placeholder || `Entrez ${field.label.toLowerCase()}...`
-            }
+            value={value !== "" ? Number(value) : null}
+            onValueChange={(e) => {
+              // Stocker la valeur brute (nombre ou null)
+              setValues({ ...values, [field.id]: e.value !== null ? e.value : "" });
+            }}
+            placeholder={field.placeholder || `Entrez ${field.label.toLowerCase()}...`}
             className="w-full"
             inputClassName="w-full bg-white border border-emerald-100 p-3 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
           />
@@ -188,12 +209,11 @@ export default function DocumentForm({
         return (
           <Calendar
             value={value ? new Date(value) : null}
-            onChange={(e) =>
-              setValues({
-                ...values,
-                [field.id]: e.value ? e.value.toISOString().split("T")[0] : "",
-              })
-            }
+            onChange={(e) => {
+              // Stocker la date au format YYYY-MM-DD
+              const dateValue = e.value ? e.value.toISOString().split("T")[0] : "";
+              setValues({ ...values, [field.id]: dateValue });
+            }}
             dateFormat="dd/mm/yy"
             className="w-full"
             inputClassName="w-full bg-white border border-emerald-100 p-3 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
@@ -206,7 +226,10 @@ export default function DocumentForm({
           <div className="flex items-center gap-3">
             <InputSwitch
               checked={value === "true" || value === true}
-              onChange={(e) => setValues({ ...values, [field.id]: e.value })}
+              onChange={(e) => {
+                // Stocker la valeur booléenne comme string "true"/"false"
+                setValues({ ...values, [field.id]: e.value ? "true" : "false" });
+              }}
             />
             <span className="text-sm text-slate-600">{field.label}</span>
           </div>
@@ -216,9 +239,7 @@ export default function DocumentForm({
         return (
           <select
             value={value}
-            onChange={(e) =>
-              setValues({ ...values, [field.id]: e.target.value })
-            }
+            onChange={(e) => setValues({ ...values, [field.id]: e.target.value })}
             className="w-full bg-white border border-emerald-100 p-3 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
           >
             <option value="">Sélectionnez...</option>
@@ -233,9 +254,7 @@ export default function DocumentForm({
         return (
           <input
             type="file"
-            onChange={(e) =>
-              setValues({ ...values, [field.id]: e.target.files?.[0] })
-            }
+            onChange={(e) => setValues({ ...values, [field.id]: e.target.files?.[0] })}
             className="w-full bg-white border border-emerald-100 p-2 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
           />
         );
@@ -243,12 +262,8 @@ export default function DocumentForm({
         return (
           <InputText
             value={value}
-            onChange={(e) =>
-              setValues({ ...values, [field.id]: e.target.value })
-            }
-            placeholder={
-              field.placeholder || `Entrez ${field.label.toLowerCase()}...`
-            }
+            onChange={(e) => setValues({ ...values, [field.id]: e.target.value })}
+            placeholder={field.placeholder || `Entrez ${field.label.toLowerCase()}...`}
             className="w-full bg-white border border-emerald-100 p-3 rounded-xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all shadow-sm"
           />
         );
@@ -275,7 +290,7 @@ export default function DocumentForm({
     }
 
     const visibleRequiredFields = metaFields.filter(
-      (f) => f.required && f.hidden !== true,
+      (f) => f.required && f.hidden !== true
     );
     const missing = visibleRequiredFields.filter((f) => {
       const val = values[f.id];
@@ -293,30 +308,19 @@ export default function DocumentForm({
 
     try {
       const valuesObject: Record<string, string> = {};
+
       for (const field of metaFields) {
         const fieldValue = values[field.id];
-        if (
-          fieldValue !== undefined &&
-          fieldValue !== null &&
-          fieldValue !== ""
-        ) {
-          if (!(fieldValue instanceof File)) {
-            valuesObject[field.id] = fieldValue.toString();
+
+        if (fieldValue !== undefined && fieldValue !== null && fieldValue !== "") {
+          if (fieldValue instanceof File) {
+            // Les fichiers seront traités séparément
+            continue;
           }
+          // Convertir tous les types en string
+          valuesObject[field.id] = String(fieldValue);
         }
       }
-
-      const mapEntityType = (type: string): string => {
-        const mapping: Record<string, string> = {
-          entiteeUn: "entitee_un",
-          entiteeDeux: "entitee_deux",
-          entiteeTrois: "entitee_trois",
-          entitee_un: "entitee_un",
-          entitee_deux: "entitee_deux",
-          entitee_trois: "entitee_trois",
-        };
-        return mapping[type] || type;
-      };
 
       const payload: DocumentPayload = {
         type_document_id: documentType_id,
@@ -333,7 +337,7 @@ export default function DocumentForm({
         payload.id = editingDoc.id;
       }
 
-      console.log("📦 Payload envoyé:", payload);
+      console.log("📦 Payload envoyé:", JSON.stringify(payload, null, 2));
 
       const result = await onSubmit(payload);
 
@@ -349,7 +353,7 @@ export default function DocumentForm({
             fileUploads.push(
               api.post(`/documents/${docId}/files`, formData, {
                 headers: { "Content-Type": "multipart/form-data" },
-              }),
+              })
             );
           }
         }

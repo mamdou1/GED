@@ -35,6 +35,17 @@ interface DocumentTypeMetaFormProps {
   type: any;
 }
 
+// ✅ Mapping des types pour le backend (valeurs attendues)
+const TYPE_MAPPING: Record<string, string> = {
+  text: "TEXT",
+  number: "NUMBER",
+  date: "DATE",
+  file: "FILE",
+  select: "SELECT",
+  textarea: "TEXTAREA",
+  boolean: "BOOLEAN",
+};
+
 export default function DocumentTypeMetaForm({
   visible,
   onHide,
@@ -57,10 +68,12 @@ export default function DocumentTypeMetaForm({
 
   const typesOptions = [
     { label: "Texte", value: "text" },
+    { label: "Texte long (textarea)", value: "textarea" },
     { label: "Nombre", value: "number" },
     { label: "Date", value: "date" },
     { label: "Fichier", value: "file" },
     { label: "Liste déroulante", value: "select" },
+    { label: "Oui/Non (Boolean)", value: "boolean" },
   ];
 
   useEffect(() => {
@@ -68,7 +81,7 @@ export default function DocumentTypeMetaForm({
       const existingFields = type.metaFields.map((f: any) => ({
         id: f.id,
         label: f.label,
-        type: f.field_type || "text",
+        type: getFrontendType(f.field_type), // Convertir du backend vers frontend
         required: f.required,
         options: f.options || [],
       }));
@@ -79,6 +92,20 @@ export default function DocumentTypeMetaForm({
     setData(empty);
     setIsEditingMode(false);
   }, [visible, type]);
+
+  // ✅ Convertir le type backend (TEXT, DATE, etc.) vers le type frontend (text, date, etc.)
+  const getFrontendType = (backendType: string): string => {
+    const mapping: Record<string, string> = {
+      TEXT: "text",
+      TEXTAREA: "textarea",
+      NUMBER: "number",
+      DATE: "date",
+      FILE: "file",
+      SELECT: "select",
+      BOOLEAN: "boolean",
+    };
+    return mapping[backendType] || "text";
+  };
 
   const handleAddOption = () => {
     if (!tempOption.trim()) return;
@@ -161,14 +188,18 @@ export default function DocumentTypeMetaForm({
   };
 
   const saveAll = () => {
+    // ✅ Conversion des types pour le backend (TEXT, NUMBER, DATE, etc.)
     const payload = fields.map((f) => ({
       id: String(f.id).startsWith("temp-") ? undefined : f.id,
       label: f.label,
-      name: f.label,
-      field_type: f.type,
+      name: f.label.toLowerCase().replace(/\s/g, "_"), // Générer un nom technique
+      field_type: TYPE_MAPPING[f.type] || "TEXT", // ✅ Forcer le bon type !
       required: f.required,
-      options: f.type === "select" ? f.options : undefined, // Envoyer les options uniquement pour select
+      options: f.type === "select" ? f.options : undefined,
+      position: fields.findIndex((field) => field.id === f.id),
     }));
+    
+    console.log("📤 Payload envoyé au backend:", payload);
     onSubmit(payload);
     onHide();
   };

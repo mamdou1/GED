@@ -154,7 +154,9 @@ export default function DocumentForm({
     const value = values[field.id] || "";
     if (field.hidden) return null;
 
-    switch (field.field_type) {
+    const fieldType = field.field_type?.toUpperCase();
+
+    switch (fieldType) {
       case "TEXT":
       case "TEXTAREA":
         return (

@@ -94,3 +94,11 @@ export const updateUser = async (
 export const deleteUser = async (id: string): Promise<void> => {
   await api.delete(`/user/${id}`);
 };
+
+export const desactiverUserCompte = async (id: string): Promise<void> => {
+  await api.patch(`/user/desable/${id}`);
+};
+
+export const activerUserCompte = async (id: string): Promise<void> => {
+  await api.patch(`/user/enable/${id}`);
+};

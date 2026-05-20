@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   FileCheck,
   Layers,
@@ -10,33 +10,68 @@ import {
 } from "lucide-react";
 import { Button } from "primereact/button";
 import Pagination from "../../components/layout/Pagination";
+import { getEffectivePiecesForEntity } from "../../api/typeDocument"; // ✅ Importer
 
 type Props = {
   pieces: any[];
+  typeId?: number; // ✅ Ajouter
+  entityType?: string; // ✅ Ajouter
+  entityId?: number; // ✅ Ajouter
   onAdd: () => void;
 };
 
-export default function DocumentTypePieceListe({ pieces, onAdd }: Props) {
+export default function DocumentTypePieceListe({
+  pieces,
+  typeId,
+  entityType,
+  entityId,
+  onAdd,
+}: Props) {
   const [query, setQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
-
   const [expandedDivision, setExpandedDivision] = useState<string | null>(null);
 
-  // 1. Filtrage global (Recherche par libellé ou code)
-  const filtered = pieces.filter((p) =>
+  // ✅ State pour les pièces effectives
+  const [effectivePieces, setEffectivePieces] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // ✅ Charger les pièces effectives quand l'entité est spécifiée
+  useEffect(() => {
+    if (typeId && entityType && entityId && entityId > 0) {
+      setLoading(true);
+      getEffectivePiecesForEntity(String(typeId), entityType, entityId)
+        .then(({ basePieces, addedPieces, removedPieceIds }) => {
+          // Pièces effectives = base + ajouts - retraits
+          const effective = [...basePieces, ...addedPieces].filter(
+            (p) => !removedPieceIds.includes(Number(p.id)),
+          );
+          setEffectivePieces(effective);
+        })
+        .catch((err) => {
+          console.error("Erreur chargement pièces effectives:", err);
+          // Fallback : utiliser les pièces globales
+          setEffectivePieces(pieces);
+        })
+        .finally(() => setLoading(false));
+    } else {
+      // Pas d'entité spécifiée : utiliser les pièces globales
+      setEffectivePieces(pieces);
+    }
+  }, [typeId, entityType, entityId, pieces]);
+
+  // ✅ Utiliser effectivePieces au lieu de pieces pour le filtrage
+  const filtered = effectivePieces.filter((p) =>
     `${p.libelle || ""} ${p.code_pieces || ""} ${p.division?.libelle || ""}`
       .toLowerCase()
       .includes(query.toLowerCase()),
   );
 
-  // 2. Pagination de la liste filtrée
   const paginated = filtered.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
 
-  // 3. Séparation des données paginées pour l'affichage
   const piecesSansDivision = paginated.filter((p) => !p.division?.libelle);
 
   const groupedPieces = paginated.reduce((acc: Record<string, any[]>, p) => {
@@ -51,6 +86,15 @@ export default function DocumentTypePieceListe({ pieces, onAdd }: Props) {
   const toggleDivision = (libelle: string) => {
     setExpandedDivision(expandedDivision === libelle ? null : libelle);
   };
+
+  if (loading) {
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500 mx-auto"></div>
+        <p className="text-sm text-slate-400 mt-2">Chargement des pièces...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 mt-4">
@@ -72,18 +116,27 @@ export default function DocumentTypePieceListe({ pieces, onAdd }: Props) {
         />
       </div>
 
+      {/* ✅ Indicateur : pièces effectives vs globales */}
+      {/* {entityType && entityId && (
+        <div className="flex items-center gap-2 px-1">
+          <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wider">
+            Pièces spécifiques à l'entité ({effectivePieces.length})
+          </span>
+        </div>
+      )} */}
+
       {/* SECTION PIÈCES GÉNÉRALES */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Pièces Générales
+            Pièces Affectées
           </p>
           <Button
             onClick={onAdd}
             className="flex items-center gap-2 px-3 py-2 text-emerald-600 font-bold bg-emerald-50 hover:bg-emerald-500 hover:text-white rounded-lg transition-all border-none"
           >
             <PlusCircle size={15} />
-            <span className="text-xs">Ajouter</span>
+            <span className="text-xs">Gérer</span>
           </Button>
         </div>
 
@@ -93,7 +146,7 @@ export default function DocumentTypePieceListe({ pieces, onAdd }: Props) {
               <tbody className="divide-y divide-slate-50">
                 {piecesSansDivision.map((item, index) => (
                   <tr
-                    key={index}
+                    key={item.id || index}
                     className="group hover:bg-emerald-50/30 transition-colors"
                   >
                     <td className="p-3 text-xs font-bold text-slate-400 w-12">
@@ -123,7 +176,7 @@ export default function DocumentTypePieceListe({ pieces, onAdd }: Props) {
           !Object.keys(groupedPieces).length && (
             <div className="text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">
               <p className="text-slate-400 text-sm italic">
-                Aucun résultat trouvé
+                Aucune pièce affectée
               </p>
             </div>
           )
@@ -179,7 +232,7 @@ export default function DocumentTypePieceListe({ pieces, onAdd }: Props) {
                 <div className="p-3 bg-slate-50/30 border-t border-slate-50 space-y-1">
                   {items.map((sec, idx) => (
                     <div
-                      key={idx}
+                      key={sec.id || idx}
                       className="flex items-center justify-between ml-8 p-2 text-sm text-slate-600"
                     >
                       <div className="flex items-center gap-3">

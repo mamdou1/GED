@@ -39,7 +39,7 @@ const DocumentListe: React.FC<DocumentListeProps> = ({
   const [expandedType, setExpandedType] = useState<number | null>(null);
 
   // =============================================
-  // FONCTIONS D'ACCÈS (reprises de DocumentPage)
+  // FONCTIONS D'ACCÈS
   // =============================================
   const isUserAdmin = (): boolean => {
     if (!user) return false;
@@ -109,131 +109,153 @@ const DocumentListe: React.FC<DocumentListeProps> = ({
   };
 
   // =============================================
-  // REGROUPEMENT DES TYPES PAR NIVEAU D'ENTITÉ
+  // ✅ FONCTION POUR RÉCUPÉRER LES ENTITÉS D'UN DOCUMENT (Many-to-Many)
   // =============================================
-  const typesByEntiteeAndNiveau = useMemo(() => {
+  const getDocumentEntities = (
+    doc: Document,
+  ): Array<{ type: string; id: number }> => {
+    const entities: Array<{ type: string; id: number }> = [];
+
+    if (doc.entities && Array.isArray(doc.entities)) {
+      doc.entities.forEach((entity: any) => {
+        entities.push({
+          type: entity.entity_type,
+          id: entity.entity_id,
+        });
+      });
+    }
+
+    return entities;
+  };
+
+  // Vérifie si un document appartient à une entité spécifique
+  const documentBelongsToEntity = (
+    doc: Document,
+    entityType: string,
+    entityId: number,
+  ): boolean => {
+    const entities = getDocumentEntities(doc);
+    return entities.some((e) => e.type === entityType && e.id === entityId);
+  };
+
+  // =============================================
+  // ✅ REGROUPEMENT DES DOCUMENTS PAR ENTITÉ (Many-to-Many)
+  // =============================================
+  const documentsByEntitee = useMemo(() => {
     const grouped: Record<
       string,
-      { entitee: any; niveau: "un" | "deux" | "trois"; types: TypeDocument[] }[]
-    > = {
-      un: [],
-      deux: [],
-      trois: [],
-    };
+      {
+        entitee: any;
+        niveau: "un" | "deux" | "trois";
+        types: Map<number, { type: TypeDocument; documents: Document[] }>;
+      }
+    > = {};
 
     if (isUserAdmin()) {
-      // ADMIN : tous les types groupés par entité de niveau 1
-      const entiteesUn = entitees.filter((e) => e.type === "un");
-      entiteesUn.forEach((entitee) => {
-        const entiteeTypes = types.filter(
-          (t) => t.entitee_un_id === entitee.id,
-        );
-        if (entiteeTypes.length > 0) {
-          grouped.un.push({
+      // ADMIN : voir tous les documents
+      entitees.forEach((entitee) => {
+        const key = `${entitee.type}-${entitee.id}`;
+        if (!grouped[key]) {
+          grouped[key] = {
             entitee,
-            niveau: "un",
-            types: entiteeTypes,
-          });
+            niveau: entitee.type as "un" | "deux" | "trois",
+            types: new Map(),
+          };
         }
-      });
 
-      // Niveau 2
-      const entiteesDeux = entitees.filter((e) => e.type === "deux");
-      entiteesDeux.forEach((entitee) => {
-        const entiteeTypes = types.filter(
-          (t) => t.entitee_deux_id === entitee.id,
+        // Filtrer les documents appartenant à cette entité
+        const docsForEntity = allDocs.filter((doc) =>
+          documentBelongsToEntity(doc, `entitee_${entitee.type}`, entitee.id),
         );
-        if (entiteeTypes.length > 0) {
-          grouped.deux.push({
-            entitee,
-            niveau: "deux",
-            types: entiteeTypes,
-          });
-        }
-      });
 
-      // Niveau 3
-      const entiteesTrois = entitees.filter((e) => e.type === "trois");
-      entiteesTrois.forEach((entitee) => {
-        const entiteeTypes = types.filter(
-          (t) => t.entitee_trois_id === entitee.id,
-        );
-        if (entiteeTypes.length > 0) {
-          grouped.trois.push({
-            entitee,
-            niveau: "trois",
-            types: entiteeTypes,
-          });
-        }
+        // Grouper par type de document
+        docsForEntity.forEach((doc) => {
+          const type = types.find((t) => t.id === doc.type_document_id);
+          if (type) {
+            if (!grouped[key].types.has(type.id)) {
+              grouped[key].types.set(type.id, { type, documents: [] });
+            }
+            grouped[key].types.get(type.id)!.documents.push(doc);
+          }
+        });
       });
     } else if (hasAdditionalAccess()) {
       const accessibleIds = getUserAccessibleEntityIds();
 
-      // Niveau 1
+      // Filtrer les entités accessibles
       entitees
-        .filter((e) => e.type === "un" && accessibleIds.un.has(e.id))
+        .filter((e) => {
+          if (e.type === "un") return accessibleIds.un.has(e.id);
+          if (e.type === "deux") return accessibleIds.deux.has(e.id);
+          if (e.type === "trois") return accessibleIds.trois.has(e.id);
+          return false;
+        })
         .forEach((entitee) => {
-          const entiteeTypes = types.filter(
-            (t) => t.entitee_un_id === entitee.id,
-          );
-          if (entiteeTypes.length > 0) {
-            grouped.un.push({ entitee, niveau: "un", types: entiteeTypes });
-          }
-        });
-
-      // Niveau 2
-      entitees
-        .filter((e) => e.type === "deux" && accessibleIds.deux.has(e.id))
-        .forEach((entitee) => {
-          const entiteeTypes = types.filter(
-            (t) => t.entitee_deux_id === entitee.id,
-          );
-          if (entiteeTypes.length > 0) {
-            grouped.deux.push({ entitee, niveau: "deux", types: entiteeTypes });
-          }
-        });
-
-      // Niveau 3
-      entitees
-        .filter((e) => e.type === "trois" && accessibleIds.trois.has(e.id))
-        .forEach((entitee) => {
-          const entiteeTypes = types.filter(
-            (t) => t.entitee_trois_id === entitee.id,
-          );
-          if (entiteeTypes.length > 0) {
-            grouped.trois.push({
+          const key = `${entitee.type}-${entitee.id}`;
+          if (!grouped[key]) {
+            grouped[key] = {
               entitee,
-              niveau: "trois",
-              types: entiteeTypes,
-            });
+              niveau: entitee.type as "un" | "deux" | "trois",
+              types: new Map(),
+            };
           }
+
+          const docsForEntity = allDocs.filter((doc) =>
+            documentBelongsToEntity(doc, `entitee_${entitee.type}`, entitee.id),
+          );
+
+          docsForEntity.forEach((doc) => {
+            const type = types.find((t) => t.id === doc.type_document_id);
+            if (type) {
+              if (!grouped[key].types.has(type.id)) {
+                grouped[key].types.set(type.id, { type, documents: [] });
+              }
+              grouped[key].types.get(type.id)!.documents.push(doc);
+            }
+          });
         });
     } else {
       // Fonction seulement
       const entityType = getUserFonctionEntityType();
       const entityId = getUserFonctionEntityId();
+
       if (entityType && entityId) {
         const fonctionEntitee = entitees.find(
           (e) => e.type === entityType && e.id === entityId,
         );
+
         if (fonctionEntitee) {
-          const fonctionTypes = types.filter((t) => {
-            if (entityType === "un") return t.entitee_un_id === entityId;
-            if (entityType === "deux") return t.entitee_deux_id === entityId;
-            if (entityType === "trois") return t.entitee_trois_id === entityId;
-            return false;
-          });
-          grouped[entityType].push({
+          const key = `${entityType}-${entityId}`;
+          grouped[key] = {
             entitee: fonctionEntitee,
             niveau: entityType,
-            types: fonctionTypes,
+            types: new Map(),
+          };
+
+          const docsForEntity = allDocs.filter((doc) =>
+            documentBelongsToEntity(doc, `entitee_${entityType}`, entityId),
+          );
+
+          docsForEntity.forEach((doc) => {
+            const type = types.find((t) => t.id === doc.type_document_id);
+            if (type) {
+              if (!grouped[key].types.has(type.id)) {
+                grouped[key].types.set(type.id, { type, documents: [] });
+              }
+              grouped[key].types.get(type.id)!.documents.push(doc);
+            }
           });
         }
       }
     }
 
-    return grouped;
-  }, [entitees, types, user]);
+    // Filtrer les entités sans documents
+    const result = Object.values(grouped).filter(
+      (group) => group.types.size > 0,
+    );
+
+    return result;
+  }, [allDocs, entitees, types, user]);
 
   // =============================================
   // GESTION DE LA SÉLECTION
@@ -270,14 +292,12 @@ const DocumentListe: React.FC<DocumentListeProps> = ({
     const allSelected = areAllDocumentsOfTypeSelected(typeId, docs);
 
     if (allSelected) {
-      // Désélectionner tous
       onDocumentsChange(
         selectedDocuments.filter(
           (d) => !docs.some((doc) => doc.id === d.documentId),
         ),
       );
     } else {
-      // Sélectionner tous ceux qui ne le sont pas déjà
       const newSelections = docs
         .filter((doc) => !isDocumentSelected(doc.id))
         .map((doc) => ({
@@ -317,174 +337,154 @@ const DocumentListe: React.FC<DocumentListeProps> = ({
       </div>
 
       <div className="p-3 space-y-4">
-        {(["un", "deux", "trois"] as const).map((niveau) => {
-          const entiteesDuNiveau = typesByEntiteeAndNiveau[niveau];
-          if (entiteesDuNiveau.length === 0) return null;
+        {documentsByEntitee.map(({ entitee, niveau, types: typesMap }) => (
+          <div key={`${niveau}-${entitee.id}`}>
+            <div
+              className={`text-xs font-bold uppercase tracking-wider px-3 py-2 rounded-lg mb-2 ${niveauColors[niveau]}`}
+            >
+              {niveauLabels[niveau]} : {entitee.libelle}
+            </div>
 
-          return (
-            <div key={niveau}>
-              <div
-                className={`text-xs font-bold uppercase tracking-wider px-3 py-2 rounded-lg mb-2 ${niveauColors[niveau]}`}
-              >
-                {niveauLabels[niveau]}
-              </div>
+            <div className="space-y-2">
+              {/* Header Entité */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <button
+                  onClick={() =>
+                    setExpandedEntitee(
+                      expandedEntitee === entitee.id ? null : entitee.id,
+                    )
+                  }
+                  className="w-full flex items-center justify-between p-3 hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-slate-100 rounded-lg text-slate-500">
+                      {niveauIcons[niveau]}
+                    </div>
+                    <div className="text-left">
+                      <span className="text-sm font-semibold text-slate-700">
+                        {entitee.libelle}
+                      </span>
+                      <span className="text-xs text-slate-400 ml-2">
+                        {entitee.code}
+                      </span>
+                    </div>
+                  </div>
+                  {expandedEntitee === entitee.id ? (
+                    <ChevronDown size={16} className="text-slate-400" />
+                  ) : (
+                    <ChevronRight size={16} className="text-slate-400" />
+                  )}
+                </button>
 
-              <div className="space-y-2">
-                {entiteesDuNiveau.map(({ entitee, types: entiteeTypes }) => (
-                  <div
-                    key={`${niveau}-${entitee.id}`}
-                    className="border border-slate-200 rounded-xl overflow-hidden"
-                  >
-                    {/* Header Entité */}
-                    <button
-                      onClick={() =>
-                        setExpandedEntitee(
-                          expandedEntitee === entitee.id ? null : entitee.id,
-                        )
-                      }
-                      className="w-full flex items-center justify-between p-3 hover:bg-slate-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="p-1.5 bg-slate-100 rounded-lg text-slate-500">
-                          {niveauIcons[niveau]}
-                        </div>
-                        <div className="text-left">
-                          <span className="text-sm font-semibold text-slate-700">
-                            {entitee.libelle}
-                          </span>
-                          <span className="text-xs text-slate-400 ml-2">
-                            {entitee.code}
-                          </span>
-                        </div>
-                      </div>
-                      {expandedEntitee === entitee.id ? (
-                        <ChevronDown size={16} className="text-slate-400" />
-                      ) : (
-                        <ChevronRight size={16} className="text-slate-400" />
-                      )}
-                    </button>
+                {/* Types de documents */}
+                {expandedEntitee === entitee.id && (
+                  <div className="border-t border-slate-100 bg-slate-50/30 p-2 space-y-1">
+                    {Array.from(typesMap.values()).map(
+                      ({ type, documents: typeDocs }) => {
+                        const allSelected = areAllDocumentsOfTypeSelected(
+                          type.id,
+                          typeDocs,
+                        );
 
-                    {/* Types de documents */}
-                    {expandedEntitee === entitee.id && (
-                      <div className="border-t border-slate-100 bg-slate-50/30 p-2 space-y-1">
-                        {entiteeTypes.map((type) => {
-                          const typeDocs = allDocs.filter(
-                            (d) => d.type_document_id === type.id,
-                          );
-                          const allSelected = areAllDocumentsOfTypeSelected(
-                            type.id,
-                            typeDocs,
-                          );
-
-                          return (
-                            <div key={type.id}>
-                              {/* Header Type */}
-                              <button
-                                onClick={() =>
-                                  setExpandedType(
-                                    expandedType === type.id ? null : type.id,
-                                  )
-                                }
-                                className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-white transition-colors"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleAllDocumentsOfType(
-                                        type.id,
-                                        typeDocs,
-                                      );
-                                    }}
-                                    className="text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer"
-                                  >
-                                    {allSelected ? (
-                                      <CheckSquare
-                                        size={16}
-                                        className="text-emerald-600"
-                                      />
-                                    ) : (
-                                      <Square size={16} />
-                                    )}
-                                  </div>
-                                  <span className="text-sm font-medium text-slate-600">
-                                    {type.nom}
-                                  </span>
-                                  <span className="text-xs text-slate-400">
-                                    ({typeDocs.length})
-                                  </span>
-                                </div>
-                                {expandedType === type.id ? (
-                                  <ChevronDown
-                                    size={14}
-                                    className="text-slate-400"
-                                  />
-                                ) : (
-                                  <ChevronRight
-                                    size={14}
-                                    className="text-slate-400"
-                                  />
-                                )}
-                              </button>
-
-                              {/* Liste des documents */}
-                              {expandedType === type.id && (
-                                <div className="ml-6 space-y-1 mb-2">
-                                  {typeDocs.length > 0 ? (
-                                    typeDocs.map((doc) => (
-                                      <label
-                                        key={doc.id}
-                                        className="flex items-center gap-2 p-1.5 rounded hover:bg-white cursor-pointer transition-colors"
-                                      >
-                                        <input
-                                          type="checkbox"
-                                          checked={isDocumentSelected(doc.id)}
-                                          onChange={() =>
-                                            toggleDocumentSelection(
-                                              doc,
-                                              type.id,
-                                            )
-                                          }
-                                          className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500"
-                                        />
-                                        <span className="text-xs font-mono bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
-                                          #{String(doc.id).padStart(3, "0")}
-                                        </span>
-                                        {/* Afficher les métadonnées si disponibles */}
-                                        {doc.values
-                                          ?.slice(0, 2)
-                                          .map((v: any, i: number) => (
-                                            <span
-                                              key={i}
-                                              className="text-xs text-slate-500 truncate max-w-[150px]"
-                                            >
-                                              {v.value || "---"}
-                                            </span>
-                                          ))}
-                                      </label>
-                                    ))
+                        return (
+                          <div key={type.id}>
+                            {/* Header Type */}
+                            <button
+                              onClick={() =>
+                                setExpandedType(
+                                  expandedType === type.id ? null : type.id,
+                                )
+                              }
+                              className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-white transition-colors"
+                            >
+                              <div className="flex items-center gap-2">
+                                <div
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleAllDocumentsOfType(type.id, typeDocs);
+                                  }}
+                                  className="text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer"
+                                >
+                                  {allSelected ? (
+                                    <CheckSquare
+                                      size={16}
+                                      className="text-emerald-600"
+                                    />
                                   ) : (
-                                    <p className="text-xs text-slate-400 italic p-2">
-                                      Aucun document
-                                    </p>
+                                    <Square size={16} />
                                   )}
                                 </div>
+                                <span className="text-sm font-medium text-slate-600">
+                                  {type.nom}
+                                </span>
+                                <span className="text-xs text-slate-400">
+                                  ({typeDocs.length})
+                                </span>
+                              </div>
+                              {expandedType === type.id ? (
+                                <ChevronDown
+                                  size={14}
+                                  className="text-slate-400"
+                                />
+                              ) : (
+                                <ChevronRight
+                                  size={14}
+                                  className="text-slate-400"
+                                />
                               )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                            </button>
+
+                            {/* Liste des documents */}
+                            {expandedType === type.id && (
+                              <div className="ml-6 space-y-1 mb-2">
+                                {typeDocs.length > 0 ? (
+                                  typeDocs.map((doc) => (
+                                    <label
+                                      key={doc.id}
+                                      className="flex items-center gap-2 p-1.5 rounded hover:bg-white cursor-pointer transition-colors"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isDocumentSelected(doc.id)}
+                                        onChange={() =>
+                                          toggleDocumentSelection(doc, type.id)
+                                        }
+                                        className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500"
+                                      />
+                                      <span className="text-xs font-mono bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
+                                        #{String(doc.id).padStart(3, "0")}
+                                      </span>
+                                      {doc.values
+                                        ?.slice(0, 2)
+                                        .map((v: any, i: number) => (
+                                          <span
+                                            key={i}
+                                            className="text-xs text-slate-500 truncate max-w-[150px]"
+                                          >
+                                            {v.value || "---"}
+                                          </span>
+                                        ))}
+                                    </label>
+                                  ))
+                                ) : (
+                                  <p className="text-xs text-slate-400 italic p-2">
+                                    Aucun document
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      },
                     )}
                   </div>
-                ))}
+                )}
               </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
 
-        {Object.values(typesByEntiteeAndNiveau).every(
-          (arr) => arr.length === 0,
-        ) && (
+        {documentsByEntitee.length === 0 && (
           <div className="text-center py-12 text-slate-400">
             <FileStack size={40} className="mx-auto mb-3 opacity-50" />
             <p>Aucun document disponible</p>

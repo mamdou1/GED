@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
 import { InputNumber } from "primereact/inputnumber";
+import { Toast } from "primereact/toast"; // ✅ AJOUTER CET IMPORT
 import {
   BoxIcon,
   Hash,
@@ -14,6 +15,8 @@ import {
   Layers,
   GitMerge,
   Briefcase,
+  ArchiveRestore,
+  Plus,
 } from "lucide-react";
 import { getTraves } from "../../api/trave";
 import {
@@ -22,6 +25,7 @@ import {
   EntiteeUn,
   Trave,
   TypeDocument,
+  TypeOutilsConservation,
 } from "../../interfaces";
 import { Dropdown } from "primereact/dropdown";
 import { getAllEntiteeUn } from "../../api/entiteeUn";
@@ -34,6 +38,18 @@ import {
   getEntiteeTroisByEntiteeDeux,
 } from "../../api/entiteeTrois";
 import { getTypeDocuments } from "../../api/typeDocument";
+import {
+  getTypesOfEntiteeUn, // ✅ NOUVEAU — API Many-to-Many
+} from "../../api/entiteeUn";
+import {
+  getTypesOfEntiteeDeux, // ✅ NOUVEAU — API Many-to-Many
+} from "../../api/entiteeDeux";
+import {
+  getTypesOfEntiteeTrois, // ✅ NOUVEAU — API Many-to-Many
+} from "../../api/entiteeTrois";
+import { getAll } from "../../api/typeOutilsConservation";
+import TypeOutilsConservationForm from "./Type/TypeOutilsConservationForm";
+import { useCreateTypeOutilsConservation } from "../../hooks/useTypeOutilsConservation";
 
 export default function BoxForm({
   visible,
@@ -48,7 +64,8 @@ export default function BoxForm({
     capacite_max: 10,
     trave_id: null,
     type_document_id: "",
-    entitee_un_id: "",
+    type_outils_conservation_id: "",
+    entitee_un_id: "", // ✅ Supprimé le doublon
     entitee_deux_id: "",
     entitee_trois_id: "",
   });
@@ -62,8 +79,13 @@ export default function BoxForm({
   const [type_document_id, setType_document_id] = useState<
     number | undefined
   >();
+  const [type_outils_conservation_id, setType_outils_conservation_id] =
+    useState<number | undefined>();
 
   const [allEntiteeUn, setAllEntiteeUn] = useState<EntiteeUn[]>([]);
+  const [allTypeOutilsConservation, setAllTypeOutilsConservation] = useState<
+    TypeOutilsConservation[]
+  >([]);
   const [allEntiteeDeux, setAllEntiteeDeux] = useState<EntiteeDeux[]>([]);
   const [allEntiteeTrois, setAllEntiteeTrois] = useState<EntiteeTrois[]>([]);
   const [allTypeDocuments, setAllTypeDocuments] = useState<TypeDocument[]>([]);
@@ -77,34 +99,79 @@ export default function BoxForm({
   const [titreEntiteeTrois, setTitreEntiteeTrois] = useState<EntiteeTrois[]>(
     [],
   );
+  const toast = useRef<Toast>(null);
+  const [editing, setEditing] = useState<any>(null);
 
-  // ✅ Vérifier si les titres existent
+  // ✅ Correction : Vérifier si les données existent et ont un titre
   const titreUnExiste = allEntiteeUn.length > 0 && allEntiteeUn[0]?.titre;
   const titreDeuxExiste =
     titreEntiteeDeux.length > 0 && titreEntiteeDeux[0]?.titre;
   const titreTroisExiste =
     titreEntiteeTrois.length > 0 && titreEntiteeTrois[0]?.titre;
 
-  // console.log("titre 1: ", titreUnExiste);
-  // console.log("titre 2: ", titreDeuxExiste);
-  // console.log("titre 3: ", titreTroisExiste);
+  const [typeOutilsConservationVisible, setTypeOutilsConservationVisible] =
+    useState(false);
+  const createTypeMutation = useCreateTypeOutilsConservation();
+
+  const handleTypeOutilsConservationSubmit = async (payload: any) => {
+    try {
+      await createTypeMutation.mutateAsync(payload);
+
+      toast.current?.show({
+        severity: "success",
+        summary: "Succès",
+        detail: "Type d'outil de conservation créé",
+      });
+
+      // Recharger la liste des types d'outils de conservation
+      const updatedTypes = await getAll();
+      setAllTypeOutilsConservation(
+        Array.isArray(updatedTypes) ? updatedTypes : [],
+      );
+
+      setTypeOutilsConservationVisible(false);
+      setEditing(null);
+      refresh?.();
+    } catch (err) {
+      toast.current?.show({
+        severity: "error",
+        summary: "Erreur",
+        detail: "L'opération a échoué",
+      });
+    }
+  };
 
   // Chargement initial des données
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [entitees, types, ent2, ent3] = await Promise.all([
-          getAllEntiteeUn(),
-          getTypeDocuments(), // ✅ Correction : ajout des parenthèses
-          getAllEntiteeDeux(),
-          getAllEntiteeTrois(),
-        ]);
+        const [entitees, types, ent2, ent3, typeOutilsConservation] =
+          await Promise.all([
+            getAllEntiteeUn(),
+            getTypeDocuments(),
+            getAllEntiteeDeux(),
+            getAllEntiteeTrois(),
+            getAll(),
+          ]);
+
+        console.log(
+          "📦 Types d'outils de conservation reçus:",
+          typeOutilsConservation,
+        );
+
         setAllEntiteeUn(Array.isArray(entitees) ? entitees : []);
         setAllTypeDocuments(
           Array.isArray(types?.typeDocument) ? types.typeDocument : [],
         );
         setTitreEntiteeDeux(Array.isArray(ent2) ? ent2 : []);
         setTitreEntiteeTrois(Array.isArray(ent3) ? ent3 : []);
+        setAllTypeOutilsConservation(
+          Array.isArray(typeOutilsConservation) ? typeOutilsConservation : [],
+        );
+        console.log(
+          "✅ State allTypeOutilsConservation après mise à jour:",
+          typeOutilsConservation,
+        );
       } catch (error) {
         console.error("❌ Erreur chargement données initiales:", error);
       }
@@ -118,7 +185,6 @@ export default function BoxForm({
       setLoadingTrave(true);
       getTraves()
         .then((data) => {
-          // Adapter selon le format de votre API
           const traves = data.trave || data || [];
           setTrave(Array.isArray(traves) ? traves : []);
         })
@@ -136,18 +202,18 @@ export default function BoxForm({
         capacite_max: initial.capacite_max || 10,
         trave_id: initial.trave_id || null,
         type_document_id: initial.type_document_id || "",
+        type_outils_conservation_id: initial.type_outils_conservation_id || "",
         entitee_un_id: initial.entitee_un_id || "",
         entitee_deux_id: initial.entitee_deux_id || "",
         entitee_trois_id: initial.entitee_trois_id || "",
       });
 
-      // Synchroniser les états séparés
       setEntitee_un_id(initial.entitee_un_id);
       setEntitee_deux_id(initial.entitee_deux_id);
       setEntitee_trois_id(initial.entitee_trois_id);
       setType_document_id(initial.type_document_id);
+      setType_outils_conservation_id(initial.type_outils_conservation_id);
 
-      // Charger les sous-entités si nécessaire
       if (initial.entitee_un_id) {
         loadEntiteeDeux(initial.entitee_un_id);
       }
@@ -155,13 +221,13 @@ export default function BoxForm({
         loadEntiteeTrois(initial.entitee_deux_id);
       }
     } else {
-      // Mode création : réinitialiser
       setFormData({
         code_box: "",
         libelle: "",
         capacite_max: 10,
         trave_id: null,
         type_document_id: "",
+        type_outils_conservation_id: "",
         entitee_un_id: "",
         entitee_deux_id: "",
         entitee_trois_id: "",
@@ -170,34 +236,60 @@ export default function BoxForm({
       setEntitee_deux_id(undefined);
       setEntitee_trois_id(undefined);
       setType_document_id(undefined);
+      setType_outils_conservation_id(undefined);
       setAllEntiteeDeux([]);
       setAllEntiteeTrois([]);
     }
   }, [initial, visible]);
 
   // Filtrer les types de documents selon l'entité sélectionnée
+  // Filtrer les types de documents selon l'entité sélectionnée (Many-to-Many)
   useEffect(() => {
-    if (!entitee_un_id && !entitee_deux_id && !entitee_trois_id) {
-      setFilteredTypeDocuments([]);
-      return;
-    }
+    const loadTypesForEntity = async () => {
+      if (!entitee_un_id && !entitee_deux_id && !entitee_trois_id) {
+        setFilteredTypeDocuments([]);
+        return;
+      }
 
-    // Logique de filtrage : si une entité est sélectionnée, on filtre les types qui y sont rattachés
-    const filtered = allTypeDocuments.filter((typeDoc) => {
-      if (entitee_trois_id) {
-        return typeDoc.entitee_trois_id === entitee_trois_id;
-      }
-      if (entitee_deux_id) {
-        return typeDoc.entitee_deux_id === entitee_deux_id;
-      }
-      if (entitee_un_id) {
-        return typeDoc.entitee_un_id === entitee_un_id;
-      }
-      return false;
-    });
+      try {
+        let typesData: TypeDocument[] = [];
 
-    setFilteredTypeDocuments(filtered);
-  }, [entitee_un_id, entitee_deux_id, entitee_trois_id, allTypeDocuments]);
+        if (entitee_trois_id) {
+          console.log(
+            "🔄 Chargement types pour entitee_trois_id:",
+            entitee_trois_id,
+          );
+          typesData = await getTypesOfEntiteeTrois(entitee_trois_id);
+        } else if (entitee_deux_id) {
+          console.log(
+            "🔄 Chargement types pour entitee_deux_id:",
+            entitee_deux_id,
+          );
+          typesData = await getTypesOfEntiteeDeux(entitee_deux_id);
+        } else if (entitee_un_id) {
+          console.log("🔄 Chargement types pour entitee_un_id:", entitee_un_id);
+          typesData = await getTypesOfEntiteeUn(entitee_un_id);
+        }
+
+        console.log("✅ Types reçus:", typesData);
+        setFilteredTypeDocuments(typesData);
+
+        // Réinitialiser le type de document sélectionné si plus disponible
+        if (
+          type_document_id &&
+          !typesData.find((t) => t.id === type_document_id)
+        ) {
+          setType_document_id(undefined);
+          setFormData((prev) => ({ ...prev, type_document_id: "" }));
+        }
+      } catch (error) {
+        console.error("❌ Erreur chargement types pour l'entité:", error);
+        setFilteredTypeDocuments([]);
+      }
+    };
+
+    loadTypesForEntity();
+  }, [entitee_un_id, entitee_deux_id, entitee_trois_id]);
 
   // --- Handlers de changement (Logique de cascade) ---
   const loadEntiteeDeux = async (id: number) => {
@@ -293,6 +385,10 @@ export default function BoxForm({
 
       trave_id: formData.trave_id ? Number(formData.trave_id) : null, // ✅ IMPORTANT
 
+      type_outils_conservation_id: formData.type_outils_conservation_id
+        ? Number(formData.type_outils_conservation_id)
+        : null,
+
       entitee_un_id: formData.entitee_un_id
         ? Number(formData.entitee_un_id)
         : null,
@@ -306,6 +402,8 @@ export default function BoxForm({
         ? Number(formData.type_document_id)
         : null,
     };
+
+    console.log("📤 Payload envoyé:", payload);
     onSubmit(payload);
   };
 
@@ -314,75 +412,118 @@ export default function BoxForm({
   const inputClass =
     "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none text-emerald-900 font-medium";
 
+  const dropdownClass =
+    "w-80 gap-2 bg-slate-50 border border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none text-emerald-900 font-medium";
+
   return (
-    <Dialog
-      visible={visible}
-      onHide={onHide}
-      header={
-        <div className="flex items-center gap-2">
-          <BoxIcon className="text-emerald-600" size={20} />
-          <span>{initial?.id ? "Modifier le Box" : "Nouveau Box"}</span>
-        </div>
-      }
-      style={{ width: "900px" }}
-      className="rounded-3xl"
-      modal
-    >
-      <form onSubmit={handleSubmit} className="pt-4 grid grid-cols-2 gap-6">
-        {/* Colonne Gauche: Identité */}
-        <div className="space-y-4">
-          <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest border-b pb-2">
-            Identité
-          </h3>
-
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-semibold text-emerald-600 flex items-center gap-2">
-              <Hash size={14} /> Code Identifiant
-            </label>
-            <InputText
-              className={inputClass}
-              placeholder="Ex: BX-2024-001"
-              value={formData.code_box}
-              onChange={(e) =>
-                setFormData({ ...formData, code_box: e.target.value })
-              }
-              required
-            />
+    <>
+      <Toast ref={toast} />
+      <Dialog
+        visible={visible}
+        onHide={onHide}
+        header={
+          <div className="flex items-center gap-2">
+            <BoxIcon className="text-emerald-600" size={20} />
+            <span>
+              {initial?.id
+                ? "Modifier l'outil de conservation"
+                : "Nouvelle outils de conservation"}
+            </span>
           </div>
+        }
+        style={{ width: "900px" }}
+        className="rounded-3xl"
+        modal
+      >
+        <form onSubmit={handleSubmit} className="pt-4 grid grid-cols-2 gap-6">
+          {/* Colonne Gauche: Identité */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest border-b pb-2">
+              Identité
+            </h3>
 
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-semibold text-emerald-600 flex items-center gap-2">
-              <Type size={14} /> Libellé / Nom
-            </label>
-            <InputText
-              className={inputClass}
-              placeholder="Ex: Archives RH"
-              value={formData.libelle}
-              onChange={(e) =>
-                setFormData({ ...formData, libelle: e.target.value })
-              }
-              required
-            />
-          </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-emerald-600 flex items-center gap-2">
+                <Hash size={14} /> Code Identifiant
+              </label>
+              <InputText
+                className={inputClass}
+                placeholder="Ex: BX-2024-001"
+                value={formData.code_box}
+                onChange={(e) =>
+                  setFormData({ ...formData, code_box: e.target.value })
+                }
+                required
+              />
+            </div>
 
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-semibold text-emerald-600 flex items-center gap-2">
-              <BarChart3 size={14} /> Capacité maximale (Documents)
-            </label>
-            <InputNumber
-              className="w-full"
-              inputClassName="p-3 bg-slate-50 border border-slate-200 rounded-xl w-full"
-              value={formData.capacite_max}
-              onValueChange={(e) =>
-                setFormData({ ...formData, capacite_max: e.value || 10 })
-              }
-              min={1}
-              showButtons
-            />
-          </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-emerald-600 flex items-center gap-2">
+                <Type size={14} /> Libellé / Nom
+              </label>
+              <InputText
+                className={inputClass}
+                placeholder="Ex: Archives RH"
+                value={formData.libelle}
+                onChange={(e) =>
+                  setFormData({ ...formData, libelle: e.target.value })
+                }
+                required
+              />
+            </div>
 
-          {/* Sélection de la Travée */}
-          {/* <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-emerald-600 flex items-center gap-2">
+                <BarChart3 size={14} /> Capacité maximale (Documents)
+              </label>
+              <InputNumber
+                className="w-full"
+                inputClassName="p-3 bg-slate-50 border border-slate-200 rounded-xl w-full"
+                value={formData.capacite_max}
+                onValueChange={(e) =>
+                  setFormData({ ...formData, capacite_max: e.value || 10 })
+                }
+                min={1}
+                showButtons
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-emerald-600 flex items-center gap-2">
+                <ArchiveRestore size={14} /> Outils de conservation
+              </label>
+              <div className="flex gap-4">
+                <Dropdown
+                  className={dropdownClass}
+                  options={allTypeOutilsConservation}
+                  optionLabel="nom"
+                  optionValue="id"
+                  placeholder="Sélectionner un type"
+                  value={type_outils_conservation_id} // ✅ Changé
+                  onChange={(e) => {
+                    setType_outils_conservation_id(e.value); // ✅ Changé
+                    setFormData({
+                      ...formData,
+                      type_outils_conservation_id: e.value
+                        ? String(e.value)
+                        : "", // ✅ Changé
+                    });
+                  }}
+                  showClear
+                />
+                <Button
+                  type="button"
+                  title="Gérer les types d'outils de conservation"
+                  onClick={() => setTypeOutilsConservationVisible(true)}
+                  className="bg-emerald-600 hover:bg-emerald-700 rounded-full text-white w-12 h-12 flex items-center justify-center"
+                >
+                  <Plus size={18} className="text-bold" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Sélection de la Travée */}
+            {/* <div className="flex flex-col gap-2">
             <label className="text-sm font-semibold text-emerald-600 flex items-center gap-2">
               <MapPin size={14} /> Travée de destination
             </label>
@@ -400,115 +541,124 @@ export default function BoxForm({
               required
             />
           </div> */}
-        </div>
+          </div>
 
-        {/* Colonne Droite: Affectation */}
-        <div className="space-y-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
-          <h3 className="text-xs font-black uppercase text-emerald-500 tracking-widest border-b border-emerald-100 pb-2">
-            Affectation Structurelle
-          </h3>
+          {/* Colonne Droite: Affectation */}
+          <div className="space-y-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+            <h3 className="text-xs font-black uppercase text-emerald-500 tracking-widest border-b border-emerald-100 pb-2">
+              Affectation Structurelle
+            </h3>
 
-          {/* Niveau 1 */}
-          {titreUnExiste && (
+            {/* Niveau 1 */}
+            {titreUnExiste && (
+              <div>
+                <label className={labelClass}>
+                  <Building2 size={14} className="text-emerald-500" /> {titreUn}
+                </label>
+                <Dropdown
+                  value={entitee_un_id}
+                  options={allEntiteeUn}
+                  optionLabel="libelle"
+                  optionValue="id"
+                  onChange={(e) => handleEntiteeUnChange(Number(e.value))}
+                  placeholder={`Sélectionner ${titreUn}`}
+                  className="w-full rounded-xl"
+                  filter
+                />
+              </div>
+            )}
+
+            {/* Niveau 2 */}
+            {titreDeuxExiste && (
+              <div>
+                <label className={labelClass}>
+                  <Layers size={14} className="text-emerald-500" /> {titreDeux}
+                </label>
+                <Dropdown
+                  value={entitee_deux_id}
+                  options={allEntiteeDeux}
+                  optionLabel="libelle"
+                  optionValue="id"
+                  onChange={(e) => handleEntiteeDeuxChange(Number(e.value))}
+                  placeholder={`Sélectionner ${titreDeux}`}
+                  className="w-full rounded-xl"
+                  disabled={!entitee_un_id}
+                  filter
+                />
+              </div>
+            )}
+
+            {/* Niveau 3 */}
+            {titreTroisExiste && (
+              <div>
+                <label className={labelClass}>
+                  <GitMerge size={14} className="text-orange-500" />{" "}
+                  {titreTrois}
+                </label>
+                <Dropdown
+                  value={entitee_trois_id}
+                  options={allEntiteeTrois}
+                  optionLabel="libelle"
+                  optionValue="id"
+                  onChange={(e) => handleEntiteeTroisChange(Number(e.value))}
+                  placeholder={`Sélectionner ${titreTrois}`}
+                  className="w-full rounded-xl"
+                  disabled={!entitee_deux_id}
+                  filter
+                />
+              </div>
+            )}
+
+            {/* Type de document */}
             <div>
               <label className={labelClass}>
-                <Building2 size={14} className="text-emerald-500" /> {titreUn}
+                <Briefcase size={14} className="text-purple-500" /> Type de
+                document
               </label>
               <Dropdown
-                value={entitee_un_id}
-                options={allEntiteeUn}
-                optionLabel="libelle"
+                value={type_document_id}
+                options={filteredTypeDocuments}
+                optionLabel="nom"
                 optionValue="id"
-                onChange={(e) => handleEntiteeUnChange(Number(e.value))}
-                placeholder={`Sélectionner ${titreUn}`}
+                onChange={(e) => handleTypeDocumentChange(Number(e.value))}
+                placeholder={
+                  !entitee_un_id
+                    ? "Sélectionnez d'abord une structure"
+                    : filteredTypeDocuments.length === 0
+                      ? "Aucun type disponible pour cette structure"
+                      : "Attribuer un type de document"
+                }
                 className="w-full rounded-xl"
+                disabled={!entitee_un_id || filteredTypeDocuments.length === 0}
                 filter
               />
             </div>
-          )}
+          </div>
 
-          {/* Niveau 2 */}
-          {titreDeuxExiste && (
-            <div>
-              <label className={labelClass}>
-                <Layers size={14} className="text-emerald-500" /> {titreDeux}
-              </label>
-              <Dropdown
-                value={entitee_deux_id}
-                options={allEntiteeDeux}
-                optionLabel="libelle"
-                optionValue="id"
-                onChange={(e) => handleEntiteeDeuxChange(Number(e.value))}
-                placeholder={`Sélectionner ${titreDeux}`}
-                className="w-full rounded-xl"
-                disabled={!entitee_un_id}
-                filter
-              />
-            </div>
-          )}
-
-          {/* Niveau 3 */}
-          {titreTroisExiste && (
-            <div>
-              <label className={labelClass}>
-                <GitMerge size={14} className="text-orange-500" /> {titreTrois}
-              </label>
-              <Dropdown
-                value={entitee_trois_id}
-                options={allEntiteeTrois}
-                optionLabel="libelle"
-                optionValue="id"
-                onChange={(e) => handleEntiteeTroisChange(Number(e.value))}
-                placeholder={`Sélectionner ${titreTrois}`}
-                className="w-full rounded-xl"
-                disabled={!entitee_deux_id}
-                filter
-              />
-            </div>
-          )}
-
-          {/* Type de document */}
-          <div>
-            <label className={labelClass}>
-              <Briefcase size={14} className="text-purple-500" /> Type de
-              document
-            </label>
-            <Dropdown
-              value={type_document_id}
-              options={filteredTypeDocuments}
-              optionLabel="nom"
-              optionValue="id"
-              onChange={(e) => handleTypeDocumentChange(Number(e.value))}
-              placeholder={
-                !entitee_un_id
-                  ? "Sélectionnez d'abord une structure"
-                  : filteredTypeDocuments.length === 0
-                    ? "Aucun type disponible pour cette structure"
-                    : "Attribuer un type de document"
-              }
-              className="w-full rounded-xl"
-              disabled={!entitee_un_id || filteredTypeDocuments.length === 0}
-              filter
+          {/* Footer */}
+          <div className="col-span-2 flex justify-end gap-3 pt-6 mt-4 border-t border-slate-100">
+            <Button
+              type="button"
+              label="Annuler"
+              onClick={onHide}
+              className="p-button-text text-emerald-400"
+            />
+            <Button
+              type="submit"
+              icon={<Save size={18} className="mr-2" />}
+              label="Enregistrer"
+              className="bg-emerald-600 text-white px-8 py-3 rounded-xl shadow-lg hover:bg-emerald-700 transition-all"
             />
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="col-span-2 flex justify-end gap-3 pt-6 mt-4 border-t border-slate-100">
-          <Button
-            type="button"
-            label="Annuler"
-            onClick={onHide}
-            className="p-button-text text-emerald-400"
-          />
-          <Button
-            type="submit"
-            icon={<Save size={18} className="mr-2" />}
-            label="Enregistrer"
-            className="bg-emerald-600 text-white px-8 py-3 rounded-xl shadow-lg hover:bg-emerald-700 transition-all"
-          />
-        </div>
-      </form>
-    </Dialog>
+        </form>
+      </Dialog>
+      <TypeOutilsConservationForm
+        visible={typeOutilsConservationVisible}
+        onHide={() => setTypeOutilsConservationVisible(false)}
+        onSubmit={handleTypeOutilsConservationSubmit}
+        refresh={refresh}
+        initial={editing || {}}
+      />
+    </>
   );
 }

@@ -33,6 +33,7 @@
     "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
-    "sequelize-cli": "^6.6.3"
+    "sequelize-cli": "^6.6.3",
+    "sequelize-erd": "^1.3.1"
   }
 }

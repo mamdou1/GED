@@ -8,6 +8,7 @@ const {
   EntiteeDeux,
   EntiteeTrois,
   sequelize,
+  TypeOutilsConservation,
 } = require("../models");
 const logger = require("../config/logger.config");
 const HistoriqueService = require("../services/historique.service");
@@ -86,6 +87,10 @@ exports.findAll = async (req, res) => {
         {
           model: EntiteeTrois,
           as: "entitee_trois",
+        },
+        {
+          model: TypeOutilsConservation,
+          as: "typeOutilsConservation",
         },
       ],
     });
@@ -168,6 +173,10 @@ exports.findById = async (req, res) => {
         {
           model: EntiteeTrois,
           as: "entitee_trois",
+        },
+        {
+          model: TypeOutilsConservation,
+          as: "typeOutilsConservation",
         },
       ],
     });
@@ -260,6 +269,7 @@ exports.update = async (req, res) => {
         { model: EntiteeUn, as: "entitee_un" },
         { model: EntiteeDeux, as: "entitee_deux" },
         { model: EntiteeTrois, as: "entitee_trois" },
+        { model: TypeOutilsConservation, as: "typeOutilsConservation" },
       ],
     });
 

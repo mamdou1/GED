@@ -9,6 +9,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: "LIBRE",
       },
+      type_outils_conservation_id: {
+        // ✅ Ajout de ce champ
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
       capacite_max: { type: DataTypes.INTEGER, allowNull: false },
       current_count: { type: DataTypes.INTEGER, defaultValue: 0 },
       type_document_id: { type: DataTypes.INTEGER, allowNull: true },
@@ -16,7 +21,7 @@ module.exports = (sequelize, DataTypes) => {
     {
       tableName: "box",
       underscored: true,
-      
+      timestamps: true,
     },
   );
 
@@ -41,6 +46,10 @@ module.exports = (sequelize, DataTypes) => {
     });
 
     Box.hasMany(models.Document, { foreignKey: "box_id", as: "documents" });
+    Box.belongsTo(models.TypeOutilsConservation, {
+      foreignKey: "type_outils_conservation_id",
+      as: "typeOutilsConservation",
+    });
   };
 
   return Box;

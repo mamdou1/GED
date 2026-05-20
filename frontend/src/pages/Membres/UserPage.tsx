@@ -21,6 +21,8 @@ import {
   XCircle,
   ArrowUpDown,
   FolderLock,
+  UserX,
+  UserCheck,
 } from "lucide-react";
 import UserAcces from "./UserAcces";
 
@@ -31,6 +33,8 @@ import {
   useUpdateUser,
   useDeleteUser,
   useGrantAccess,
+  useDesactiverUserCompte,
+  useActiverUserCompte,
 } from "../../hooks/useUsers";
 
 export default function UserPage() {
@@ -52,7 +56,8 @@ export default function UserPage() {
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
   const grantAccessMutation = useGrantAccess();
-
+  const desactiverUserCompteMutation = useDesactiverUserCompte();
+  const activerUserCompteMutation = useActiverUserCompte();
   // États UI (inchangés)
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [detailsUser, setDetailsUser] = useState(false);
@@ -74,6 +79,66 @@ export default function UserPage() {
 
   const isUserOnline = (userId: number) => {
     return onlineUserIds.has(Number(userId));
+  };
+
+  const userDesactiver = async (id: string) => {
+    confirmDialog({
+      message: "Voulez-vous désactiver le compte de cet agent définitivement ?",
+      header: "Confirmation",
+      icon: "pi pi-info-circle",
+      acceptLabel: "Désactiver",
+      rejectLabel: "Annuler",
+      acceptClassName: "p-button-danger p-button-raised p-button-rounded p-2",
+      rejectClassName:
+        "p-button-secondary p-button-outlined p-button-rounded mr-4 p-2",
+      style: { width: "450px" },
+      accept: async () => {
+        try {
+          await desactiverUserCompteMutation.mutateAsync(id);
+          toast.current?.show({
+            severity: "success",
+            summary: "Désactivé",
+            detail: "Compte utilisateur désactivé",
+          });
+        } catch (err) {
+          toast.current?.show({
+            severity: "error",
+            summary: "Erreur",
+            detail: "Échec de suppression",
+          });
+        }
+      },
+    });
+  };
+
+  const userActiver = async (id: string) => {
+    confirmDialog({
+      message: "Voulez-vous activer le compte de cet agent ?",
+      header: "Confirmation",
+      icon: "pi pi-info-circle",
+      acceptLabel: "Activer",
+      rejectLabel: "Annuler",
+      acceptClassName: "p-button-danger p-button-raised p-button-rounded p-2",
+      rejectClassName:
+        "p-button-secondary p-button-outlined p-button-rounded mr-4 p-2",
+      style: { width: "450px" },
+      accept: async () => {
+        try {
+          await activerUserCompteMutation.mutateAsync(id);
+          toast.current?.show({
+            severity: "success",
+            summary: "Activé",
+            detail: "Compte utilisateur activé",
+          });
+        } catch (err) {
+          toast.current?.show({
+            severity: "error",
+            summary: "Erreur",
+            detail: "Échec de suppression",
+          });
+        }
+      },
+    });
   };
 
   // ✅ ÉTAPE 3: Remplacer onCreate
@@ -121,36 +186,36 @@ export default function UserPage() {
   };
 
   // ✅ ÉTAPE 5: Remplacer handleDelete
-  const handleDelete = async (id: string) => {
-    confirmDialog({
-      message:
-        "Voulez-vous supprimer cet agent définitivement ? Cette action est irréversible.",
-      header: "Confirmation",
-      icon: "pi pi-info-circle",
-      acceptLabel: "Supprimer",
-      rejectLabel: "Annuler",
-      acceptClassName: "p-button-danger p-button-raised p-button-rounded p-2",
-      rejectClassName:
-        "p-button-secondary p-button-outlined p-button-rounded mr-4 p-2",
-      style: { width: "450px" },
-      accept: async () => {
-        try {
-          await deleteMutation.mutateAsync(id);
-          toast.current?.show({
-            severity: "success",
-            summary: "Supprimé",
-            detail: "Membre retiré",
-          });
-        } catch (err) {
-          toast.current?.show({
-            severity: "error",
-            summary: "Erreur",
-            detail: "Échec de suppression",
-          });
-        }
-      },
-    });
-  };
+  // const handleDelete = async (id: string) => {
+  //   confirmDialog({
+  //     message:
+  //       "Voulez-vous supprimer cet agent définitivement ? Cette action est irréversible.",
+  //     header: "Confirmation",
+  //     icon: "pi pi-info-circle",
+  //     acceptLabel: "Supprimer",
+  //     rejectLabel: "Annuler",
+  //     acceptClassName: "p-button-danger p-button-raised p-button-rounded p-2",
+  //     rejectClassName:
+  //       "p-button-secondary p-button-outlined p-button-rounded mr-4 p-2",
+  //     style: { width: "450px" },
+  //     accept: async () => {
+  //       try {
+  //         await deleteMutation.mutateAsync(id);
+  //         toast.current?.show({
+  //           severity: "success",
+  //           summary: "Supprimé",
+  //           detail: "Membre retiré",
+  //         });
+  //       } catch (err) {
+  //         toast.current?.show({
+  //           severity: "error",
+  //           summary: "Erreur",
+  //           detail: "Échec de suppression",
+  //         });
+  //       }
+  //     },
+  //   });
+  // };
 
   // ✅ ÉTAPE 6: Remplacer handleGrantAccess
   const handleGrantAccess = async (payload: any[]) => {
@@ -477,7 +542,30 @@ export default function UserPage() {
                     >
                       <Edit3 size={18} />
                     </button>
-                    <button
+                    {u.is_active ? (
+                      <button
+                        onClick={(e) => {
+                          userDesactiver(u.id as any);
+                          e.stopPropagation();
+                        }}
+                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                        title="Desactiver le compte"
+                      >
+                        <UserX size={18} />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          userActiver(u.id as any);
+                          e.stopPropagation();
+                        }}
+                        className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
+                        title="Activer le compte"
+                      >
+                        <UserCheck size={18} />
+                      </button>
+                    )}
+                    {/* <button
                       onClick={(e) => {
                         handleDelete(u.id as any);
                         e.stopPropagation();
@@ -486,7 +574,7 @@ export default function UserPage() {
                       title="Supprimer"
                     >
                       <Trash2 size={18} />
-                    </button>
+                    </button> */}
                   </div>
                 </td>
               </tr>

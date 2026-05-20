@@ -16,7 +16,7 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "meta_field_id",
       as: "metaField",
     });
-        DocumentValue.hasOne(models.DocumentFile, {
+    DocumentValue.hasOne(models.DocumentFile, {
       foreignKey: "document_value_id",
       as: "files",
     });

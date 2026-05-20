@@ -24,7 +24,7 @@ exports.create = async (req, res) => {
       body: req.body,
     });
 
-    const { cote, nom, entitee_un_id, entitee_deux_id, entitee_trois_id } =
+    const { nom, entitee_un_id, entitee_deux_id, entitee_trois_id } =
       req.body;
 
     const count = await TypeDocument.count();
@@ -34,7 +34,6 @@ exports.create = async (req, res) => {
     const code = `TD-${paddedNumber}`;
 
     const data = await TypeDocument.create({
-      cote,
       code,
       nom,
       entitee_un_id,
@@ -44,7 +43,6 @@ exports.create = async (req, res) => {
 
     logger.info("✅ Type de document créé avec succès", {
       typeId: data.id,
-      cote: data.cote,
       nom: data.nom,
       userId: req.user?.id,
       duration: Date.now() - startTime,

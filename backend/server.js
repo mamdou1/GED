@@ -70,12 +70,17 @@ app.use("/api/historique", require("./routes/historique.routes"));
 app.use("/api/types-documents", require("./routes/typeDocument.routes"));
 app.use("/api/meta-fields", require("./routes/metafield.routes"));
 app.use("/api/documents", require("./routes/document.routes"));
+app.use("/api/interfaçage", require("./routes/interfaçage.route"));
 
 app.use("/api/site", require("./routes/site.routes"));
 app.use("/api/salle", require("./routes/salle.routes"));
 app.use("/api/rayon", require("./routes/rayon.routes"));
 app.use("/api/trave", require("./routes/trave.routes"));
 app.use("/api/box", require("./routes/box.routes"));
+app.use(
+  "/api/type_outils_conservation",
+  require("./routes/TypeOutilsConservation.route"),
+);
 
 app.use("/api/entiteeUn", require("./routes/entiteeUn.routes"));
 app.use("/api/entiteeDeux", require("./routes/entiteeDeux.routes"));

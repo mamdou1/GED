@@ -24,10 +24,10 @@ export default function DocumentTypeForm({
   }, [initial]);
 
   const handleSubmit = async () => {
-    if (!nom || !cote) return;
+    if (!nom) return;
     setLoading(true);
     try {
-      await onSubmit({ nom, cote });
+      await onSubmit({ nom });
       // On peut appeler onHide() ici si on veut fermer la modale après succès
       //refresh();
     } catch (error) {
@@ -57,7 +57,7 @@ export default function DocumentTypeForm({
 
       {/* 2. Champs de saisie */}
       <div className="space-y-5">
-        <div className="space-y-2">
+        {/* <div className="space-y-2">
           <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
             <Hash size={14} className="text-emerald-500" /> Cote Référence
           </label>
@@ -68,7 +68,7 @@ export default function DocumentTypeForm({
             placeholder="ex: 2-SD, 2-SRS,...etc"
             autoFocus
           />
-        </div>
+        </div> */}
 
         <div className="space-y-2">
           <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">

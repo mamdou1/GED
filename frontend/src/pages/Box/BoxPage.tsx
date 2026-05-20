@@ -65,6 +65,7 @@ export default function BoxPage() {
 
   // ✅ ÉTATS POUR LES MODALES
   const [archivageVisible, setArchivageVisible] = useState(false);
+
   const [affectationVisible, setAffectationVisible] = useState(false);
   const [affectationTraveeVisible, setAffectationTraveeVisible] =
     useState(false); // ✅ Nouvel état pour BoxListeEtAffectation
@@ -292,7 +293,7 @@ export default function BoxPage() {
           </div>
           <div>
             <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">
-              Boxes d' <span className="text-emerald-600">Archivage</span>
+              Outils de <span className="text-emerald-600">Conservation</span>
             </h1>
             <p className="text-slate-500 font-medium">
               Gestion de la capacité et du contenu
@@ -309,14 +310,14 @@ export default function BoxPage() {
           />
           {/* Bouton "Ajouter au Box" */}
           <Button
-            label="Ajouter Document au Box"
+            label="Ajouter Document à outils"
             icon={<PackageOpen size={20} className="mr-2" />}
             className="bg-amber-500 hover:bg-amber-600 text-white border-none px-6 py-3 rounded-xl shadow-amber-200 shadow-lg transition-all"
             onClick={() => setArchivageVisible(true)}
           />
           {/* Bouton "Nouveau Box" */}
           <Button
-            label="Nouveau Box"
+            label="Nouvelle outils de conservation"
             icon={<Plus size={20} className="mr-2" />}
             className="bg-emerald-600 hover:bg-emerald-700 text-white border-none px-6 py-3 rounded-xl shadow-emerald-200 shadow-lg"
             onClick={() => {
@@ -362,6 +363,9 @@ export default function BoxPage() {
               </th>
               <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
                 Travée
+              </th>
+              <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
+                Type
               </th>
               <th className="p-5 text-[11px] font-black text-emerald-800 uppercase tracking-widest">
                 Statut
@@ -458,6 +462,20 @@ export default function BoxPage() {
                       ) : (
                         <span className="text-sm text-slate-400 italic">
                           Non assignée
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-5">
+                      {box.typeOutilsConservation ? (
+                        <div className="flex items-center gap-2">
+                          <Briefcase size={14} className="text-slate-400" />
+                          <span className="text-sm text-slate-600">
+                            {box.typeOutilsConservation.nom}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-slate-400 italic">
+                          Aucun type
                         </span>
                       )}
                     </td>

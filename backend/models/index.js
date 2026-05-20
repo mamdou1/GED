@@ -36,6 +36,10 @@ db.Salle = require("./Salle.model")(sequelize, DataTypes);
 db.Rayon = require("./Rayon.model")(sequelize, DataTypes);
 db.Trave = require("./Trave.model")(sequelize, DataTypes);
 db.Box = require("./Box.model")(sequelize, DataTypes);
+db.TypeOutilsConservation = require("./OutilsConservation.model")(
+  sequelize,
+  DataTypes,
+);
 
 // =====================
 // 🔹 NOUVEAUX MODÈLES DOC

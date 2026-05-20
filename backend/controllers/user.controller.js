@@ -705,3 +705,65 @@ exports.getOnlineUsers = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+exports.desableUserCompte = async (req, res) => {
+  try {
+    const startTime = Date.now();
+    const { id } = req.params;
+    const agent = await Agent.findByPk(id);
+    if (!agent) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+    await agent.update({ is_active: false });
+
+    logger.info("✅ Compte utilisateur désactivé", {
+      targetUserId: id,
+      nom: `${agent.prenom} ${agent.nom}`,
+      adminId: req.user?.id,
+      duration: Date.now() - startTime,
+    });
+
+    return res.status(200).json({ 
+      message: "Compte utilisateur désactivé avec succès" 
+    });
+  } catch (err) {
+    logger.error("❌ Erreur désactivation compte utilisateur:", {
+      error: err.message,
+      stack: err.stack,
+      userId: req.user?.id,
+      duration: Date.now() - startTime,
+    });
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};
+
+exports.enableUserCompte = async (req, res) => {
+  try {
+    const startTime = Date.now();
+    const { id } = req.params;
+    const agent = await Agent.findByPk(id);
+    if (!agent) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+    await agent.update({ is_active: true });
+
+    logger.info("✅ Compte utilisateur activé", {
+      targetUserId: id,
+      nom: `${agent.prenom} ${agent.nom}`,
+      adminId: req.user?.id,
+      duration: Date.now() - startTime,
+    });
+
+    return res.status(200).json({ 
+      message: "Compte utilisateur activé avec succès" 
+    });
+  } catch (err) {
+    logger.error("❌ Erreur activation compte utilisateur:", {
+      error: err.message,
+      stack: err.stack,
+      userId: req.user?.id,
+      duration: Date.now() - startTime,
+    });
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};

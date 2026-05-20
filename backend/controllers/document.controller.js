@@ -171,6 +171,10 @@ exports.getAll = async (req, res) => {
           model: Pieces,
           as: "pieces",
           attributes: ["id", "libelle", "code_pieces"],
+          include: [
+            { model: DocumentFichier, as: "documentFichiers" },
+            { model: PieceMetaField, as: "metaFields" },
+          ],
         },
         {
           model: TypeDocument,
@@ -183,6 +187,7 @@ exports.getAll = async (req, res) => {
           include: [
             { model: MetaField, as: "metaField" },
             { model: DocumentFile, as: "files" },
+            { model: DocumentFichier, as: "file" },
           ],
         },
         {
@@ -255,7 +260,8 @@ exports.getById = async (req, res) => {
           as: "values",
           include: [
             { model: MetaField, as: "metaField" },
-            { model: DocumentFile, as: "file" },
+            { model: DocumentFile, as: "files" },
+            { model: DocumentFichier, as: "file" },
           ],
         },
         {
@@ -271,6 +277,10 @@ exports.getById = async (req, res) => {
             model: DocumentPieces,
             attributes: ["disponible"],
           },
+          include: [
+            { model: DocumentFichier, as: "documentFichiers" },
+            { model: PieceMetaField, as: "metaFields" },
+          ],
         },
         {
           model: DocumentEntity,
@@ -424,6 +434,8 @@ exports.remove = async (req, res) => {
       return res.status(404).json({ message: "Document non trouvé" });
     }
 
+    await DocumentEntity.destroy({ where: { document_id: id } });
+    await DocumentValue.destroy({ where: { document_id: id } });
     await Document.destroy({ where: { id } });
 
     logger.info("✅ Document supprimé avec succès", {

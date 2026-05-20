@@ -6,6 +6,8 @@ import {
   updateUser,
   deleteUser,
   getOnLigneUsers,
+  desactiverUserCompte,
+  activerUserCompte,
 } from "../api/users";
 import { getDroits } from "../api/droit";
 import { grantAccess } from "../api/agentEntiteeAccess";
@@ -136,6 +138,35 @@ export const useDeleteUser = () => {
       queryClient.invalidateQueries({ queryKey: userKeys.lists() });
       queryClient.removeQueries({
         queryKey: userKeys.detail(deletedId),
+      });
+    },
+  });
+};
+
+// Désactiver le compte d'un utilisateur
+export const useDesactiverUserCompte = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => desactiverUserCompte(id),
+    onSuccess: (_, deletedId) => {
+      queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+      queryClient.removeQueries({
+        queryKey: userKeys.detail(deletedId),
+      });
+    },
+  });
+};
+
+export const useActiverUserCompte = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => activerUserCompte(id),
+    onSuccess: (_, updatedId) => {
+      queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+      queryClient.removeQueries({
+        queryKey: userKeys.detail(updatedId),
       });
     },
   });

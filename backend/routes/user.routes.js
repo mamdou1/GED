@@ -14,6 +14,8 @@ const {
   getMe,
   deleteMembre,
   getOnlineUsers,
+  desableUserCompte,
+  enableUserCompte,
 } = require("../controllers/user.controller");
 const upload = require("../middlewares/upload.middleware");
 
@@ -44,6 +46,18 @@ router.get(
   verifyToken,
   authorizePermission("agent", "read"),
   getUsersById,
+);
+router.patch(
+  "/desable/:id",
+  verifyToken,
+  authorizePermission("agent", "update"),
+  desableUserCompte,
+);
+router.patch(
+  "/enable/:id",
+  verifyToken,
+  authorizePermission("agent", "update"),
+  enableUserCompte,
 );
 router.put(
   "/update-by-admin/:id",

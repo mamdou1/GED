@@ -137,6 +137,7 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   is_on_line?: boolean;
+  is_active?: boolean;
   last_activity?: string;
 
   // On utilise l'ID pour les formulaires, et l'objet pour l'affichage
@@ -471,6 +472,9 @@ export interface Box {
   trave_id: string; // Foreign Key vers Salle
   trave?: Trave;
 
+  type_outils_conservation_id: number;
+  typeOutilsConservation?: TypeOutilsConservation;
+
   type_document_id: number;
   typeDocument?: TypeDocument;
 
@@ -487,6 +491,14 @@ export interface Box {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface TypeOutilsConservation {
+  id?: string;
+  nom: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 //------------------------------------------------
 
 export interface TypeDocumentPiece {

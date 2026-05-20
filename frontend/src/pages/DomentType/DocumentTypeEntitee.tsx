@@ -55,7 +55,12 @@ import EntityFieldManager from "./EntityFieldManager";
 // Types pour les entités (UI et API)
 type EntityTypeUI = "entiteeUn" | "entiteeDeux" | "entiteeTrois";
 type EntityTypeApi = "entitee_un" | "entitee_deux" | "entitee_trois";
-type LegacyEntityType = "direction" | "sousDirection" | "division" | "section" | "service";
+type LegacyEntityType =
+  | "direction"
+  | "sousDirection"
+  | "division"
+  | "section"
+  | "service";
 
 export default function DocumentTypeEntitee() {
   const { user } = useAuth();
@@ -92,8 +97,10 @@ export default function DocumentTypeEntitee() {
   const [affectationFormVisible, setAffectationFormVisible] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [metaVisible, setMetaVisible] = useState(false);
-  const [entityFieldManagerVisible, setEntityFieldManagerVisible] = useState(false);
-  const [selectedEntityType, setSelectedEntityType] = useState<string>("EntiteeUn");
+  const [entityFieldManagerVisible, setEntityFieldManagerVisible] =
+    useState(false);
+  const [selectedEntityType, setSelectedEntityType] =
+    useState<string>("EntiteeUn");
   const [query, setQuery] = useState("");
   const [formPiecesVisible, setFormPiecesVisible] = useState(false);
   const [selectedTypeDoc, setSelectedTypeDoc] = useState<string | null>(null);
@@ -101,12 +108,16 @@ export default function DocumentTypeEntitee() {
     label: string;
     value: string;
   } | null>(null);
-  const [expandedStructure, setExpandedStructure] = useState<string | null>(null);
+  const [expandedStructure, setExpandedStructure] = useState<string | null>(
+    null,
+  );
 
   // ✅ ÉTATS PAGINATION
   const [currentStructurePage, setCurrentStructurePage] = useState(1);
   const structuresPerPage = 5;
-  const [internalPages, setInternalPages] = useState<Record<string, number>>({});
+  const [internalPages, setInternalPages] = useState<Record<string, number>>(
+    {},
+  );
   const itemsPerPageInternal = 10;
 
   const [entiteeModalVisible, setEntiteeModalVisible] = useState(false);
@@ -191,11 +202,22 @@ export default function DocumentTypeEntitee() {
 
   const getUserAccessibleEntityIds = (user: User | null) => {
     if (!user)
-      return { un: new Set<number>(), deux: new Set<number>(), trois: new Set<number>() };
-    const ids = { un: new Set<number>(), deux: new Set<number>(), trois: new Set<number>() };
-    if (user.fonction_details?.entitee_un?.id) ids.un.add(user.fonction_details.entitee_un.id);
-    if (user.fonction_details?.entitee_deux?.id) ids.deux.add(user.fonction_details.entitee_deux.id);
-    if (user.fonction_details?.entitee_trois?.id) ids.trois.add(user.fonction_details.entitee_trois.id);
+      return {
+        un: new Set<number>(),
+        deux: new Set<number>(),
+        trois: new Set<number>(),
+      };
+    const ids = {
+      un: new Set<number>(),
+      deux: new Set<number>(),
+      trois: new Set<number>(),
+    };
+    if (user.fonction_details?.entitee_un?.id)
+      ids.un.add(user.fonction_details.entitee_un.id);
+    if (user.fonction_details?.entitee_deux?.id)
+      ids.deux.add(user.fonction_details.entitee_deux.id);
+    if (user.fonction_details?.entitee_trois?.id)
+      ids.trois.add(user.fonction_details.entitee_trois.id);
     user.agent_access?.forEach((access) => {
       if (access.entitee_un?.id) ids.un.add(access.entitee_un.id);
       if (access.entitee_deux?.id) ids.deux.add(access.entitee_deux.id);
@@ -204,9 +226,12 @@ export default function DocumentTypeEntitee() {
     return ids;
   };
 
-  const hasAdditionalAccess = (user: User | null): boolean => (user?.agent_access?.length ?? 0) > 0;
+  const hasAdditionalAccess = (user: User | null): boolean =>
+    (user?.agent_access?.length ?? 0) > 0;
 
-  const getUserFonctionEntityType = (user: User | null): EntityTypeUI | null => {
+  const getUserFonctionEntityType = (
+    user: User | null,
+  ): EntityTypeUI | null => {
     if (user?.fonction_details?.entitee_trois) return "entiteeTrois";
     if (user?.fonction_details?.entitee_deux) return "entiteeDeux";
     if (user?.fonction_details?.entitee_un) return "entiteeUn";
@@ -251,11 +276,11 @@ export default function DocumentTypeEntitee() {
     if (isAdmin) return true;
     if (structureName === "Type de documents non assignés") return false;
     const accessibleIds = getUserAccessibleEntityIds(user);
-    const foundE3 = entiteeTrois.find(e => e.libelle === structureName);
+    const foundE3 = entiteeTrois.find((e) => e.libelle === structureName);
     if (foundE3 && accessibleIds.trois.has(foundE3.id)) return true;
-    const foundE2 = entiteeDeux.find(e => e.libelle === structureName);
+    const foundE2 = entiteeDeux.find((e) => e.libelle === structureName);
     if (foundE2 && accessibleIds.deux.has(foundE2.id)) return true;
-    const foundE1 = entiteeUn.find(e => e.libelle === structureName);
+    const foundE1 = entiteeUn.find((e) => e.libelle === structureName);
     if (foundE1 && accessibleIds.un.has(foundE1.id)) return true;
     return false;
   };
@@ -286,12 +311,18 @@ export default function DocumentTypeEntitee() {
       const search = query.toLowerCase();
       const matchesSearch =
         t.code.toLowerCase().includes(search) ||
-        (t.cote || "").toLowerCase().includes(search) ||
+        //(t.cote || "").toLowerCase().includes(search) ||
         t.nom.toLowerCase().includes(search);
       if (!selectedTypeDoc) return matchesSearch;
-      const e1Ids = getEntitiesArray((t as any).entitee_un).map((e: any) => String(e.id));
-      const e2Ids = getEntitiesArray((t as any).entitee_deux).map((e: any) => `E2-${e.id}`);
-      const e3Ids = getEntitiesArray((t as any).entitee_trois).map((e: any) => `E3-${e.id}`);
+      const e1Ids = getEntitiesArray((t as any).entitee_un).map((e: any) =>
+        String(e.id),
+      );
+      const e2Ids = getEntitiesArray((t as any).entitee_deux).map(
+        (e: any) => `E2-${e.id}`,
+      );
+      const e3Ids = getEntitiesArray((t as any).entitee_trois).map(
+        (e: any) => `E3-${e.id}`,
+      );
       const allEntityIds = [...e1Ids, ...e2Ids, ...e3Ids];
       return matchesSearch && allEntityIds.includes(selectedTypeDoc);
     });
@@ -446,7 +477,7 @@ export default function DocumentTypeEntitee() {
   const handleSubmit = async (formData: {
     code: string;
     nom: string;
-    cote: string;
+    //cote: string;
   }) => {
     try {
       if (editing?.id) {
@@ -677,7 +708,9 @@ export default function DocumentTypeEntitee() {
   };
 
   const handleStructureClick = (structureName: string) => {
-    setExpandedStructure(expandedStructure === structureName ? null : structureName);
+    setExpandedStructure(
+      expandedStructure === structureName ? null : structureName,
+    );
     if (structureName !== "Type de documents non assignés") {
       let entityId: number | undefined;
       let entityType: EntityTypeUI | undefined;
@@ -707,8 +740,8 @@ export default function DocumentTypeEntitee() {
             entityType === "entiteeUn"
               ? String(entityId)
               : entityType === "entiteeDeux"
-              ? `E2-${entityId}`
-              : `E3-${entityId}`,
+                ? `E2-${entityId}`
+                : `E3-${entityId}`,
           id: entityId,
           type: entityType,
         });
@@ -716,8 +749,8 @@ export default function DocumentTypeEntitee() {
           entityType === "entiteeUn"
             ? String(entityId)
             : entityType === "entiteeDeux"
-            ? `E2-${entityId}`
-            : `E3-${entityId}`,
+              ? `E2-${entityId}`
+              : `E3-${entityId}`,
         );
       }
     } else {
@@ -946,9 +979,9 @@ export default function DocumentTypeEntitee() {
                                     <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-left">
                                       Code
                                     </th>
-                                    <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-left">
+                                    {/* <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-left">
                                       Cote
-                                    </th>
+                                    </th> */}
                                     <th className="p-4 text-[10px] font-bold text-slate-400 uppercase text-left">
                                       Libellé
                                     </th>
@@ -972,11 +1005,11 @@ export default function DocumentTypeEntitee() {
                                           {t.code}
                                         </span>
                                       </td>
-                                      <td className="p-4">
+                                      {/* <td className="p-4">
                                         <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold">
                                           {t.cote}
                                         </span>
-                                      </td>
+                                      </td> */}
                                       <td className="p-4">
                                         <div className="font-semibold text-slate-800 text-sm flex items-center gap-2">
                                           <FileText
@@ -1070,7 +1103,9 @@ export default function DocumentTypeEntitee() {
                                                 entityType = "EntiteeUn";
                                               }
                                               setSelectedEntityType(entityType);
-                                              setEntityFieldManagerVisible(true);
+                                              setEntityFieldManagerVisible(
+                                                true,
+                                              );
                                             }}
                                             className="p-2 text-purple-500 hover:bg-purple-50 rounded-lg"
                                             title="Personnaliser les champs pour cette entité"
@@ -1174,6 +1209,20 @@ export default function DocumentTypeEntitee() {
         visible={detailsVisible}
         onHide={() => setDetailsVisible(false)}
         type={selected}
+        onAddEntityPiece={(entityType, entityId, pieceId) =>
+          onAddEntityPiece(entityType as EntityTypeApi, entityId, pieceId)
+        }
+        onRemoveEntityPiece={(entityType, entityId, pieceId) =>
+          onRemoveEntityPiece(entityType as EntityTypeApi, entityId, pieceId)
+        }
+        entityType={
+          selectedAccordionEntity
+            ? mapToLegacyEntityType(
+                convertEntityType(selectedAccordionEntity.type),
+              )
+            : "direction"
+        }
+        entityId={selectedAccordionEntity?.id || 0}
       />
       <DocumentTypeMetaForm
         visible={metaVisible}
@@ -1198,22 +1247,16 @@ export default function DocumentTypeEntitee() {
           onHide={() => setFormPiecesVisible(false)}
           onSubmit={onAddPieces}
           onAddEntityPiece={(entityType, entityId, pieceId) =>
-            onAddEntityPiece(
-              entityType as EntityTypeApi,
-              entityId,
-              pieceId,
-            )
+            onAddEntityPiece(entityType as EntityTypeApi, entityId, pieceId)
           }
           onRemoveEntityPiece={(entityType, entityId, pieceId) =>
-            onRemoveEntityPiece(
-              entityType as EntityTypeApi,
-              entityId,
-              pieceId,
-            )
+            onRemoveEntityPiece(entityType as EntityTypeApi, entityId, pieceId)
           }
           entityType={
             selectedAccordionEntity
-              ? mapToLegacyEntityType(convertEntityType(selectedAccordionEntity.type))
+              ? mapToLegacyEntityType(
+                  convertEntityType(selectedAccordionEntity.type),
+                )
               : "direction"
           }
           entityId={selectedAccordionEntity?.id || 0}

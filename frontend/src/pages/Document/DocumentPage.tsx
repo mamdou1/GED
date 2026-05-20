@@ -1902,7 +1902,7 @@ export default function DocumentPage() {
             Parcourez les documents par structure
           </p>
         </div>
-        <Button
+        {/* <Button
           label="Nouveau Document"
           icon={<Plus size={18} className="mr-2" />}
           onClick={() => {
@@ -1911,7 +1911,7 @@ export default function DocumentPage() {
             setFormVisible(true);
           }}
           className="bg-emerald-600 hover:bg-emerald-700 text-white border-none px-6 py-3 rounded-xl shadow-lg shadow-emerald-200 transition-all font-bold"
-        />
+        /> */}
       </div>
 
       {/* Barre de recherche */}

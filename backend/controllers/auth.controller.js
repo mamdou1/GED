@@ -82,6 +82,10 @@ exports.connexion = async (req, res) => {
       return res.status(401).json({ message: "Mot de passe incorrect" });
     }
 
+    if (agent.is_active === false) {
+      return res.status(403).json({ message: "Compte désactivé" });
+    }
+
     const accessToken = generateAccessToken(agent);
     const refreshToken = generateRefreshToken(agent);
 

@@ -41,11 +41,11 @@ const BoxListeEtAffectation: React.FC = () => {
           </div>
           <div>
             <h1 className="text-2xl font-black text-slate-800">
-              Affectation des Box à une Travée
+              Affectation des Outils de Conservation à une Travée
             </h1>
             <p className="text-sm text-slate-500">
-              Sélectionnez les box à gauche, choisissez la travée de destination
-              à droite
+              Sélectionnez les outils de conservation à gauche, choisissez la
+              travée de destination à droite
             </p>
           </div>
         </div>
@@ -53,7 +53,7 @@ const BoxListeEtAffectation: React.FC = () => {
 
       {/* Contenu principal : deux colonnes */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Colonne gauche : Liste des box */}
+        {/* Colonne gauche : Liste des outils de conservation */}
         <div className="w-1/2 border-r border-slate-200 bg-white overflow-hidden">
           <BoxListe
             selectedBoxes={selectedBoxes}
@@ -79,7 +79,7 @@ const BoxListeEtAffectation: React.FC = () => {
               <span className="font-bold text-purple-600">
                 {selectedBoxes.length}
               </span>{" "}
-              box sélectionné(s)
+              outil(s) de conservation sélectionné(s)
             </span>
             {selectedBoxes.length > 0 && (
               <span className="text-slate-400">

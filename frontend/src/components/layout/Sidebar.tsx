@@ -33,7 +33,7 @@ import {
   Plus,
 } from "lucide-react";
 
-import logo from "../../assets/soliged-1.png";
+import logo from "../../assets/SOLUGED.png";
 import profil from "../../assets/homme.jpg";
 import { Link, useLocation } from "react-router-dom";
 import { createContext, useContext, useState, useMemo } from "react";
@@ -736,7 +736,7 @@ export default function Sidebar({ children }: SidebarProps) {
                   {can("box", "access") && (
                     <SidebarLink
                       icon={Archive}
-                      text="Box"
+                      text="Outils de conservation"
                       to="/box"
                       active={location.pathname.startsWith("/box")}
                     />

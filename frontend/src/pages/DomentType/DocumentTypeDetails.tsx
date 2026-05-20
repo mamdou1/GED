@@ -17,20 +17,64 @@ import { Button } from "primereact/button";
 
 import DocumentTypeMetaListe from "./DocumentTypeMetaListe";
 import DocumentTypePieceListe from "./DocumentTypePieceListe";
-import TypeDocumentAjoutPieces from "./TypeDocumentAjoutPieces";
 import { getPieces } from "../../api/pieces";
-import { addPiecesToTypeDocument } from "../../api/typeDocument";
+import {
+  addPiecesToTypeDocument,
+  getEffectivePiecesForEntity,
+} from "../../api/typeDocument";
 import { Pieces } from "../../interfaces";
+import TypeDocumentAjoutPiecesEntytee from "./TypeDocumentAjoutPiecesEntytee";
 
-export default function DocumentTypeDetails({ visible, onHide, type }: any) {
+export default function DocumentTypeDetails({
+  visible,
+  onHide,
+  type,
+  initial = null,
+  entityType,
+  entityId,
+  onAddEntityPiece, // ✅ Ajouter
+  onRemoveEntityPiece,
+}: any) {
   const [formPiecesVisible, setFormPiecesVisible] = useState(false);
   const [allPieces, setAllPieces] = useState<Pieces[]>([]);
 
+  const [effectivePieces, setEffectivePieces] = useState<any[]>([]);
+  const [loadingPieces, setLoadingPieces] = useState(false);
+
   useEffect(() => {
-    if (visible) {
+    if (visible && initial?.id && entityType && entityId && entityId > 0) {
+      setLoadingPieces(true);
+      getEffectivePiecesForEntity(String(initial.id), entityType, entityId)
+        .then(({ basePieces, addedPieces, removedPieceIds }) => {
+          // Pièces effectives = pièces de base + ajouts - retraits
+          const effective = [...basePieces, ...addedPieces].filter(
+            (p) => !removedPieceIds.includes(Number(p.id)),
+          );
+          setEffectivePieces(effective);
+
+          // Charger aussi toutes les pièces pour le modal d'ajout
+          getPieces().then((res) =>
+            setAllPieces(Array.isArray(res) ? res : []),
+          );
+        })
+        .catch((err) => {
+          console.error("Erreur chargement pièces effectives:", err);
+          // Fallback : pièces globales
+          setEffectivePieces(type?.pieces || []);
+        })
+        .finally(() => setLoadingPieces(false));
+    } else if (visible) {
+      // Pas d'entité spécifique : utiliser les pièces globales
+      setEffectivePieces(type?.pieces || []);
       getPieces().then((res) => setAllPieces(Array.isArray(res) ? res : []));
     }
-  }, [visible]);
+  }, [visible, initial, entityType, entityId, type]);
+
+  // useEffect(() => {
+  //   if (visible) {
+  //     getPieces().then((res) => setAllPieces(Array.isArray(res) ? res : []));
+  //   }
+  // }, [visible]);
 
   if (!type) return null;
 
@@ -204,6 +248,9 @@ export default function DocumentTypeDetails({ visible, onHide, type }: any) {
               <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <DocumentTypePieceListe
                   pieces={type.pieces || []}
+                  typeId={type.id} // ✅ Ajouter
+                  entityType={entityType} // ✅ Ajouter
+                  entityId={entityId} // ✅ Ajouter
                   onAdd={() => setFormPiecesVisible(true)}
                 />
               </div>
@@ -236,14 +283,17 @@ export default function DocumentTypeDetails({ visible, onHide, type }: any) {
           </div>
         </div>
       </div>
-
-      <TypeDocumentAjoutPieces
+      // ✅ Remplacer par la version ENTITÉ
+      <TypeDocumentAjoutPiecesEntytee
         visible={formPiecesVisible}
         onHide={() => setFormPiecesVisible(false)}
         onSubmit={async (id, payload) => {
           await addPiecesToTypeDocument(id, payload);
-          setFormPiecesVisible(false);
         }}
+        onAddEntityPiece={onAddEntityPiece} // ← Ajouter cette prop
+        onRemoveEntityPiece={onRemoveEntityPiece} // ← Ajouter cette prop
+        entityType={entityType} // ← Passer l'entité
+        entityId={entityId} // ← Passer l'ID
         initial={type}
         pieces={allPieces}
       />

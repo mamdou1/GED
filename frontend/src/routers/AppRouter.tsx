@@ -31,8 +31,8 @@ import FonctionPage from "../pages/Fonction/FonctionPage";
 import CourrierPage from "../pages/Courrier/CourrierPage";
 import MesCourriers from "../pages/Courrier/MesCourriers";
 import NouveauCourrier from "../pages/Courrier/Enregitrement";
-import ExpediteursPage from "../pages/Courrier/ExpediteursPage";
-import DestinatairesExternesPage from "../pages/Courrier/DestinatairePage";
+import ExpediteursPage from "../pages/Expediteur/ExpediteursPage";
+import DestinatairesExternesPage from "../pages/Destinateur/DestinatairePage";
 
 const PrivateRoute: React.FC<{ children: ReactElement }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -274,9 +274,6 @@ export default function AppRouter() {
           </PrivateRoute>
         }
       />
-
-
-
     </Routes>
   );
 }

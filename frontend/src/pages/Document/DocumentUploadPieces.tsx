@@ -28,6 +28,7 @@ import {
   Trash2,
   Pencil,
   CheckSquare,
+  Info,
 } from "lucide-react";
 import type {
   Document,
@@ -1055,6 +1056,23 @@ export default function DocumentUploadPieces({
                     <Archive size={18} className="text-emerald-600" />
                     Upload du dossier complet
                   </h3>
+                  {/* <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
+                    <Info size={18} className="text-amber-600 mt-0.5" />
+                    <div className="text-xs text-amber-800">
+                      Vous pouvez uploader un dossier complet au format PDF. Si
+                      les pièces associées à ce document sont déjà connues, vous
+                      aurez la possibilité de les lier à ce dossier pour les
+                      marquer comme disponibles.
+                    </div>
+                  </div> */}
+
+                  <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
+                    <Info size={18} className="text-amber-600 mt-0.5" />
+                    <div className="text-xs text-amber-800">
+                      Vous pouvez uploader un dossier complet au format PDF,
+                      jusqu'à 70 Mo.
+                    </div>
+                  </div>
 
                   <input
                     type="file"
@@ -1128,6 +1146,16 @@ export default function DocumentUploadPieces({
                   <Folders size={18} className="text-emerald-600" />
                   Pièces à fournir
                 </h3>
+
+                <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
+                  <Info size={18} className="text-amber-600 mt-0.5" />
+                  <div className="text-xs text-amber-800">
+                    Vous pouvez uploader un dossier complet au format PDF,
+                    jusqu'à 70 Mo. Si les pièces associées à ce document sont
+                    déjà connues, vous aurez la possibilité de les lier à ce
+                    dossier pour les marquer comme disponibles.
+                  </div>
+                </div>
 
                 {Object.entries(groupedPieces).map(
                   ([division, pieces]: [string, any]) => {

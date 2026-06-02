@@ -18,6 +18,7 @@ interface DocumentPayload {
   entities?: any[];
   defaultEntityType?: string;
   id?: number;
+  client_id?: number;
 }
 
 // Configuration des types d'entités
@@ -34,6 +35,7 @@ const ENTITY_TYPE_MAP: Record<string, string> = {
   un: "entitee_un",
   deux: "entitee_deux",
   trois: "entitee_trois",
+  client: "client",
 };
 
 const normalizeEntityType = (type: string): string => {
@@ -50,6 +52,7 @@ const normalizeEntityType = (type: string): string => {
     un: "entitee_un",
     deux: "entitee_deux",
     trois: "entitee_trois",
+    client: "client",
   };
   return mapping[type?.toLowerCase()] || "entitee_un";
 };
@@ -68,6 +71,7 @@ const mapEntityType = (type: string): string => {
     un: "entitee_un",
     deux: "entitee_deux",
     trois: "entitee_trois",
+    client: "client",
   };
   return mapping[type] || "entitee_un";
 };
@@ -93,20 +97,28 @@ export default function DocumentForm({
   entitee_trois = [],
   defaultEntityType,
   preselectedEntity,
+  selectedClientForDoc,
 }: any) {
   const [values, setValues] = useState<Record<string, any>>({});
   const [documentType_id, setDocumentType_id] = useState<number | null>(null);
   const toast = useRef<Toast>(null);
 
+  const isClientContext = !!selectedClientForDoc;
   const isEntityPreselected =
     preselectedEntity?.entity_id && preselectedEntity?.entity_id > 0;
-  const effectiveEntityType = isEntityPreselected
-    ? ENTITY_TYPE_MAP[preselectedEntity.entity_type?.toLowerCase()] ||
-      preselectedEntity.entity_type
-    : defaultEntityType;
-  const effectiveEntityId = isEntityPreselected
-    ? preselectedEntity.entity_id
-    : null;
+
+  const effectiveEntityType = isClientContext
+    ? "client"
+    : isEntityPreselected
+      ? ENTITY_TYPE_MAP[preselectedEntity.entity_type?.toLowerCase()] ||
+        preselectedEntity.entity_type
+      : defaultEntityType;
+
+  const effectiveEntityId = isClientContext
+    ? selectedClientForDoc.id
+    : isEntityPreselected
+      ? preselectedEntity.entity_id
+      : null;
 
   const {
     data: fieldsData,
@@ -118,10 +130,11 @@ export default function DocumentForm({
     effectiveEntityId || 0,
   );
 
-  // ✅ Normaliser les champs (convertir required en boolean)
+  // Normalisation des champs
   const normalizedFields = (fieldsData || []).map((field: any) => ({
     ...field,
-    required: normalizeRequired(field.required),
+    required:
+      field.required === true || field.required === 1 || field.required === "1",
     hidden: field.hidden === true || field.hidden === 1 || field.hidden === "1",
   }));
 
@@ -315,14 +328,11 @@ export default function DocumentForm({
       return;
     }
 
-    // ✅ Utiliser normalizedFields pour la validation
+    // Validation des champs requis (ton code existant)
     const visibleRequiredFields = normalizedFields.filter(
-      (f: any) => f.required === true && f.hidden !== true,
+      (f: any) => f.required && !f.hidden,
     );
-    const missing = visibleRequiredFields.filter((f: any) => {
-      const val = values[f.id];
-      return val === undefined || val === null || val === "";
-    });
+    const missing = visibleRequiredFields.filter((f: any) => !values[f.id]);
 
     if (missing.length > 0) {
       toast.current?.show({
@@ -338,15 +348,12 @@ export default function DocumentForm({
 
       for (const field of normalizedFields) {
         const fieldValue = values[field.id];
-
         if (
           fieldValue !== undefined &&
           fieldValue !== null &&
           fieldValue !== ""
         ) {
-          if (fieldValue instanceof File) {
-            continue;
-          }
+          if (fieldValue instanceof File) continue;
           valuesObject[field.id] = String(fieldValue);
         }
       }
@@ -354,13 +361,25 @@ export default function DocumentForm({
       const payload: DocumentPayload = {
         type_document_id: documentType_id,
         values: valuesObject,
-        entities: [
+      };
+
+      // === LOGIQUE CLIENT vs ENTITÉ ===
+      if (isClientContext) {
+        payload.client_id = selectedClientForDoc.id;
+        payload.entities = [
           {
-            entity_type: mapEntityType(effectiveEntityType),
+            entity_type: "client",
+            entity_id: selectedClientForDoc.id,
+          },
+        ];
+      } else {
+        payload.entities = [
+          {
+            entity_type: effectiveEntityType,
             entity_id: Number(effectiveEntityId),
           },
-        ],
-      };
+        ];
+      }
 
       if (editingDoc?.id) {
         payload.id = editingDoc.id;

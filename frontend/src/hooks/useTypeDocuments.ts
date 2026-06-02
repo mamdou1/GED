@@ -10,6 +10,8 @@ import {
   addPieceToEntityTypeDocument,
   removePieceFromEntityTypeDocument,
   getEffectivePiecesForEntity,
+  getTypesWithConserne,
+  assignTypeCompteToTypeDocument,
 } from "../api/typeDocument";
 import { createMetaField, updateMetaField } from "../api/metaField";
 import { getPieces } from "../api/pieces";
@@ -31,6 +33,7 @@ export const typeDocumentKeys = {
   list: (filters: string) => [...typeDocumentKeys.lists(), filters] as const,
   details: () => [...typeDocumentKeys.all, "detail"] as const,
   detail: (id: number) => [...typeDocumentKeys.details(), id] as const,
+  withConserne: () => [...typeDocumentKeys.all, "with-conserne"] as const,
 };
 
 export const piecesKeys = {
@@ -132,7 +135,10 @@ export const useInitialData = () => {
 
   // Log pour debug
   console.log("🔍 useInitialData (types) - typesQuery.data:", typesQuery.data);
-  console.log("🔍 useInitialData (types) - types length:", typesQuery.data?.length);
+  console.log(
+    "🔍 useInitialData (types) - types length:",
+    typesQuery.data?.length,
+  );
 
   // Créer les options d'entités pour le dropdown
   const optionsEntites = [
@@ -353,6 +359,36 @@ export const useRemovePieceFromEntityTypeDocument = () => {
     },
     onError: (error: any) => {
       console.error("❌ Erreur retrait pièce entité:", error);
+    },
+  });
+};
+
+/**
+ * ✅ Récupérer les types de documents avec conserne non null
+ */
+export const useTypesWithConserne = (params?: {
+  limit?: number;
+  offset?: number;
+}) => {
+  return useQuery({
+    queryKey: [...typeDocumentKeys.withConserne(), params],
+    queryFn: () => getTypesWithConserne(params),
+    staleTime: 1000 * 60 * 5,
+  });
+};
+
+/**
+ * ✅ Affecter un type de compte à un type de document
+ */
+export const useAssignTypeCompteToTypeDocument = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ typeDocumentId, typeCompteId }: { typeDocumentId: number; typeCompteId: number | null }) =>
+      assignTypeCompteToTypeDocument(typeDocumentId, typeCompteId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: typeDocumentKeys.all });
+      queryClient.invalidateQueries({ queryKey: typeDocumentKeys.detail(variables.typeDocumentId) });
+      queryClient.invalidateQueries({ queryKey: typeDocumentKeys.withConserne() });
     },
   });
 };

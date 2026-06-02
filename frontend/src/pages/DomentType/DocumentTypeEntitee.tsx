@@ -22,6 +22,7 @@ import {
   ChevronDown,
   ChevronRight,
   FileText,
+  Folders,
 } from "lucide-react";
 
 import {
@@ -822,7 +823,7 @@ export default function DocumentTypeEntitee() {
             <div className="p-3 bg-emerald-600 text-white rounded-2xl shadow-lg">
               <Layers size={24} />
             </div>
-            Types par Structure
+            Types de Document
           </h1>
         </div>
         <Button
@@ -897,15 +898,15 @@ export default function DocumentTypeEntitee() {
                         <div
                           className={`p-2 rounded-lg ${
                             expandedStructure === structureName
-                              ? "bg-emerald-500 text-white"
+                              ? "bg-yellow-500 text-white"
                               : selectedAccordionStructure?.label?.includes(
                                     structureName,
                                   )
-                                ? "bg-emerald-100 text-emerald-600"
-                                : "bg-slate-100 text-slate-500"
+                                ? "bg-yellow-100 text-yellow-500"
+                                : "bg-slate-100 text-yellow-500"
                           }`}
                         >
-                          <Database size={20} />
+                          <Folders size={20} />
                         </div>
                         <div className="text-left">
                           <div className="flex items-center gap-2">
@@ -1058,7 +1059,7 @@ export default function DocumentTypeEntitee() {
                                             <FilePlus size={25} />
                                           </button>
                                           {/* ✅ BOUTON AFFECTATION - TOUJOURS VISIBLE */}
-                                          <button
+                                          {/* <button
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               setSelected(t);
@@ -1068,7 +1069,7 @@ export default function DocumentTypeEntitee() {
                                             title="Affecter à une structure"
                                           >
                                             <SplinePointer size={25} />
-                                          </button>
+                                          </button> */}
                                           <button
                                             onClick={(e) => {
                                               setEditing(t);
@@ -1234,6 +1235,8 @@ export default function DocumentTypeEntitee() {
             : "direction"
         }
         entityId={selectedAccordionEntity?.id || 0}
+        initial={selected}
+        pieces={pieces}
       />
       <DocumentTypeMetaForm
         visible={metaVisible}

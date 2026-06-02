@@ -58,7 +58,7 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     // Ne pas effacer le flag immédiatement, le laisser pour toute la navigation
   }
 
-  if (config.audit === true) {
+  if ((config as any).audit === true) {
     config.headers["x-audit"] = "true";
   }
 

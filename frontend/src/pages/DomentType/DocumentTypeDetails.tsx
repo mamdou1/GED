@@ -25,6 +25,49 @@ import {
 import { Pieces } from "../../interfaces";
 import TypeDocumentAjoutPiecesEntytee from "./TypeDocumentAjoutPiecesEntytee";
 
+type EntityType =
+  | "direction"
+  | "sous_direction"
+  | "division"
+  | "service"
+  | "section";
+
+interface Props {
+  type: {
+    id?: number;
+    nom?: string;
+    code?: string;
+    cote?: string;
+    pieces?: any[];
+    metaFields: any[];
+    entitee_un?: any[];
+    entitee_deux?: any[];
+    entitee_trois?: any[];
+    [key: string]: any; // Pour les autres propriétés
+  };
+  visible: boolean;
+  onHide: () => void;
+
+  // ✅ Rendre ces props optionnelles avec des valeurs par défaut
+  onAddEntityPiece?: (
+    entityType: EntityType,
+    entityId: number,
+    pieceId: number,
+  ) => Promise<void>;
+
+  onRemoveEntityPiece?: (
+    entityType: EntityType,
+    entityId: number,
+    pieceId: number,
+  ) => Promise<void>;
+
+  entityType?: EntityType;
+  entityId?: number;
+
+  initial: any;
+  pieces: Pieces[];
+}
+
 export default function DocumentTypeDetails({
   visible,
   onHide,
@@ -34,7 +77,7 @@ export default function DocumentTypeDetails({
   entityId,
   onAddEntityPiece, // ✅ Ajouter
   onRemoveEntityPiece,
-}: any) {
+}: Props) {
   const [formPiecesVisible, setFormPiecesVisible] = useState(false);
   const [allPieces, setAllPieces] = useState<Pieces[]>([]);
 

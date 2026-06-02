@@ -5,6 +5,18 @@ const {
   authorizePermission,
 } = require("../middlewares/authorizePermission.middleware");
 
+router.get(
+  "/with-conserne",
+  authorizePermission("documentType", "read"),
+  ctrl.getTypesWithConserne,
+);
+
+router.put(
+  "/:id/assign-type-compte",
+  authorizePermission("documentType", "update"),
+  ctrl.assignTypeCompteToTypeDocument,
+);
+
 router.post(
   "/",
   verifyToken,

@@ -8,6 +8,7 @@ db.Pieces = require("./Pieces.model")(sequelize, DataTypes);
 db.Token = require("./token.model")(sequelize, DataTypes);
 db.Exercice = require("./Exercice.model")(sequelize, DataTypes);
 db.Agent = require("./Agent.model")(sequelize, DataTypes);
+db.Client = require("./Client.model")(sequelize, DataTypes);
 
 db.Permission = require("./Permission.model")(sequelize, DataTypes);
 db.Droit = require("./Droit.model")(sequelize, DataTypes);
@@ -103,6 +104,22 @@ db.DestinataireExterne = require("./DestinataireExterne.model")(
 db.MetaFieldOverride = require("./MetaFieldOverride")(sequelize, DataTypes);
 db.EntityCustomField = require("./EntityCustomField")(sequelize, DataTypes);
 db.EntityCustomFieldValue = require("./EntityCustomFieldValue")(
+  sequelize,
+  DataTypes,
+);
+
+db.Compte = require("./Compte.model")(sequelize, DataTypes);
+db.TypeCompte = require("./TypeCompte.model")(sequelize, DataTypes);
+db.ClientTypeDocument = require("./ClientTypeDocument.model")(
+  sequelize,
+  DataTypes,
+);
+
+db.TypeCompteMetaField = require("./TypeCompteMetafield.model")(
+  sequelize,
+  DataTypes,
+);
+db.TypeCompteMetaFieldValue = require("./TypeCompteMetaFieldValue.model")(
   sequelize,
   DataTypes,
 );

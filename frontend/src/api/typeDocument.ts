@@ -23,8 +23,7 @@ export const createTypeDocument = async (
 
 export const getTypeDocuments = async (): Promise<TypeDocument[]> => {
   const response = await api.get("/types-documents");
-  console.log("📡 getTypeDocuments response:", response.data);
-  
+
   // ✅ CORRECTION : Gère les différents formats possibles
   if (Array.isArray(response.data)) {
     return response.data;
@@ -128,4 +127,37 @@ export const getEffectivePiecesForEntity = async (
     `/types-documents/${typeDocumentId}/entity-pieces/${entityType}/${entityId}`,
   );
   return response.data;
+};
+
+/**
+ * ✅ Récupérer les types de documents avec conserne non null
+ */
+export const getTypesWithConserne = async (params?: {
+  limit?: number;
+  offset?: number;
+}): Promise<{
+  success: boolean;
+  data: TypeDocument[];
+  total: number;
+  limit: number;
+  offset: number;
+}> => {
+  const { data } = await api.get("/types-documents/with-conserne", { params });
+  return data;
+};
+
+/**
+ * ✅ Affecter un type de compte à un type de document
+ */
+export const assignTypeCompteToTypeDocument = async (
+  typeDocumentId: number,
+  typeCompteId: number | null,
+): Promise<{ success: boolean; message: string; data: TypeDocument }> => {
+  const { data } = await api.put(
+    `/types-documents/${typeDocumentId}/assign-type-compte`,
+    {
+      type_compte_id: typeCompteId,
+    },
+  );
+  return data;
 };

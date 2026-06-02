@@ -1,9 +1,18 @@
 // src/interfaces/index.ts
 
-import { Agent } from "http";
-
 export type Genre = "HOMME" | "FEMME";
 export type ModeChargement = "INDIVIDUEL" | "LOT_UNIQUE";
+export type EntityType =
+  | "entitee_un"
+  | "entitee_deux"
+  | "entitee_trois"
+  | "client";
+
+export interface SelectedEntity {
+  entity_type: EntityType;
+  entity_id: number;
+  client_id?: number;
+}
 
 export type PieceRecord = {
   id?: number;
@@ -178,6 +187,153 @@ export interface Fonction {
   updatedAt?: string;
 }
 
+export interface Client {
+  id: number;
+  nom: string | null;
+  prenom: string | null;
+  raison_sociale: string | null;
+  num_matricule: string;
+  email: string | null;
+  sigle: string | null;
+  telephone: string | null;
+  adresse: string | null;
+  date_naissance: string | null;
+  lieu_naissance: string | null;
+  nationalite: string | null;
+  profession: string | null;
+  statut_matrimonial: string | null;
+  numero_registre_commerce: string | null;
+  nif: string | null;
+  conserne: "Personne physique" | "Personne morale" | null;
+  enregistrer_par: number | null;
+  createur?: {
+    id: number;
+    nom: string;
+    prenom: string;
+  };
+  types_document?: TypeDocument[];
+  comptes?: Compte[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClientCreatePayload {
+  nom?: string | null;
+  prenom?: string | null;
+  raison_sociale?: string | null;
+  num_matricule?: string;
+  email?: string | null;
+  sigle?: string | null;
+  telephone?: string | null;
+  adresse?: string | null;
+  conserne?: "Personne physique" | "Personne morale" | null;
+}
+
+export interface ClientUpdatePayload {
+  nom?: string | null;
+  prenom?: string | null;
+  raison_sociale?: string | null;
+  num_matricule?: string;
+  email?: string | null;
+  sigle?: string | null;
+  telephone?: string | null;
+  adresse?: string | null;
+  conserne?: "Personne physique" | "Personne morale" | null;
+}
+
+export interface TypeCompte {
+  id: number;
+  nom: string;
+  comptes?: Compte[];
+  metaFields?: TypeCompteMetaField[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TypeCompteCreatePayload {
+  nom: string;
+}
+
+export interface TypeCompteUpdatePayload {
+  nom: string;
+}
+
+export type TypeCompteMetaFieldType =
+  | "TEXT"
+  | "TEXTAREA"
+  | "NUMBER"
+  | "DATE"
+  | "BOOLEAN"
+  | "SELECT"
+  | "FILE"
+  | "text"
+  | "textarea"
+  | "number"
+  | "date"
+  | "boolean"
+  | "select"
+  | "file";
+
+export interface TypeCompteMetaField {
+  id: number;
+  name: string;
+  label: string;
+  field_type: TypeCompteMetaFieldType;
+  required: boolean | number | string;
+  options?: string[] | Array<{ label: string; value: string }> | null;
+  position?: number | null;
+  type_compte_id: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TypeCompteMetaFieldCreatePayload {
+  name: string;
+  label: string;
+  field_type: TypeCompteMetaFieldType;
+  required?: boolean;
+  options?: string[] | Array<{ label: string; value: string }> | null;
+  position?: number | null;
+}
+
+export interface TypeCompteMetaFieldUpdatePayload extends Partial<TypeCompteMetaFieldCreatePayload> {}
+
+export interface TypeCompteMetaFieldValue {
+  id: number;
+  compte_id: number;
+  meta_field_id: number;
+  value: string | null;
+  metaField?: TypeCompteMetaField;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Compte {
+  id: number;
+  type_compte_id: number;
+  client_id: number;
+  agent_id?: number | null;
+  type_compte?: TypeCompte;
+  client?: Client;
+  values?: TypeCompteMetaFieldValue[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CompteCreatePayload {
+  type_compte_id: number;
+  client_id: number;
+  values?: Record<string | number, any>;
+  agent_id?: number | null;
+}
+
+export interface CompteUpdatePayload {
+  type_compte_id?: number;
+  client_id?: number;
+  values?: Record<string | number, any>;
+  agent_id?: number | null;
+}
+
 // interfaces/index.ts
 export interface HistoriqueLog {
   id: number;
@@ -215,6 +371,10 @@ export interface TypeDocument {
   code: string;
   nom: string;
   cote: string;
+
+  conserne?: "Personne physique" | "Personne morale" | null;
+  type_compte_id?: number | null;
+  type_compte?: TypeCompte | null;
 
   // IDs (pour les formulaires)
   division_id?: number | null;
@@ -314,6 +474,7 @@ export interface CreateDocumentPayload {
 export interface DocumentEntityPayload {
   entity_type: EntityType;
   entity_id: number;
+  client_id: number;
 }
 
 export interface CreateDocumentPayload {
@@ -585,7 +746,7 @@ export interface AgentEntiteeAccess {
   entitee_un?: EntiteeUn;
   entitee_deux?: EntiteeDeux;
   entitee_trois?: EntiteeTrois;
-  agent?: Agent;
+  agent?: User;
 }
 
 export interface GrantAccessPayload {

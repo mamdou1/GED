@@ -117,6 +117,29 @@ module.exports = async () => {
     { resource: "site", action: "update" },
     { resource: "site", action: "delete" },
 
+    // ==================== CLIENT ====================
+    { resource: "client", action: "access" },
+    { resource: "client", action: "create" },
+    { resource: "client", action: "read" },
+    { resource: "client", action: "update" },
+    { resource: "client", action: "delete" },
+
+    // ==================== COMPTES ====================
+    { resource: "compte", action: "access" },
+    { resource: "compte", action: "create" },
+    { resource: "compte", action: "read" },
+    { resource: "compte", action: "update" },
+    { resource: "compte", action: "delete" },
+
+    // ==================== TYPE COMPTES ====================
+    { resource: "typeCompte", action: "access" },
+    { resource: "typeCompte", action: "create" },
+    { resource: "typeCompte", action: "read" },
+    { resource: "typeCompte", action: "update" },
+    { resource: "typeCompte", action: "delete" },
+
+    // ==================== COURRIER ====================
+
     { resource: "courrier", action: "access" },
     { resource: "courrier", action: "create" },
     { resource: "courrier", action: "read" },

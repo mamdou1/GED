@@ -10,7 +10,7 @@ const {
 } = require("../models");
 const logger = require("../config/logger.config");
 const HistoriqueService = require("../services/historique.service");
-const metaFieldOverrideService = require("../services/MetaFieldOverrideService");
+const metaFieldOverrideService = require("../services/metaFieldOverrideService");
 
 exports.create = async (req, res) => {
   const startTime = Date.now();

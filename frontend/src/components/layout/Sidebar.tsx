@@ -31,6 +31,10 @@ import {
   Send,
   Users,
   Plus,
+  User,
+  UserCircle,
+  CreditCard,
+  Folders,
 } from "lucide-react";
 
 import logo from "../../assets/SOLUGED.png";
@@ -47,7 +51,7 @@ import {
   getEntiteeTroisTitre,
 } from "../../api/entiteeTrois";
 import { getTypeDocuments } from "../../api/typeDocument";
-import { TypeDocument, User } from "../../interfaces";
+import { TypeDocument } from "../../interfaces";
 import { BACKEND_URL } from "../../api/axios";
 
 export const SidebarContext = createContext<SidebarContextType>({
@@ -453,8 +457,8 @@ export default function Sidebar({ children }: SidebarProps) {
                   )}
                   {can("documentType", "access") && (
                     <SidebarLink
-                      icon={Database}
-                      text="DocumentType"
+                      icon={Folders}
+                      text="Type de Document"
                       to="/dossierType"
                       active={location.pathname.startsWith("/dossierType")}
                     />
@@ -804,6 +808,22 @@ export default function Sidebar({ children }: SidebarProps) {
                       text="Historique"
                       to="/historique"
                       active={location.pathname.startsWith("/historique")}
+                    />
+                  )}
+                  {/* {can("client", "access") && (
+                    <SidebarLink
+                      icon={Users}
+                      text="Clients"
+                      to="/clients"
+                      active={location.pathname.startsWith("/clients")}
+                    />
+                  )} */}
+                  {can("compte", "access") && (
+                    <SidebarLink
+                      icon={CreditCard}
+                      text="Comptes"
+                      to="/compte"
+                      active={location.pathname.startsWith("/compte")}
                     />
                   )}
                 </SidebarTree>

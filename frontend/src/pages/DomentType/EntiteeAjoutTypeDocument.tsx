@@ -152,32 +152,47 @@ export default function EntiteeAjoutTypeDocument({
     }
   }, [visible, entityId]);
 
+  // ✅ Filtrer les types disponibles : uniquement ceux qui ont conserne = null
+  const getTypesWithNullConserne = (types: TypeDocument[]): TypeDocument[] => {
+    return types.filter(
+      (t) =>
+        t.conserne === null || t.conserne === undefined || t.conserne === "",
+    );
+  };
+
   // Mettre à jour les listes
   useEffect(() => {
-    // Vérifier que les données sont chargées
     const queryData = typesQuery.data;
     const allTypesAvailable = allTypes && allTypes.length > 0;
 
     if (allTypesAvailable) {
-      // Si la query a des données, filtrer selon les IDs assignés
+      // ✅ Filtrer les types avec conserne = null pour la liste disponible
+      const typesWithNullConserne = getTypesWithNullConserne(allTypes);
+
       if (queryData && Array.isArray(queryData) && queryData.length > 0) {
         const assignedIds = new Set(queryData.map((t: TypeDocument) => t.id));
+
+        // Les types assignés peuvent avoir conserne = null OU une valeur
         const assigned = allTypes.filter((t) => assignedIds.has(t.id));
-        const available = allTypes.filter((t) => !assignedIds.has(t.id));
+
+        // ✅ Les types disponibles : non assignés ET conserne = null
+        const available = typesWithNullConserne.filter(
+          (t) => !assignedIds.has(t.id),
+        );
 
         console.log(
-          `📊 [${entityType}] Assigned: ${assigned.length}, Available: ${available.length}`,
+          `📊 [${entityType}] Assigned: ${assigned.length}, Available (conserne=null): ${available.length}`,
         );
 
         setAssignedTypes(assigned);
         setAvailableTypes(available);
       } else {
-        // Aucun type assigné : tout est disponible
+        // Aucun type assigné : tous les types avec conserne=null sont disponibles
         console.log(
-          `📊 [${entityType}] Aucun type assigné, tout disponible: ${allTypes.length}`,
+          `📊 [${entityType}] Aucun type assigné, disponibles (conserne=null): ${typesWithNullConserne.length}`,
         );
         setAssignedTypes([]);
-        setAvailableTypes([...allTypes]);
+        setAvailableTypes([...typesWithNullConserne]);
       }
 
       setSelectedAvailable([]);
@@ -201,16 +216,15 @@ export default function EntiteeAjoutTypeDocument({
     }
   }, [availableTypes, searchQuery]);
 
-  // Ajoutez ceci juste après le useEffect de mise à jour
+  // Debug logs
   useEffect(() => {
     console.log("🔍 DEBUG EntiteeAjoutTypeDocument:", {
       entityType,
       entityId,
       visible,
       allTypesCount: allTypes?.length,
+      typesWithNullConserne: getTypesWithNullConserne(allTypes || []).length,
       typesQueryData: typesQuery.data,
-      typesQueryIsLoading: typesQuery.isLoading,
-      typesQueryIsSuccess: typesQuery.isSuccess,
       availableCount: availableTypes.length,
       assignedCount: assignedTypes.length,
       filteredAvailableCount: filteredAvailable.length,
@@ -224,15 +238,16 @@ export default function EntiteeAjoutTypeDocument({
     filteredAvailable,
   ]);
 
+  // Initialisation si pas de données
   useEffect(() => {
-    // Si on a allTypes mais pas encore de données de la query
     if (visible && allTypes && allTypes.length > 0 && !typesQuery.data) {
+      const typesWithNullConserne = getTypesWithNullConserne(allTypes);
       console.log(
-        `📦 [${entityType}] Initialisation avec allTypes: ${allTypes.length}`,
+        `📦 [${entityType}] Initialisation avec types conserne=null: ${typesWithNullConserne.length}`,
       );
-      setAvailableTypes([...allTypes]);
+      setAvailableTypes([...typesWithNullConserne]);
       setAssignedTypes([]);
-      setFilteredAvailable([...allTypes]);
+      setFilteredAvailable([...typesWithNullConserne]);
     }
   }, [visible, allTypes, typesQuery.data, entityType]);
 
@@ -389,6 +404,9 @@ export default function EntiteeAjoutTypeDocument({
                 <span className="text-sm font-bold text-slate-600 uppercase tracking-wider">
                   Types disponibles ({filteredAvailable.length})
                 </span>
+                <span className="text-[10px] text-slate-400 ml-2">
+                  (uniquement types sans restriction)
+                </span>
               </div>
               <div className="flex-1 border-2 border-slate-200 rounded-2xl overflow-y-auto bg-white shadow-inner">
                 {typesQuery.isLoading ? (
@@ -430,7 +448,7 @@ export default function EntiteeAjoutTypeDocument({
                     <span className="text-sm italic">
                       {searchQuery
                         ? "Aucun type trouvé"
-                        : "Aucun type disponible"}
+                        : "Aucun type disponible sans restriction"}
                     </span>
                   </div>
                 )}
@@ -505,6 +523,14 @@ export default function EntiteeAjoutTypeDocument({
                           {t.code}
                         </span>
                         <span>{t.nom}</span>
+                        {/* ✅ Affichage de la valeur conserne si présente */}
+                        {t.conserne && (
+                          <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full ml-2">
+                            {t.conserne === "Personne physique"
+                              ? "👤 PP"
+                              : "🏢 PM"}
+                          </span>
+                        )}
                       </label>
                     </div>
                   ))

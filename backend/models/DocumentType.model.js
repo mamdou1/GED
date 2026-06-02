@@ -12,6 +12,15 @@ module.exports = (sequelize, DataTypes) => {
       code: DataTypes.STRING,
       cote: DataTypes.STRING,
       nom: DataTypes.TEXT,
+      conserne: {
+        type: DataTypes.ENUM("Personne physique", "Personne morale"),
+        allowNull: true, // facultatif
+      },
+      type_compte_id: {
+        // ✅ NOUVEAU : lien avec TypeCompte
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
       entitee_un_id: { type: DataTypes.INTEGER, allowNull: true },
       entitee_deux_id: { type: DataTypes.INTEGER, allowNull: true },
       entitee_trois_id: { type: DataTypes.INTEGER, allowNull: true },
@@ -59,9 +68,21 @@ module.exports = (sequelize, DataTypes) => {
       as: "entitee_trois",
     });
 
+    TypeDocument.belongsToMany(models.Client, {
+      through: "client_type_documents",
+      foreignKey: "type_document_id",
+      otherKey: "client_id",
+      as: "clients",
+    });
+
     TypeDocument.hasMany(models.EntityTypeDocumentPiece, {
       foreignKey: "type_document_id",
       as: "entityPieceOverrides",
+    });
+
+    TypeDocument.belongsTo(models.TypeCompte, {
+      foreignKey: "type_compte_id",
+      as: "type_compte",
     });
 
     // TypeDocument.belongsTo(models.EntiteeUn, {

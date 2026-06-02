@@ -60,6 +60,8 @@ app.use("/api/statistiques", require("./routes/statistiques.routes"));
 app.use("/api/user", require("./routes/user.routes"));
 app.use("/api/pieces", require("./routes/Pieces.routes"));
 
+app.use("/api/clients", require("./routes/client.routes"));
+
 app.use("/api/permissions", require("./routes/permission.routes"));
 app.use("/api/droits", require("./routes/droit.routes"));
 app.use("/api/droitPermission", require("./routes/droitPermission.routes"));
@@ -96,8 +98,13 @@ app.use(
   require("./routes/destinataireExterne.routes"),
 );
 app.use("/api/courrier-files", require("./routes/courrierFile.routes"));
-
 app.use("/api/sync", require("./routes/sync.routes"));
+app.use("/api/type-compte", require("./routes/typeCompte.routes"));
+app.use("/api/compte", require("./routes/compte.routes"));
+app.use(
+  "/api/type-compte-meta-field",
+  require("./routes/typeCompteMetafield.route"),
+);
 
 // 404
 app.use((req, res) => {
@@ -117,7 +124,7 @@ sequelize
     console.log("✅ Connexion MySQL réussie");
 
     // await sequelize.sync({ alter: true });
-    await sequelize.sync(); // ❌ PAS force / alter ici
+    // await sequelize.sync(); // ❌ PAS force / alter ici
 
     // Vérifier que les tables existent
     // const tables = await sequelize.query("SHOW TABLES");

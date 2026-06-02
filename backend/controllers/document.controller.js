@@ -22,12 +22,122 @@ const logger = require("../config/logger.config");
 const HistoriqueService = require("../services/historique.service");
 const fs = require("fs");
 
+// exports.create = async (req, res) => {
+//   const t = await sequelize.transaction();
+//   const startTime = Date.now();
+
+//   try {
+//     const { type_document_id, values, piece_values, entities } = req.body;
+
+//     if (!type_document_id) {
+//       return res
+//         .status(400)
+//         .json({ message: "Le type de document est requis" });
+//     }
+
+//     // ✅ Validation de l'entité
+//     if (
+//       !entities ||
+//       !entities.length ||
+//       !entities[0].entity_type ||
+//       !entities[0].entity_id
+//     ) {
+//       return res.status(400).json({
+//         message: "entities avec entity_type et entity_id est requis",
+//       });
+//     }
+
+//     const entity = entities[0];
+
+//     // 1. Créer le document
+//     const doc = await Document.create({ type_document_id }, { transaction: t });
+
+//     // 2. LIAISON DOCUMENT → ENTITÉ
+//     await DocumentEntity.create(
+//       {
+//         document_id: doc.id,
+//         entity_type: entity.entity_type,
+//         entity_id: entity.entity_id,
+//       },
+//       { transaction: t },
+//     );
+
+// // 3. Associer les pièces du type
+// const typeDocumentPieces = await TypeDocumentPieces.findAll({
+//   where: { document_type_id: type_document_id },
+//   transaction: t,
+// });
+
+// if (typeDocumentPieces.length > 0) {
+//   const pieceRows = typeDocumentPieces.map((tp) => ({
+//     document_id: doc.id,
+//     piece_id: tp.piece_id,
+//     disponible: false,
+//   }));
+//   await DocumentPieces.bulkCreate(pieceRows, { transaction: t });
+// }
+
+// // 4. Meta values du document
+// if (values && Object.keys(values).length > 0) {
+//   const metaRows = Object.entries(values)
+//     .filter(
+//       ([_, value]) => value !== null && value !== undefined && value !== "",
+//     )
+//     .map(([meta_field_id, value]) => ({
+//       document_id: doc.id,
+//       meta_field_id: parseInt(meta_field_id),
+//       value: value.toString(),
+//     }));
+
+//   if (metaRows.length > 0) {
+//     await DocumentValue.bulkCreate(metaRows, { transaction: t });
+//   }
+// }
+
+// // 5. Valeurs des métadonnées des pièces
+// if (piece_values && Object.keys(piece_values).length > 0) {
+//   const pieceValueRows = [];
+//   for (const [pieceId, metaFields] of Object.entries(piece_values)) {
+//     if (metaFields && typeof metaFields === "object") {
+//       for (const [metaFieldId, value] of Object.entries(metaFields)) {
+//         if (value !== null && value !== undefined && value !== "") {
+//           pieceValueRows.push({
+//             document_id: doc.id,
+//             piece_id: parseInt(pieceId),
+//             piece_meta_field_id: parseInt(metaFieldId),
+//             value: value?.toString() || null,
+//           });
+//         }
+//       }
+//     }
+//   }
+//   if (pieceValueRows.length > 0) {
+//     await PieceValue.bulkCreate(pieceValueRows, { transaction: t });
+//   }
+// }
+
+//     await t.commit();
+
+//     await HistoriqueService.logCreate(req, "document", doc);
+
+//     res.status(201).json({
+//       message: "Document créé avec succès",
+//       id: doc.id,
+//       type_document_id: doc.type_document_id,
+//     });
+//   } catch (e) {
+//     if (t) await t.rollback();
+//     console.error("❌ Erreur create document:", e);
+//     res.status(500).json({ message: e.message });
+//   }
+// };
+
 exports.create = async (req, res) => {
   const t = await sequelize.transaction();
-  const startTime = Date.now();
 
   try {
-    const { type_document_id, values, piece_values, entities } = req.body;
+    const { type_document_id, values, piece_values, entities, client_id } =
+      req.body;
 
     if (!type_document_id) {
       return res
@@ -35,29 +145,49 @@ exports.create = async (req, res) => {
         .json({ message: "Le type de document est requis" });
     }
 
-    // ✅ Validation de l'entité
-    if (
-      !entities ||
-      !entities.length ||
-      !entities[0].entity_type ||
-      !entities[0].entity_id
-    ) {
-      return res.status(400).json({
-        message: "entities avec entity_type et entity_id est requis",
-      });
+    // Vérifier que le type de document existe
+    const typeDoc = await TypeDocument.findByPk(type_document_id, {
+      transaction: t,
+    });
+    if (!typeDoc) {
+      return res.status(404).json({ message: "Type de document introuvable" });
     }
 
-    const entity = entities[0];
-
-    // 1. Créer le document
+    // Créer le document
     const doc = await Document.create({ type_document_id }, { transaction: t });
 
-    // 2. LIAISON DOCUMENT → ENTITÉ
+    // Déterminer les valeurs pour DocumentEntity
+    let entityType, entityId, clientIdValue;
+
+    if (typeDoc.conserne !== null) {
+      // Cas où le type de document a un champ conserne défini
+      entityType = "client";
+      entityId = null;
+      clientIdValue = client_id; // récupéré depuis req.body
+    } else {
+      // Cas normal basé sur entities[]
+      if (
+        !entities ||
+        !entities.length ||
+        !entities[0].entity_type ||
+        !entities[0].entity_id
+      ) {
+        return res.status(400).json({
+          message: "entities avec entity_type et entity_id est requis",
+        });
+      }
+      entityType = entities[0].entity_type;
+      entityId = entities[0].entity_id;
+      clientIdValue = null;
+    }
+
+    // Créer la liaison Document → Entity
     await DocumentEntity.create(
       {
         document_id: doc.id,
-        entity_type: entity.entity_type,
-        entity_id: entity.entity_id,
+        entity_type: entityType,
+        entity_id: entityId,
+        client_id: clientIdValue,
       },
       { transaction: t },
     );
@@ -117,8 +247,6 @@ exports.create = async (req, res) => {
     }
 
     await t.commit();
-
-    await HistoriqueService.logCreate(req, "document", doc);
 
     res.status(201).json({
       message: "Document créé avec succès",

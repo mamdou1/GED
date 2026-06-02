@@ -1,7 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
-import { FileText, Save, Hash, Info, X } from "lucide-react";
+import { Dropdown } from "primereact/dropdown";
+import { FileText, Save, Hash, Info, X, Users } from "lucide-react";
+
+// ✅ Options pour le dropdown conserne
+const CONSERNE_OPTIONS = [
+  { label: "Personne physique", value: "Personne physique" },
+  { label: "Personne morale", value: "Personne morale" },
+];
 
 export default function DocumentTypeForm({
   onHide,
@@ -11,25 +18,35 @@ export default function DocumentTypeForm({
   currentStructureLabel = "",
   isFiltered = false,
 }: any) {
-  //const [code, setCode] = useState("");
   const [nom, setNom] = useState("");
   const [cote, setCote] = useState("");
+  const [conserne, setConserne] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Initialisation des champs (le visible n'est plus requis ici car le TabView monte le composant)
+  // Initialisation des champs
   useEffect(() => {
-    //setCode(initial?.code || "");
     setNom(initial?.nom || "");
     setCote(initial?.cote || "");
+    setConserne(initial?.conserne || null);
   }, [initial]);
 
   const handleSubmit = async () => {
     if (!nom) return;
     setLoading(true);
     try {
-      await onSubmit({ nom });
-      // On peut appeler onHide() ici si on veut fermer la modale après succès
-      //refresh();
+      const payload: any = { nom };
+
+      // ✅ Ajout du champ conserne (peut être null)
+      if (conserne) {
+        payload.conserne = conserne;
+      }
+
+      // ✅ Ajout du champ cote si présent
+      // if (cote) {
+      //   payload.cote = cote;
+      // }
+
+      await onSubmit(payload);
     } catch (error) {
       console.error(error);
     } finally {
@@ -57,30 +74,62 @@ export default function DocumentTypeForm({
 
       {/* 2. Champs de saisie */}
       <div className="space-y-5">
+        {/* Champ Cote (optionnel) */}
         {/* <div className="space-y-2">
           <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
             <Hash size={14} className="text-emerald-500" /> Cote Référence
+            <span className="text-[9px] font-normal text-slate-300 ml-1">
+              (optionnel)
+            </span>
           </label>
           <InputText
             value={cote}
             onChange={(e) => setCote(e.target.value.toUpperCase())}
             className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono"
-            placeholder="ex: 2-SD, 2-SRS,...etc"
+            placeholder="ex: 2-SD, 2-SRS, ADMIN-001..."
             autoFocus
           />
         </div> */}
 
+        {/* Champ Libellé */}
         <div className="space-y-2">
           <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
             <FileText size={14} className="text-emerald-500" /> Libellé du
             document
+            <span className="text-red-500 text-xs">*</span>
           </label>
           <InputText
             value={nom}
             onChange={(e) => setNom(e.target.value)}
             className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 transition-all"
-            placeholder="ex: Facture de service"
+            placeholder="ex: Facture de service, Contrat de travail..."
           />
+        </div>
+
+        {/* ✅ Nouveau champ Conserne (dropdown) */}
+        <div className="space-y-2">
+          <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+            <Users size={14} className="text-emerald-500" /> Concerne
+            <span className="text-[9px] font-normal text-slate-300 ml-1">
+              (optionnel)
+            </span>
+          </label>
+          <Dropdown
+            value={conserne}
+            options={CONSERNE_OPTIONS}
+            onChange={(e) => setConserne(e.value)}
+            placeholder="Sélectionner un type de destinataire"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl"
+            panelClassName="rounded-xl"
+            showClear
+          />
+          <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
+            <Info size={18} className="text-amber-600 mt-0.5" />
+            <div className="text-xs text-amber-800">
+              Indique si ce type de document concerne une personne physique ou
+              une personne morale.
+            </div>
+          </div>
         </div>
       </div>
 

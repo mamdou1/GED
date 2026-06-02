@@ -26,6 +26,7 @@ import SendEmail from "../pages/Auth/SendEmail";
 import VerifyEmail from "../pages/Auth/VerifyEmail";
 import UpdatePassword from "../pages/Auth/UpdatePassword";
 import FonctionPage from "../pages/Fonction/FonctionPage";
+import ClientPage from "../pages/Client/ClientPage";
 
 // 🔥 IMPORTATION COURRIER
 import CourrierPage from "../pages/Courrier/CourrierPage";
@@ -33,6 +34,7 @@ import MesCourriers from "../pages/Courrier/MesCourriers";
 import NouveauCourrier from "../pages/Courrier/Enregitrement";
 import ExpediteursPage from "../pages/Expediteur/ExpediteursPage";
 import DestinatairesExternesPage from "../pages/Destinateur/DestinatairePage";
+import ComptePage from "../pages/Compte/ComptePage";
 
 const PrivateRoute: React.FC<{ children: ReactElement }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -271,6 +273,22 @@ export default function AppRouter() {
         element={
           <PrivateRoute>
             <DestinatairesExternesPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/clients"
+        element={
+          <PrivateRoute>
+            <ClientPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/compte"
+        element={
+          <PrivateRoute>
+            <ComptePage />
           </PrivateRoute>
         }
       />

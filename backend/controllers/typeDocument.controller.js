@@ -8,11 +8,15 @@ const {
   DocumentPieces,
   Document,
   TypeDocumentPieces,
+  TypeCompte,
   EntityTypeDocumentPiece,
   sequelize,
 } = require("../models");
 const logger = require("../config/logger.config");
 const HistoriqueService = require("../services/historique.service");
+const Op = require("sequelize").Op;
+
+const CONSERNE_VALUES = ["Personne physique", "Personne morale"];
 
 exports.create = async (req, res) => {
   const startTime = Date.now();
@@ -23,8 +27,15 @@ exports.create = async (req, res) => {
       body: req.body,
     });
 
-    const { nom, entitee_un_id, entitee_deux_id, entitee_trois_id } =
+    const { nom, conserne, entitee_un_id, entitee_deux_id, entitee_trois_id } =
       req.body;
+
+    // ✅ Validation de la valeur conserne si présente
+    if (conserne && !CONSERNE_VALUES.includes(conserne)) {
+      return res.status(400).json({
+        message: `La valeur '${conserne}' n'est pas valide. Valeurs acceptées: ${CONSERNE_VALUES.join(", ")}`,
+      });
+    }
 
     const count = await TypeDocument.count();
 
@@ -35,6 +46,7 @@ exports.create = async (req, res) => {
     const data = await TypeDocument.create({
       code,
       nom,
+      conserne: conserne || null, // ✅ Peut être null
       entitee_un_id,
       entitee_deux_id,
       entitee_trois_id,
@@ -43,6 +55,7 @@ exports.create = async (req, res) => {
     logger.info("✅ Type de document créé avec succès", {
       typeId: data.id,
       nom: data.nom,
+      conserne: data.conserne,
       userId: req.user?.id,
       duration: Date.now() - startTime,
     });
@@ -88,11 +101,20 @@ exports.update = async (req, res) => {
       cote,
       nom,
       code,
+      conserne,
       entitee_un_id,
       entitee_deux_id,
       entitee_trois_id,
       division_id,
     } = req.body;
+
+    // ✅ Validation de la valeur conserne si présente
+    if (conserne && !CONSERNE_VALUES.includes(conserne)) {
+      await t.rollback();
+      return res.status(400).json({
+        message: `La valeur '${conserne}' n'est pas valide. Valeurs acceptées: ${CONSERNE_VALUES.join(", ")}`,
+      });
+    }
 
     // 1. Mettre à jour les colonnes directes
     const [updated] = await TypeDocument.update(
@@ -100,6 +122,7 @@ exports.update = async (req, res) => {
         cote,
         nom,
         code,
+        conserne: conserne || null, // ✅ Peut être null
         entitee_un_id,
         entitee_deux_id,
         entitee_trois_id,
@@ -112,18 +135,30 @@ exports.update = async (req, res) => {
     if (entitee_deux_id) {
       const existing = await sequelize.query(
         `SELECT * FROM entitee_deux_type_documents WHERE type_document_id = ? AND entitee_deux_id = ?`,
-        { replacements: [id, entitee_deux_id], transaction: t, type: sequelize.QueryTypes.SELECT }
+        {
+          replacements: [id, entitee_deux_id],
+          transaction: t,
+          type: sequelize.QueryTypes.SELECT,
+        },
       );
-      
+
       if (existing.length === 0) {
         await sequelize.query(
           `INSERT INTO entitee_deux_type_documents (entitee_deux_id, type_document_id, created_at, updated_at)
            VALUES (?, ?, NOW(), NOW())`,
-          { replacements: [entitee_deux_id, id], transaction: t, type: sequelize.QueryTypes.INSERT }
+          {
+            replacements: [entitee_deux_id, id],
+            transaction: t,
+            type: sequelize.QueryTypes.INSERT,
+          },
         );
-        console.log(`✅ Association ajoutée: type ${id} -> entitee_deux ${entitee_deux_id}`);
+        console.log(
+          `✅ Association ajoutée: type ${id} -> entitee_deux ${entitee_deux_id}`,
+        );
       } else {
-        console.log(`ℹ️ Association existante: type ${id} -> entitee_deux ${entitee_deux_id}`);
+        console.log(
+          `ℹ️ Association existante: type ${id} -> entitee_deux ${entitee_deux_id}`,
+        );
       }
     }
 
@@ -131,16 +166,26 @@ exports.update = async (req, res) => {
     if (entitee_un_id) {
       const existing = await sequelize.query(
         `SELECT * FROM entitee_un_type_documents WHERE type_document_id = ? AND entitee_un_id = ?`,
-        { replacements: [id, entitee_un_id], transaction: t, type: sequelize.QueryTypes.SELECT }
+        {
+          replacements: [id, entitee_un_id],
+          transaction: t,
+          type: sequelize.QueryTypes.SELECT,
+        },
       );
-      
+
       if (existing.length === 0) {
         await sequelize.query(
           `INSERT INTO entitee_un_type_documents (entitee_un_id, type_document_id, created_at, updated_at)
            VALUES (?, ?, NOW(), NOW())`,
-          { replacements: [entitee_un_id, id], transaction: t, type: sequelize.QueryTypes.INSERT }
+          {
+            replacements: [entitee_un_id, id],
+            transaction: t,
+            type: sequelize.QueryTypes.INSERT,
+          },
         );
-        console.log(`✅ Association ajoutée: type ${id} -> entitee_un ${entitee_un_id}`);
+        console.log(
+          `✅ Association ajoutée: type ${id} -> entitee_un ${entitee_un_id}`,
+        );
       }
     }
 
@@ -148,16 +193,26 @@ exports.update = async (req, res) => {
     if (entitee_trois_id) {
       const existing = await sequelize.query(
         `SELECT * FROM entitee_trois_type_documents WHERE type_document_id = ? AND entitee_trois_id = ?`,
-        { replacements: [id, entitee_trois_id], transaction: t, type: sequelize.QueryTypes.SELECT }
+        {
+          replacements: [id, entitee_trois_id],
+          transaction: t,
+          type: sequelize.QueryTypes.SELECT,
+        },
       );
-      
+
       if (existing.length === 0) {
         await sequelize.query(
           `INSERT INTO entitee_trois_type_documents (entitee_trois_id, type_document_id, created_at, updated_at)
            VALUES (?, ?, NOW(), NOW())`,
-          { replacements: [entitee_trois_id, id], transaction: t, type: sequelize.QueryTypes.INSERT }
+          {
+            replacements: [entitee_trois_id, id],
+            transaction: t,
+            type: sequelize.QueryTypes.INSERT,
+          },
         );
-        console.log(`✅ Association ajoutée: type ${id} -> entitee_trois ${entitee_trois_id}`);
+        console.log(
+          `✅ Association ajoutée: type ${id} -> entitee_trois ${entitee_trois_id}`,
+        );
       }
     }
 
@@ -167,7 +222,11 @@ exports.update = async (req, res) => {
       include: [
         { model: EntiteeUn, as: "entitee_un", through: { attributes: [] } },
         { model: EntiteeDeux, as: "entitee_deux", through: { attributes: [] } },
-        { model: EntiteeTrois, as: "entitee_trois", through: { attributes: [] } },
+        {
+          model: EntiteeTrois,
+          as: "entitee_trois",
+          through: { attributes: [] },
+        },
       ],
     });
 
@@ -175,11 +234,17 @@ exports.update = async (req, res) => {
       typeId: id,
       cote: updatedType.cote,
       nom: updatedType.nom,
+      conserne: updatedType.conserne,
       userId: req.user?.id,
       duration: Date.now() - startTime,
     });
 
-    await HistoriqueService.logUpdate(req, "typeDocument", oldCopy, updatedType);
+    await HistoriqueService.logUpdate(
+      req,
+      "typeDocument",
+      oldCopy,
+      updatedType,
+    );
 
     res.json({
       success: true,
@@ -246,29 +311,38 @@ exports.getAll = async (req, res) => {
 
     // Log pour déboguer les associations
     console.log("📊 === TYPES AVEC ASSOCIATIONS ===");
-    data.forEach(td => {
+    data.forEach((td) => {
       console.log(`Type ${td.id}: ${td.nom}`);
-      console.log(`  entitee_un: ${td.entitee_un?.map(e => `${e.id} (${e.libelle})`).join(', ') || 'aucune'}`);
-      console.log(`  entitee_deux: ${td.entitee_deux?.map(e => `${e.id} (${e.libelle})`).join(', ') || 'aucune'}`);
-      console.log(`  entitee_trois: ${td.entitee_trois?.map(e => `${e.id} (${e.libelle})`).join(', ') || 'aucune'}`);
+      console.log(`  conserne: ${td.conserne || "Non spécifié"}`);
+      console.log(
+        `  entitee_un: ${td.entitee_un?.map((e) => `${e.id} (${e.libelle})`).join(", ") || "aucune"}`,
+      );
+      console.log(
+        `  entitee_deux: ${td.entitee_deux?.map((e) => `${e.id} (${e.libelle})`).join(", ") || "aucune"}`,
+      );
+      console.log(
+        `  entitee_trois: ${td.entitee_trois?.map((e) => `${e.id} (${e.libelle})`).join(", ") || "aucune"}`,
+      );
     });
 
     const formatted = data.map((td) => {
       const entiteeUnArray = td.entitee_un || [];
       const entiteeDeuxArray = td.entitee_deux || [];
       const entiteeTroisArray = td.entitee_trois || [];
-      
+
       const entiteeUnFirst = entiteeUnArray[0] || null;
       const entiteeDeuxFirst = entiteeDeuxArray[0] || null;
       const entiteeTroisFirst = entiteeTroisArray[0] || null;
-      
-      const entiteeConcernee = entiteeTroisFirst || entiteeDeuxFirst || entiteeUnFirst;
+
+      const entiteeConcernee =
+        entiteeTroisFirst || entiteeDeuxFirst || entiteeUnFirst;
 
       return {
         id: td.id,
         cote: td.cote,
         code: td.code,
         nom: td.nom,
+        conserne: td.conserne || null, // ✅ Ajout du champ conserne
         entitee_un_id: entiteeUnFirst?.id || td.entitee_un_id || null,
         entitee_deux_id: entiteeDeuxFirst?.id || td.entitee_deux_id || null,
         entitee_trois_id: entiteeTroisFirst?.id || td.entitee_trois_id || null,
@@ -339,20 +413,20 @@ exports.getById = async (req, res) => {
 
     const data = await TypeDocument.findByPk(id, {
       include: [
-        { 
-          model: EntiteeUn, 
+        {
+          model: EntiteeUn,
           as: "entitee_un",
           through: { attributes: [] },
           required: false,
         },
-        { 
-          model: EntiteeDeux, 
+        {
+          model: EntiteeDeux,
           as: "entitee_deux",
           through: { attributes: [] },
           required: false,
         },
-        { 
-          model: EntiteeTrois, 
+        {
+          model: EntiteeTrois,
           as: "entitee_trois",
           through: { attributes: [] },
           required: false,
@@ -372,6 +446,7 @@ exports.getById = async (req, res) => {
     logger.info("✅ Type de document trouvé", {
       typeId: id,
       nom: data.nom,
+      conserne: data.conserne,
       userId: req.user?.id,
       duration: Date.now() - startTime,
     });
@@ -405,7 +480,6 @@ exports.getById = async (req, res) => {
     res.status(500).json({ message: e.message });
   }
 };
-
 exports.remove = async (req, res) => {
   const startTime = Date.now();
   const { id } = req.params;
@@ -814,5 +888,222 @@ exports.getEffectivePiecesForEntity = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * ✅ Récupérer les types de documents dont conserne n'est pas null
+ */
+exports.getTypesWithConserne = async (req, res) => {
+  const startTime = Date.now();
+
+  try {
+    logger.debug(
+      "🔍 Récupération des types de documents avec conserne non null",
+      {
+        userId: req.user?.id,
+        query: req.query,
+      },
+    );
+
+    const { limit = 100, offset = 0 } = req.query;
+
+    const where = {
+      conserne: {
+        [Op.ne]: null,
+      },
+    };
+
+    const { count, rows } = await TypeDocument.findAndCountAll({
+      where,
+      include: [
+        {
+          model: TypeCompte,
+          as: "type_compte",
+          attributes: ["id", "nom"],
+          required: false,
+        },
+      ],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      order: [["createdAt", "DESC"]],
+    });
+
+    logger.info("✅ Types de documents avec conserne récupérés", {
+      count: rows.length,
+      total: count,
+      userId: req.user?.id,
+      duration: Date.now() - startTime,
+    });
+
+    if (req.headers["x-sidebar-navigation"] === "true") {
+      await HistoriqueService.log({
+        agent_id: req.user?.id || null,
+        action: "read",
+        resource: "typeDocument",
+        resource_id: null,
+        resource_identifier: "liste des types avec conserne",
+        description: "Consultation des types de documents ayant un conserne",
+        method: req.method,
+        path: req.originalUrl,
+        status: 200,
+        ip: req.ip,
+        user_agent: req.headers["user-agent"],
+        data: {
+          count: rows.length,
+          total: count,
+          duration: Date.now() - startTime,
+        },
+      });
+    }
+
+    res.json({
+      success: true,
+      data: rows,
+      total: count,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
+  } catch (err) {
+    logger.error("❌ Erreur récupération types avec conserne:", {
+      error: err.message,
+      stack: err.stack,
+      userId: req.user?.id,
+      duration: Date.now() - startTime,
+    });
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des types de documents",
+      error: err.message,
+    });
+  }
+};
+
+/**
+ * ✅ Affecter un type de compte à un type de document
+ */
+exports.assignTypeCompteToTypeDocument = async (req, res) => {
+  const startTime = Date.now();
+  const { id } = req.params;
+  const { type_compte_id } = req.body;
+
+  try {
+    logger.info(
+      "📝 Tentative d'affectation d'un type de compte à un type de document",
+      {
+        typeDocumentId: id,
+        typeCompteId: type_compte_id,
+        userId: req.user?.id,
+      },
+    );
+
+    // Vérifier si le type de document existe
+    const typeDocument = await TypeDocument.findByPk(id);
+    if (!typeDocument) {
+      logger.warn("⚠️ Type de document non trouvé", {
+        typeDocumentId: id,
+        userId: req.user?.id,
+      });
+      return res.status(404).json({
+        success: false,
+        message: "Type de document non trouvé",
+      });
+    }
+
+    const oldCopy = typeDocument.toJSON();
+
+    // Si type_compte_id est null, on supprime l'association
+    if (type_compte_id === null || type_compte_id === undefined) {
+      await typeDocument.update({ type_compte_id: null });
+
+      logger.info("✅ Association supprimée", {
+        typeDocumentId: id,
+        userId: req.user?.id,
+        duration: Date.now() - startTime,
+      });
+
+      const updatedTypeDocument = await TypeDocument.findByPk(id, {
+        include: [
+          {
+            model: TypeCompte,
+            as: "type_compte",
+            attributes: ["id", "nom"],
+          },
+        ],
+      });
+
+      await HistoriqueService.logUpdate(
+        req,
+        "typeDocument",
+        oldCopy,
+        updatedTypeDocument,
+      );
+
+      return res.json({
+        success: true,
+        message: "Type de compte dissocié du type de document avec succès",
+        data: updatedTypeDocument,
+      });
+    }
+
+    // Vérifier si le type de compte existe
+    const typeCompte = await TypeCompte.findByPk(type_compte_id);
+    if (!typeCompte) {
+      logger.warn("⚠️ Type de compte non trouvé", {
+        typeCompteId: type_compte_id,
+        userId: req.user?.id,
+      });
+      return res.status(404).json({
+        success: false,
+        message: "Type de compte non trouvé",
+      });
+    }
+
+    // Mettre à jour le type de document
+    await typeDocument.update({ type_compte_id });
+
+    logger.info("✅ Type de compte affecté au type de document", {
+      typeDocumentId: id,
+      typeCompteId: type_compte_id,
+      typeCompteNom: typeCompte.nom,
+      userId: req.user?.id,
+      duration: Date.now() - startTime,
+    });
+
+    const updatedTypeDocument = await TypeDocument.findByPk(id, {
+      include: [
+        {
+          model: TypeCompte,
+          as: "type_compte",
+          attributes: ["id", "nom"],
+        },
+      ],
+    });
+
+    await HistoriqueService.logUpdate(
+      req,
+      "typeDocument",
+      oldCopy,
+      updatedTypeDocument,
+    );
+
+    res.json({
+      success: true,
+      message: "Type de compte affecté avec succès",
+      data: updatedTypeDocument,
+    });
+  } catch (err) {
+    logger.error("❌ Erreur affectation type de compte:", {
+      typeDocumentId: id,
+      error: err.message,
+      stack: err.stack,
+      userId: req.user?.id,
+      duration: Date.now() - startTime,
+    });
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'affectation du type de compte",
+      error: err.message,
+    });
   }
 };

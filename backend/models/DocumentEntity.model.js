@@ -13,12 +13,21 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       entity_type: {
-        type: DataTypes.ENUM("entitee_un", "entitee_deux", "entitee_trois"),
+        type: DataTypes.ENUM(
+          "entitee_un",
+          "entitee_deux",
+          "entitee_trois",
+          "client",
+        ),
         allowNull: false,
       },
       entity_id: {
         type: DataTypes.INTEGER,
-        allowNull: false,
+        allowNull: true,
+      },
+      client_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
       },
     },
     {
@@ -52,6 +61,12 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "entity_id",
       constraints: false,
       as: "entitee_trois",
+    });
+
+    DocumentEntity.belongsTo(models.Client, {
+      foreignKey: "client_id",
+      constraints: false,
+      as: "client",
     });
   };
 

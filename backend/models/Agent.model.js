@@ -105,6 +105,11 @@ module.exports = (sequelize, DataTypes) => {
       as: "attributions_recues",
     });
 
+    Agent.hasMany(models.Client, {
+      foreignKey: "enregistrer_par",
+      as: "clients_crees",
+    });
+
     // Agent.belongsToMany(models.Permission, {
     //   through: "agent_permissions",
     //   foreignKey: "agent_id",

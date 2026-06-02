@@ -41,7 +41,12 @@ import {
   useComptesByClient,
   useTypeDocumentsByCompte,
 } from "../../hooks/useComptes";
-import { Client, TypeDocument, Compte } from "../../interfaces/index";
+import {
+  Client,
+  TypeDocument,
+  Compte,
+  AddPiecesToTypeDocumentPayload,
+} from "../../interfaces/index";
 import ClientForm from "./ClientForm";
 import CompteForm from "../Compte/CompteForm";
 import ClientDetails from "./ClientDetails";
@@ -67,6 +72,9 @@ import {
   useAssignTypeCompteToTypeDocument,
   useCreateTypeDocument,
   useUpdateTypeDocument,
+  useAddPiecesToTypeDocument,
+  useDeleteTypeDocument,
+  usePieces,
 } from "../../hooks/useTypeDocuments";
 import CompteItem from "./CompteItem";
 import { useAddPieceToEntityTypeDocument } from "../../hooks/useTypeDocuments";
@@ -493,7 +501,7 @@ export default function ClientListe() {
       style: { width: "450px" },
       accept: async () => {
         try {
-          await deleteDocumentMutation.mutateAsync(id);
+          await deleteDocumentMutation.mutateAsync(String(id));
           toast.current?.show({
             severity: "success",
             summary: "Supprimé",
@@ -657,6 +665,19 @@ export default function ClientListe() {
     }
   };
 
+  const onAddPieces = async (
+    typeId: string,
+    payload: AddPiecesToTypeDocumentPayload,
+  ) => {
+    try {
+      await addPiecesMutation.mutateAsync({ typeId, payload });
+      toast.current?.show({ severity: "success", summary: "Pièces ajoutées" });
+      setAllTypesPiecesVisible(false);
+    } catch (err) {
+      /* ignoré */
+    }
+  };
+
   const getClientDisplayName = (client: Client): string => {
     if (client.raison_sociale) return client.raison_sociale;
     return `${client.prenom || ""} ${client.nom || ""}`.trim() || "-";
@@ -802,18 +823,13 @@ export default function ClientListe() {
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div className="flex items-center gap-4">
-          <div className="bg-emerald-600 p-3 rounded-2xl text-white shadow-lg shadow-emerald-100">
-            <Users size={28} />
-          </div>
-          <div>
-            <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">
-              Gestion des <span className="text-emerald-600">Clients</span>
-            </h1>
-            <p className="text-slate-500 font-medium">
-              Client → Type de document → Document
-            </p>
-          </div>
+        <div>
+          <h2 className="text-xl font-extrabold text-slate-800">
+            Liste des Clients
+          </h2>
+          <p className="text-sm text-slate-500">
+            Client → Type de document → Document
+          </p>
         </div>
         <div className="gap-3">
           <Button
@@ -1076,16 +1092,16 @@ export default function ClientListe() {
                 }`}
               >
                 {/* HEADER CLIENT */}
-                <div className="flex items-center">
+                <div className="flex  items-center">
                   <button
                     onClick={() => toggleClient(client.id)}
                     className={`flex-1 flex items-center justify-between p-5 transition-all ${
                       isExpanded ? "bg-emerald-50/50" : "hover:bg-slate-50"
                     }`}
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
                       <div
-                        className={`p-2 rounded-lg ${
+                        className={`p-2 rounded-lg flex-shrink-0 ${
                           isExpanded
                             ? "bg-emerald-500 text-white"
                             : client.raison_sociale
@@ -1099,42 +1115,118 @@ export default function ClientListe() {
                           <Users size={20} />
                         )}
                       </div>
-                      <div className="text-left">
-                        <div className="flex items-center gap-2">
-                          <h3
-                            className={`font-bold ${
-                              isExpanded ? "text-emerald-800" : "text-slate-700"
-                            }`}
-                          >
-                            {getClientDisplayName(client)}
+
+                      {/* ✅ TOUTES LES INFOS SUR UNE SEULE LIGNE */}
+                      <div className="flex items-center gap-10 flex-1 min-w-0 overflow-hidden">
+                        {/* Nom / Raison sociale */}
+                        <h3
+                          className={`font-bold text-sm whitespace-nowrap ${isExpanded ? "text-emerald-800" : "text-slate-700"}`}
+                        >
+                          {getClientDisplayName(client)}
+                        </h3>
+
+                        {/* Sigle (si présent) */}
+                        {client.sigle && (
+                          <h3 className="font-bold text-sm whitespace-nowrap ">
+                            {client.sigle}
                           </h3>
-                          {client.sigle && (
-                            <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-mono">
-                              {client.sigle}
-                            </span>
-                          )}
+                        )}
+
+                        {/* Badge type */}
+                        <h3 className="whitespace-nowrap">
                           {getClientTypeBadge(client)}
-                        </div>
-                        <p className="text-xs text-slate-500 font-medium">
-                          Matricule: {client.num_matricule}
-                        </p>
+                        </h3>
+
+                        {/* Matricule */}
+                        {client.num_matricule && (
+                          <h3 className="font-bold text-sm whitespace-nowrap ">
+                            N° {client.num_matricule}
+                          </h3>
+                        )}
+
+                        {/* ✅ Champs spécifiques selon le type */}
+                        {client.raison_sociale ? (
+                          // Personne morale
+                          <>
+                            {client.numero_registre_commerce && (
+                              <h3 className="font-bold text-sm whitespace-nowrap ">
+                                RCCM: {client.numero_registre_commerce}
+                              </h3>
+                            )}
+                            {client.nif && (
+                              <h3 className="font-bold text-sm whitespace-nowrap ">
+                                NIF: {client.nif}
+                              </h3>
+                            )}
+                          </>
+                        ) : (
+                          // Personne physique
+                          <>
+                            {client.profession && (
+                              <h3 className="font-bold text-sm whitespace-nowrap ">
+                                {client.profession}
+                              </h3>
+                            )}
+                            {client.telephone && (
+                              <h3 className="font-bold text-sm whitespace-nowrap ">
+                                {client.telephone}
+                              </h3>
+                            )}
+                            {client.email && (
+                              <h3 className="font-bold text-sm whitespace-nowrap ">
+                                {client.email}
+                              </h3>
+                            )}
+                          </>
+                        )}
                       </div>
                     </div>
+
+                    {/* Chevron */}
                     {isExpanded ? (
-                      <ChevronDown size={20} className="text-emerald-500" />
+                      <ChevronDown
+                        size={20}
+                        className="text-emerald-500 flex-shrink-0 ml-2"
+                      />
                     ) : (
-                      <ChevronRight size={20} className="text-slate-400" />
+                      <ChevronRight
+                        size={20}
+                        className="text-slate-400 flex-shrink-0 ml-2"
+                      />
                     )}
+                  </button>
+
+                  {/* Boutons d'action */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDetails(client);
+                      setDetailsVisible(true);
+                    }}
+                    className="p-2 mr-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all flex-shrink-0"
+                    title="détails du compte bancaire"
+                  >
+                    <Eye size={20} />
                   </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       openCompteForm(client);
                     }}
-                    className="p-2 mr-4 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                    className="p-2 mr-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all flex-shrink-0"
                     title="Créer un compte bancaire"
                   >
                     <Banknote size={20} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEdit(client);
+                    }}
+                    className="p-2 mr-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all flex-shrink-0"
+                    title="Modifier le client"
+                  >
+                    <Pencil size={18} />
                   </button>
                   <button
                     onClick={(e) => {
@@ -1144,13 +1236,12 @@ export default function ClientListe() {
                         getClientDisplayName(client),
                       );
                     }}
-                    className="p-2 mr-4 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                    className="p-2 mr-4 text-red-600 hover:bg-red-50 rounded-lg transition-all flex-shrink-0"
                     title="Supprimer le client"
                   >
                     <Trash2 size={20} />
                   </button>
                 </div>
-
                 {/* CONTENU EXPANDÉ DU CLIENT */}
                 {isExpanded && (
                   <div className="border-t border-slate-100 p-5 space-y-4 bg-slate-50/30">
@@ -1275,7 +1366,7 @@ export default function ClientListe() {
           refetch();
           refetchTypes();
         }}
-        documentType={[]}
+        documentType={typesWithConserne} // ✅ Types avec conserne
         selectedTypeId={formTypeId}
         editingDoc={editingDoc}
         preselectedEntity={null}
@@ -1335,11 +1426,7 @@ export default function ClientListe() {
       <TypeDocumentAjoutPieces
         visible={allTypesPiecesVisible}
         onHide={() => setAllTypesPiecesVisible(false)}
-        onSubmit={async (typeId, payload) => {
-          await addPiecesToTypeMutation.mutateAsync({ typeId, payload });
-          setAllTypesPiecesVisible(false);
-          refetchTypesWithConserne();
-        }}
+        onSubmit={onAddPieces}
         initial={selectedAllType}
         title="Pièces à fournir"
         pieces={pieces}
@@ -1359,14 +1446,7 @@ export default function ClientListe() {
       <DocumentTypeAffectAndForm
         visible={allTypesEditVisible}
         onHide={() => setAllTypesEditVisible(false)}
-        onSubmitSingle={async (formData) => {
-          await updateTypeDocMutation.mutateAsync({
-            id: String(selectedAllType?.id),
-            data: formData,
-          });
-          setAllTypesEditVisible(false);
-          refetchTypesWithConserne();
-        }}
+        onSubmitSingle={handleSubmit}
         initial={selectedAllType}
         types={[]}
         isFiltered={false}

@@ -35,6 +35,8 @@ import {
   UserCircle,
   CreditCard,
   Folders,
+  HandCoins,
+  FolderOpen,
 } from "lucide-react";
 
 import logo from "../../assets/SOLUGED.png";
@@ -784,6 +786,7 @@ export default function Sidebar({ children }: SidebarProps) {
               {/* ================= SECURITE ================= */}
               {(can("agent", "access") ||
                 can("droit", "access") ||
+                can("compte", "access") ||
                 can("historique", "access")) && (
                 <SidebarTree label="Sécurité" icon={Lock}>
                   {can("agent", "access") && (
@@ -818,12 +821,33 @@ export default function Sidebar({ children }: SidebarProps) {
                       active={location.pathname.startsWith("/clients")}
                     />
                   )} */}
-                  {can("compte", "access") && (
+                  {/* {can("compte", "access") && (
                     <SidebarLink
                       icon={CreditCard}
                       text="Comptes"
                       to="/compte"
                       active={location.pathname.startsWith("/compte")}
+                    />
+                  )} */}
+                </SidebarTree>
+              )}
+              {(can("client", "access") || can("fonction", "access")) && (
+                <SidebarTree label="Dossier Client" icon={FolderOpen}>
+                  {can("client", "access") && (
+                    <SidebarLink
+                      icon={HandCoins}
+                      text="Gestion des compte"
+                      to="/gestion-comptes"
+                      active={location.pathname.startsWith("/gestion-comptes")}
+                    />
+                  )}
+
+                  {can("client", "access") && (
+                    <SidebarLink
+                      icon={Users}
+                      text="Clients"
+                      to="/clients"
+                      active={location.pathname.startsWith("/clients")}
                     />
                   )}
                 </SidebarTree>

@@ -35,6 +35,7 @@ import NouveauCourrier from "../pages/Courrier/Enregitrement";
 import ExpediteursPage from "../pages/Expediteur/ExpediteursPage";
 import DestinatairesExternesPage from "../pages/Destinateur/DestinatairePage";
 import ComptePage from "../pages/Compte/ComptePage";
+import GestionDesComptes from "../pages/Compte/Gestion des comptes/GestionDesComptes";
 
 const PrivateRoute: React.FC<{ children: ReactElement }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -289,6 +290,14 @@ export default function AppRouter() {
         element={
           <PrivateRoute>
             <ComptePage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/gestion-comptes"
+        element={
+          <PrivateRoute>
+            <GestionDesComptes />
           </PrivateRoute>
         }
       />

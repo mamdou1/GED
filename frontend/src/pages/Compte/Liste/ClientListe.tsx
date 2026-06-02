@@ -84,7 +84,7 @@ const CONSERNE_OPTIONS = [
   { label: "Personne morale", value: "Personne morale" },
 ];
 
-export default function ClientListe() {
+export default function ClientListe() { 
   const toast = useRef<Toast>(null);
   const { data: clientsData, isLoading, error, refetch } = useClients();
   const createMutation = useCreateDocument();

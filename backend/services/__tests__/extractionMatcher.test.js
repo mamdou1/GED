@@ -34,6 +34,12 @@ describe("parseNumber", () => {
     expect(parseNumber("12")).toBe("12");
     expect(parseNumber("rien")).toBe("");
   });
+  test("gère le point comme séparateur de milliers (format FR/FCFA)", () => {
+    expect(parseNumber("1.250,50")).toBe("1250.50");
+    expect(parseNumber("1.250.000")).toBe("1250000");
+    expect(parseNumber("3,5")).toBe("3.5");
+    expect(parseNumber("Total 42.00")).toBe("42.00");
+  });
 });
 
 describe("parseValueByType", () => {

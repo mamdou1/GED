@@ -66,8 +66,17 @@ function parseDateFr(raw) {
 }
 
 function parseNumber(raw) {
-  if (!raw) return "";
-  const m = String(raw).replace(/\s/g, "").match(/-?\d+(?:[.,]\d+)?/);
+  if (raw == null || raw === "") return "";
+  // Retire les espaces, puis les points "milliers" : un point suivi de 3 chiffres
+  // qui sont suivis d'un autre groupe de 3, d'une virgule décimale, ou de la fin du nombre.
+  // La boucle gère les groupes de milliers chaînés (ex: 1.250.000).
+  let s = String(raw).replace(/\s/g, "");
+  let prev;
+  do {
+    prev = s;
+    s = s.replace(/(\d)\.(\d{3})(?=\.\d{3}|,|$|\D)/g, "$1$2");
+  } while (s !== prev);
+  const m = s.match(/-?\d+(?:[.,]\d+)?/);
   return m ? m[0].replace(",", ".") : "";
 }
 

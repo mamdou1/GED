@@ -91,6 +91,7 @@ app.use("/api/entiteeTrois", require("./routes/entiteeTrois.routes"));
 app.use("/api/agent-access", require("./routes/agentAccess.routes"));
 app.use("/api", require("./routes/pieceMetaField.routes"));
 app.use("/api", require("./routes/pieceValue.routes"));
+app.use("/api/extraction", require("./routes/extraction.routes"));
 app.use("/api/courrier", require("./routes/courrier.routes"));
 app.use("/api/expediteur", require("./routes/expediteur.routes"));
 app.use(

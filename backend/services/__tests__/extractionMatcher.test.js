@@ -50,3 +50,88 @@ describe("parseValueByType", () => {
     expect(parseValueByType("xxx", "file")).toBe("");
   });
 });
+
+const { extractValueForField, suggestFields } = require("../extractionMatcher");
+
+const OCR = [
+  "REPUBLIQUE - Ministère",
+  "Numéro de pièce : ABC-12345",
+  "Date de signature : 12/03/2024",
+  "Montant",
+  "1 250,50",
+  "Nom du signataire",
+].join("\n");
+
+describe("extractValueForField", () => {
+  test("valeur sur la même ligne après ':' (confiance high)", () => {
+    const r = extractValueForField(OCR, {
+      label: "Numéro de pièce",
+      field_type: "text",
+    });
+    expect(r).toEqual({ value: "ABC-12345", confidence: "high" });
+  });
+
+  test("date parsée vers ISO", () => {
+    const r = extractValueForField(OCR, {
+      label: "Date de signature",
+      field_type: "date",
+    });
+    expect(r).toEqual({ value: "2024-03-12", confidence: "high" });
+  });
+
+  test("valeur sur la ligne suivante (confiance low)", () => {
+    const r = extractValueForField(OCR, {
+      label: "Montant",
+      field_type: "number",
+    });
+    expect(r).toEqual({ value: "1250.50", confidence: "low" });
+  });
+
+  test("recherche insensible aux accents (label sans accent)", () => {
+    const r = extractValueForField(OCR, {
+      label: "Numero de piece",
+      field_type: "text",
+    });
+    expect(r.value).toBe("ABC-12345");
+  });
+
+  test("override extraction_keywords", () => {
+    const r = extractValueForField(OCR, {
+      label: "Référence",
+      field_type: "text",
+      extraction_keywords: ["Numéro de pièce"],
+    });
+    expect(r.value).toBe("ABC-12345");
+  });
+
+  test("override extraction_pattern (regex, groupe 1)", () => {
+    const r = extractValueForField(OCR, {
+      label: "Code",
+      field_type: "text",
+      extraction_pattern: "pièce\\s*:\\s*([A-Z0-9-]+)",
+    });
+    expect(r).toEqual({ value: "ABC-12345", confidence: "high" });
+  });
+
+  test("null si mot-clé absent", () => {
+    expect(
+      extractValueForField(OCR, { label: "Inexistant", field_type: "text" }),
+    ).toBeNull();
+  });
+});
+
+describe("suggestFields", () => {
+  test("ignore les champs file et ceux sans valeur", () => {
+    const fields = [
+      { id: 1, label: "Numéro de pièce", field_type: "text" },
+      { id: 2, label: "Date de signature", field_type: "date" },
+      { id: 3, label: "Pièce jointe", field_type: "file" },
+      { id: 4, label: "Inexistant", field_type: "text" },
+    ];
+    const out = suggestFields(OCR, fields);
+    expect(out).toEqual([
+      { fieldId: 1, label: "Numéro de pièce", fieldType: "text", value: "ABC-12345", confidence: "high" },
+      { fieldId: 2, label: "Date de signature", fieldType: "date", value: "2024-03-12", confidence: "high" },
+    ]);
+  });
+});

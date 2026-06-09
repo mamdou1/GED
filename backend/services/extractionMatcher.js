@@ -93,9 +93,98 @@ function parseValueByType(raw, fieldType) {
   }
 }
 
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function nextNonEmptyLine(lines, fromIndex) {
+  for (let i = fromIndex; i < lines.length; i++) {
+    if (lines[i] && lines[i].trim()) return lines[i];
+  }
+  return "";
+}
+
+// field: { label, field_type, extraction_keywords?, extraction_pattern? }
+// retourne { value, confidence } ou null si aucun mot-clé trouvé.
+function extractValueForField(ocrText, field) {
+  const text = String(ocrText || "");
+
+  // 1) Override regex explicite
+  if (field.extraction_pattern) {
+    try {
+      const re = new RegExp(field.extraction_pattern, "i");
+      const m = text.match(re);
+      if (m) {
+        const raw = m[1] !== undefined ? m[1] : m[0];
+        const value = parseValueByType(raw, field.field_type);
+        if (value) return { value, confidence: "high" };
+      }
+    } catch (e) {
+      // pattern invalide -> on retombe sur la recherche par mots-clés
+    }
+  }
+
+  const keywords =
+    Array.isArray(field.extraction_keywords) && field.extraction_keywords.length
+      ? field.extraction_keywords
+      : [field.label];
+
+  const lines = text.split(/\r?\n/);
+  let keywordSeen = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const foldedLine = foldAccents(line).toLowerCase();
+
+    for (const kw of keywords) {
+      if (!kw) continue;
+      const foldedKw = foldAccents(kw).toLowerCase();
+      const idx = foldedLine.indexOf(foldedKw);
+      if (idx < 0) continue;
+
+      keywordSeen = true;
+      // foldAccents est 1:1 -> idx et longueur s'alignent sur la ligne d'origine
+      let after = line.slice(idx + kw.length).replace(/^\s*:?\s*/, "");
+
+      if (after.trim()) {
+        const value = parseValueByType(after, field.field_type);
+        if (value) return { value, confidence: "high" };
+      }
+      // valeur potentielle sur la ligne suivante
+      const nextRaw = nextNonEmptyLine(lines, i + 1);
+      if (nextRaw) {
+        const value = parseValueByType(nextRaw, field.field_type);
+        if (value) return { value, confidence: "low" };
+      }
+    }
+  }
+
+  return keywordSeen ? { value: "", confidence: "low" } : null;
+}
+
+function suggestFields(ocrText, fields) {
+  const out = [];
+  for (const field of fields || []) {
+    if (field.field_type === "file") continue;
+    const r = extractValueForField(ocrText, field);
+    if (r && r.value) {
+      out.push({
+        fieldId: field.id,
+        label: field.label,
+        fieldType: field.field_type,
+        value: r.value,
+        confidence: r.confidence,
+      });
+    }
+  }
+  return out;
+}
+
 module.exports = {
   foldAccents,
   parseDateFr,
   parseNumber,
   parseValueByType,
+  extractValueForField,
+  suggestFields,
 };

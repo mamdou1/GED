@@ -1,0 +1,4 @@
+Numéro de pièce : ABC-12345
+Date de signature : 12/03/2024
+Montant
+1 250,50

@@ -93,10 +93,6 @@ function parseValueByType(raw, fieldType) {
   }
 }
 
-function escapeRegExp(s) {
-  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 function nextNonEmptyLine(lines, fromIndex) {
   for (let i = fromIndex; i < lines.length; i++) {
     if (lines[i] && lines[i].trim()) return lines[i];
@@ -141,6 +137,14 @@ function extractValueForField(ocrText, field) {
       const foldedKw = foldAccents(kw).toLowerCase();
       const idx = foldedLine.indexOf(foldedKw);
       if (idx < 0) continue;
+
+      // Garde de frontière de mot : évite les correspondances en milieu de mot
+      // (ex: le label "Nom" ne doit pas matcher dans "Prenominal").
+      const charBefore = foldedLine[idx - 1];
+      const charAfter = foldedLine[idx + foldedKw.length];
+      const atWordStart = !charBefore || /\W/.test(charBefore);
+      const atWordEnd = !charAfter || /\W/.test(charAfter);
+      if (!atWordStart || !atWordEnd) continue;
 
       keywordSeen = true;
       // foldAccents est 1:1 -> idx et longueur s'alignent sur la ligne d'origine

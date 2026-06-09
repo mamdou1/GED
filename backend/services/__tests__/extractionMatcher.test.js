@@ -118,6 +118,14 @@ describe("extractValueForField", () => {
       extractValueForField(OCR, { label: "Inexistant", field_type: "text" }),
     ).toBeNull();
   });
+
+  test("ne matche pas un label en milieu de mot", () => {
+    const r = extractValueForField("Prenominal: ZZZ", {
+      label: "Nom",
+      field_type: "text",
+    });
+    expect(r).toBeNull();
+  });
 });
 
 describe("suggestFields", () => {

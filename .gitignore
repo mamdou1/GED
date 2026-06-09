@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Builds
+frontend/build/
+backend/build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Env locaux (gardés: .env applicatifs déjà suivis par le projet)
+.env.local
+*.local
+
+# OS / éditeurs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Fichiers temporaires de scan
+scan-agent/tmp/

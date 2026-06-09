@@ -27,6 +27,14 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         defaultValue: 0,
       },
+      extraction_keywords: {
+        type: DataTypes.JSON,
+        allowNull: true,
+      },
+      extraction_pattern: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
     },
     {
       tableName: "piece_meta_fields",

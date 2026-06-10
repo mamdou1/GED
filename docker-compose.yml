@@ -52,9 +52,10 @@ services:
     depends_on:
       - backend
     environment:
-      - REACT_APP_API_URL=http://172.20.32.62:7000/api
-      - REACT_APP_WS_URL=ws://172.20.32.62:7000/ws
-      - WDS_SOCKET_HOST=172.20.32.62
+      - REACT_APP_API_URL=http://localhost:7000/api
+      - REACT_APP_WS_URL=ws://localhost:7000/ws
+      - WDS_SOCKET_HOST=localhost
+      - REACT_APP_SCAN_AGENT_URL=http://127.0.0.1:7777
       - WDS_SOCKET_PORT=4000
     command: npm start
     networks:

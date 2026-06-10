@@ -16,7 +16,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       field_type: {
-        type: DataTypes.ENUM("text", "date", "file"),
+        type: DataTypes.ENUM("text", "date", "file", "number"),
         allowNull: false,
       },
       required: {

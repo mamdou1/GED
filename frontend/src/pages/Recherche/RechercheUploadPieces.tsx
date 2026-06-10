@@ -27,6 +27,8 @@ import {
   Plus,
   Trash2,
   Pencil,
+  ScanLine,
+  Loader2,
 } from "lucide-react";
 import type {
   Document,
@@ -43,6 +45,9 @@ import {
 } from "../../api/pieceValue";
 import { confirmDialog } from "primereact/confirmdialog";
 import { useAuth } from "../../context/AuthContext";
+import { checkScanAgent, scanDocument, base64ToPdfFile } from "../../api/scan";
+import { suggestPieceFields } from "../../api/extraction";
+import { computePrefill } from "../Document/scanPrefill";
 
 type Props = {
   visible: boolean;
@@ -101,6 +106,23 @@ export default function RechercheUploadPieces({
   >({});
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [formFiles, setFormFiles] = useState<Record<string, File | null>>({});
+
+  // Scan vers pré-remplissage
+  const [scanningPiece, setScanningPiece] = useState<Record<number, boolean>>(
+    {},
+  );
+  const [scanSuggestedKeys, setScanSuggestedKeys] = useState<
+    Record<string, boolean>
+  >({});
+  const [scanAgentAvailable, setScanAgentAvailable] = useState<boolean | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (visible) {
+      checkScanAgent().then(setScanAgentAvailable);
+    }
+  }, [visible]);
 
   // État pour les fichiers (pièces sans métadonnées)
   const [selectedFiles, setSelectedFiles] = useState<
@@ -426,6 +448,13 @@ export default function RechercheUploadPieces({
   ) => {
     const key = `${pieceId}_${fieldId}`;
     setFormValues((prev) => ({ ...prev, [key]: value }));
+    // Le badge "suggéré par scan" disparaît dès que la valeur change.
+    setScanSuggestedKeys((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   };
 
   const handleFormFileSelect = (
@@ -446,6 +475,64 @@ export default function RechercheUploadPieces({
         pieceId: pieceId,
         fieldId: fieldId,
       });
+    }
+  };
+
+  const handleScanPiece = async (pieceId: number) => {
+    setScanningPiece((p) => ({ ...p, [pieceId]: true }));
+    try {
+      const { pdfBase64, ocrText } = await scanDocument();
+      const fields = pieceMetaFields[pieceId] || [];
+
+      // 1) Attacher le PDF au champ fichier de la pièce
+      const fileField = fields.find((f) => f.field_type === "file");
+      if (fileField) {
+        handleFormFileSelect(
+          pieceId,
+          fileField.id,
+          base64ToPdfFile(pdfBase64, `scan-piece-${pieceId}.pdf`),
+        );
+      }
+
+      // 2) Pré-remplir les champs vides à partir du texte OCR
+      if (ocrText && ocrText.trim()) {
+        const suggestions = await suggestPieceFields(pieceId, ocrText);
+        const updates = computePrefill(pieceId, suggestions, formValues);
+        updates.forEach((u) =>
+          handleFormValueChange(pieceId, u.fieldId, u.value),
+        );
+        setScanSuggestedKeys((prev) => {
+          const next = { ...prev };
+          updates.forEach((u) => {
+            next[`${pieceId}_${u.fieldId}`] = true;
+          });
+          return next;
+        });
+        toast.current?.show({
+          severity: "success",
+          summary: "Scan terminé",
+          detail:
+            updates.length > 0
+              ? `${updates.length} champ(s) pré-rempli(s) — vérifiez les valeurs`
+              : "PDF attaché. Aucun champ pré-rempli automatiquement.",
+          life: 4000,
+        });
+      } else {
+        toast.current?.show({
+          severity: "info",
+          summary: "Scan terminé",
+          detail: "PDF attaché. Aucune donnée détectée, saisissez manuellement.",
+          life: 4000,
+        });
+      }
+    } catch (e: any) {
+      toast.current?.show({
+        severity: "error",
+        summary: "Erreur de scan",
+        detail: e?.message || "Le scan a échoué",
+      });
+    } finally {
+      setScanningPiece((p) => ({ ...p, [pieceId]: false }));
     }
   };
 
@@ -1262,6 +1349,38 @@ export default function RechercheUploadPieces({
                                                   enregistrement
                                                 </h4>
 
+                                                <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                                                  <span className="text-xs text-slate-400">
+                                                    {scanAgentAvailable === false
+                                                      ? "Agent scanner non détecté"
+                                                      : "Scanner pour pré-remplir"}
+                                                  </span>
+                                                  <Button
+                                                    type="button"
+                                                    disabled={
+                                                      scanAgentAvailable ===
+                                                        false ||
+                                                      !!scanningPiece[p.id]
+                                                    }
+                                                    onClick={() =>
+                                                      handleScanPiece(p.id)
+                                                    }
+                                                    className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-sm py-2 px-3 rounded-lg flex items-center gap-2 disabled:opacity-50"
+                                                  >
+                                                    {scanningPiece[p.id] ? (
+                                                      <Loader2
+                                                        size={14}
+                                                        className="animate-spin"
+                                                      />
+                                                    ) : (
+                                                      <ScanLine size={14} />
+                                                    )}
+                                                    {scanningPiece[p.id]
+                                                      ? "Scan en cours…"
+                                                      : "Scanner"}
+                                                  </Button>
+                                                </div>
+
                                                 {pieceMetaFields[p.id].map(
                                                   (field) => (
                                                     <div
@@ -1288,6 +1407,13 @@ export default function RechercheUploadPieces({
                                                           <Type size={12} />
                                                         )}
                                                         {field.label}
+                                                        {scanSuggestedKeys[
+                                                          `${p.id}_${field.id}`
+                                                        ] && (
+                                                          <span className="ml-1 text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full">
+                                                            suggéré par scan
+                                                          </span>
+                                                        )}
                                                         {field.required && (
                                                           <span className="text-red-500">
                                                             *

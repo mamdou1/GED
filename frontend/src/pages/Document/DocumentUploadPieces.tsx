@@ -536,6 +536,15 @@ export default function DocumentUploadPieces({
   ) => {
     const key = `${pieceId}_${fieldId}`;
     setFormValues((prev) => ({ ...prev, [key]: value }));
+    // Le badge "suggéré par scan" disparaît dès que la valeur change
+    // (la suggestion n'est plus telle quelle). Inoffensif pendant le
+    // pré-remplissage : les clés sont (re)posées juste après dans handleScanPiece.
+    setScanSuggestedKeys((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   };
 
   const handleFormFileSelect = (
